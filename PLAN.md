@@ -453,10 +453,13 @@ Setup: `condaforge/miniforge3` container, a conda env with conda-forge externals
   `CMSSW_PLUGIN_PATH`, `ROOT_LIBRARY_PATH`, `ROOT_INCLUDE_PATH`) plus a `.pth` file and
   `bin/` symlinks.
 
+**linux-64** (conda-forge CI image `linux-anvil-x86_64:alma9`, Rosetta emulation on 10 cores):
+all recipes build and `cmssw-fwlite` passes its tests. It took 22 min wall / 147 CPU-min
+(about 2.4x the native aarch64 CPU time) with the single pinned variant (ROOT 6.36.10, CLHEP 2.4.7.2).
+
 **Next steps**
 
-1. linux-64: run the same recipes in the conda-forge CI (a PR against this staged-recipes fork, or
-   `build-locally.py` on an x86 machine) to get real CI build times.
+1. linux-64 in real conda-forge CI (a PR against this staged-recipes fork) to get CI build times.
 2. Recipe cleanup for staged-recipes: split the cmssw-config/toolbox pieces into a base
    package that later layers reuse; `conda_build_config.yaml` for ROOT; lint.
 3. osx-arm64: native build of the same recipes (SCRAM osx fixes, clang/libc++ port).
