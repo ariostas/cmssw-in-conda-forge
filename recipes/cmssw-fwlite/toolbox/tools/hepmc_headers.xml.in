@@ -1,0 +1,7 @@
+<tool name="hepmc_headers" version="2.06.10" path="@PREFIX@" revision="2">
+  <client>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH"  value="$INCLUDE" type="path"/>
+  <use name="root_cxxdefaults"/>
+</tool>

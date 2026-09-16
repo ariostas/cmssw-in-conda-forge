@@ -1,0 +1,9 @@
+<tool name="fmt" version="10.2.1" path="@PREFIX@" revision="3">
+  <info url="https://github.com/fmtlib/fmt"/>
+  <lib name="fmt"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+</tool>

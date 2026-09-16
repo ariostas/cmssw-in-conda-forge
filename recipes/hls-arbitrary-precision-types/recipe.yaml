@@ -1,0 +1,40 @@
+context:
+  version: "2019.03.19"
+  # CMS fork of Xilinx/HLS_arbitrary_Precision_Types (upstream 200a9ae) with memory initialization fixes
+  commit: 22a05fb9800df94678e642099c5c8e57fc2edb71
+
+package:
+  name: hls-arbitrary-precision-types
+  version: ${{ version }}
+
+source:
+  url: https://github.com/cms-externals/HLS_arbitrary_Precision_Types/archive/${{ commit }}.tar.gz
+  sha256: 1fea154a4e27d2ab4d2158fb6eefd982e63301cbdfe902d667f2151236d1a2dd
+
+build:
+  number: 1
+  noarch: generic
+  script:
+    - mkdir -p ${PREFIX}/include
+    - cp -R include/. ${PREFIX}/include/
+
+tests:
+  - package_contents:
+      include:
+        - ap_int.h
+        - ap_fixed.h
+        - etc/ap_private.h
+
+about:
+  homepage: https://github.com/Xilinx/HLS_arbitrary_Precision_Types
+  summary: Header-only arbitrary precision integer and fixed-point types (ap_int, ap_fixed) from Xilinx HLS
+  description: |
+    Arbitrary precision integer (ap_int) and fixed-point (ap_fixed) data types used by
+    Vivado/Vitis HLS, packaged from the CMS fork which adds memory initialization fixes.
+  license: Apache-2.0
+  license_file: LICENSE.TXT
+  repository: https://github.com/cms-externals/HLS_arbitrary_Precision_Types
+
+extra:
+  recipe-maintainers:
+    - ariostas

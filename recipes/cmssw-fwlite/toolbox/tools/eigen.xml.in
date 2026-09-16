@@ -1,0 +1,9 @@
+<tool name="eigen" version="c1d637433e3b3f9012b226c2c9125c494b470ae6" path="@PREFIX@" revision="3">
+  <client>
+    <environment name="INCLUDE"      default="$TOOL_BASE/include"/>
+    <environment name="INCLUDE"      default="$TOOL_BASE/include/eigen3"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH"  value="$INCLUDE" type="path"/>
+  <flags CXXFLAGS="-DEIGEN_DONT_PARALLELIZE -DEIGEN_MAX_ALIGN_BYTES=64"/>
+  <flags CUDA_FLAGS="--diag-suppress 20014"/>
+</tool>

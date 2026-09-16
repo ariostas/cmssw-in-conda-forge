@@ -1,0 +1,65 @@
+diff --git a/CondFormats/Serialization/interface/eos/portable_iarchive.hpp b/CondFormats/Serialization/interface/eos/portable_iarchive.hpp
+index 021b3c98d..38cc7e49d 100644
+--- a/CondFormats/Serialization/interface/eos/portable_iarchive.hpp
++++ b/CondFormats/Serialization/interface/eos/portable_iarchive.hpp
+@@ -92,6 +92,9 @@
+ #include <boost/utility/enable_if.hpp>
+ #include <boost/archive/basic_binary_iprimitive.hpp>
+ #include <boost/archive/basic_binary_iarchive.hpp>
++#include <boost/serialization/collection_size_type.hpp>
++#include <boost/serialization/item_version_type.hpp>
++#include <boost/serialization/library_version_type.hpp>
+ 
+ #if BOOST_VERSION >= 103500 && BOOST_VERSION < 105600
+ #include <boost/archive/shared_ptr_helper.hpp>
+@@ -147,6 +150,41 @@ namespace fp = boost::spirit::math;
+ namespace eos {
+ 
+   // forward declaration
++  // Underlying integer types of the boost serialization strong typedefs. Their base_type
++  // typedefs are private in upstream boost (CMS patches boost to make them public).
++  template <typename T>
++  struct strong_typedef_base {
++    using type = typename T::base_type;
++  };
++  template <>
++  struct strong_typedef_base<boost::serialization::library_version_type> {
++    using type = uint_least16_t;
++  };
++  template <>
++  struct strong_typedef_base<boost::archive::version_type> {
++    using type = uint_least32_t;
++  };
++  template <>
++  struct strong_typedef_base<boost::archive::class_id_type> {
++    using type = int_least16_t;
++  };
++  template <>
++  struct strong_typedef_base<boost::archive::object_id_type> {
++    using type = uint_least32_t;
++  };
++  template <>
++  struct strong_typedef_base<boost::archive::tracking_type> {
++    using type = bool;
++  };
++  template <>
++  struct strong_typedef_base<boost::serialization::collection_size_type> {
++    using type = std::size_t;
++  };
++  template <>
++  struct strong_typedef_base<boost::serialization::item_version_type> {
++    using type = unsigned int;
++  };
++
+   class portable_iarchive;
+ 
+   typedef boost::archive::basic_binary_iprimitive<portable_iarchive
+@@ -409,7 +447,7 @@ namespace eos {
+       // created through BOOST_STRONG_TYPEDEF(X, some unsigned int) like
+       // library_version_type, collection_size_type, item_version_type,
+       // class_id_type, object_id_type, version_type and tracking_type
+-      load(static_cast<T::base_type&>(t));
++      load(static_cast<typename strong_typedef_base<T>::type&>(t));
+     }
+   };
+ 

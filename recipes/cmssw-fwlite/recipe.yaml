@@ -1,0 +1,130 @@
+context:
+  cmssw_tag: CMSSW_20_1_0_pre2
+  version: "20.1.0pre2"
+  cmssw_config_tag: V09-09-09
+  scram_version: V3_00_95
+
+package:
+  name: cmssw-fwlite
+  version: ${{ version }}
+
+source:
+  - url: https://github.com/cms-sw/cmssw/archive/refs/tags/${{ cmssw_tag }}.tar.gz
+    sha256: 39afc8deff3e31952cc43699324b25bbc10e619abe616b0eb6c3c20b4746312e
+    target_directory: cmssw
+    patches:
+      - patches/0001-CondFormats-find-libstdc-headers-in-conda-gcc-layout.patch
+      - patches/0002-CondFormats-support-unpatched-boost-serialization.patch
+      - patches/0003-SimDataFormats-support-upstream-HepMC2-WeightContainer.patch
+      - patches/0004-FWCore-PluginManager-per-package-caches-and-CMSSW_PLUGIN_PATH.patch
+  - url: https://github.com/cms-sw/cmssw-config/archive/refs/tags/${{ cmssw_config_tag }}.tar.gz
+    sha256: 3326a15f8ba28ab984259d98a1798c1558d5f89664d01911441adefe802928ad
+    target_directory: config
+    patches:
+      - cmssw-config-patches/0001-conda-build-environment-fixes.patch
+
+build:
+  number: 0
+  skip:
+    - not linux
+  script:
+    env:
+      CMSSW_TAG: ${{ cmssw_tag }}
+      CMSSW_CONFIG_TAG: ${{ cmssw_config_tag }}
+      SCRAM_VERSION: ${{ scram_version }}
+    file: build.sh
+  dynamic_linking:
+    # CMSSW libraries live in share/cmssw/<arch>/cms/cmssw/<version>/lib/<arch>
+    rpath_allowlist:
+      - share/cmssw/**
+  prefix_detection:
+    ignore_binary_files: true
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ compiler('fortran') }}
+    - ${{ stdlib('c') }}
+    - cms-scram
+    - make
+    - bash
+    - sed
+    - coreutils
+    - findutils
+    - grep
+    - gawk
+    - which
+    - rsync
+    - git
+    # CondFormats serialization code is generated with libclang
+    - clangxx
+  host:
+    - python
+    - numpy
+    - root_base
+    - libboost-devel
+    - tbb-devel
+    - clhep
+    - fmt
+    - xerces-c
+    - libuuid
+    - eigen
+    - vdt
+    - hepmc2
+    - hepmc3
+    - tinyxml2
+    - pybind11
+    - zlib
+    - xz
+    - zstd
+    - bzip2
+    - pcre2
+    - openssl
+    - libxcrypt
+    - gsl
+    - openblas
+    - alpaka
+    - hls-arbitrary-precision-types
+    - cms-md5
+    - python-clang
+    - libclang
+  run:
+    - python
+    - root_base
+    # ROOT parses CMSSW headers at runtime (dictionaries), which include these headers
+    - libboost-headers
+    - tbb-devel
+    - eigen
+    - alpaka
+    - hls-arbitrary-precision-types
+  ignore_run_exports:
+    from_package:
+      - libclang
+      - python-clang
+
+tests:
+  - script:
+      - edmPluginDump | head
+      - edmFileInPath FWCore/ParameterSet/python/Config.py
+      - python -c "import FWCore.ParameterSet.Config as cms; print(cms.Process('TEST'))"
+      - python -c "from DataFormats.FWLite import Events, Handle"
+      - python -c "import ROOT; ROOT.FWLiteEnabler.enable(); assert ROOT.TClass.GetClass('edm::Wrapper<std::vector<pat::io_v1::Muon> >').HasDictionary()"
+      # the interpreter must be able to parse the CMSSW headers and their external includes
+      - python -c "import ROOT; assert ROOT.gInterpreter.Declare('#include \"DataFormats/Common/interface/DataFrameContainer.h\"')"
+      - python -c "import ROOT; assert ROOT.gInterpreter.Declare('#include \"DataFormats/PatCandidates/interface/Muon.h\"')"
+
+about:
+  homepage: https://cms-sw.github.io
+  summary: FWLite, the lightweight framework of the CMS experiment's software (CMSSW)
+  description: |
+    CMSSW is the software framework of the CMS experiment at CERN. This package provides
+    FWLite: the CMS data formats with their ROOT dictionaries, plus the Python and C++
+    tools needed to read CMS AOD/MiniAOD/NanoAOD files outside of the full framework.
+  license: Apache-2.0
+  license_file: cmssw/LICENSE
+  repository: https://github.com/cms-sw/cmssw
+
+extra:
+  recipe-maintainers:
+    - ariostas

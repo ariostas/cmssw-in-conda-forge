@@ -1,0 +1,9 @@
+<tool name="openblas" version="0.3.27" path="@PREFIX@" revision="2">
+  <lib name="openblas"/>
+  <client>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="BINDIR" default="$TOOL_BASE/bin"/>
+  </client>
+  <runtime name="OPENBLAS_NUM_THREADS" value="1"/>
+</tool>

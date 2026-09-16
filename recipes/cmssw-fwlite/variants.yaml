@@ -1,0 +1,12 @@
+# Each CMSSW release is validated against one ROOT and one CLHEP version, so build
+# only against the conda-forge versions closest to the ones used by that release
+# (CMSSW_20_1_0_pre2: ROOT 6.36.13, CLHEP 2.4.7.2) instead of the full global pinning.
+# root_base is zipped with root_cxx_standard, and clhep with geant4, in the global pinning.
+root_base:
+  - "6.36.10"
+root_cxx_standard:
+  - "20"
+clhep:
+  - "2.4.7.2"
+geant4:
+  - "11.4.2"

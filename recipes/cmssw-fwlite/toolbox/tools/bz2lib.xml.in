@@ -1,0 +1,10 @@
+<tool name="bz2lib" version="1.0.8" path="@PREFIX@" revision="3">
+  <info url="http://sources.redhat.com/bzip2/"/>
+  <lib name="bz2"/>
+  <client>
+    <environment name="LIBDIR"       default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE"      default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+  <use name="root_cxxdefaults"/>
+</tool>

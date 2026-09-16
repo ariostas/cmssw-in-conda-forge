@@ -1,0 +1,11 @@
+  <tool name="gcc-f77compiler" version="@GCC_VERSION@" type="compiler" revision="2">
+    <lib name="gfortran"/>
+    <lib name="m"/>
+    <client>
+      <environment name="FC" default="@FC@"/>
+    </client>
+    <flags FFLAGS="-fno-second-underscore -Wunused -Wuninitialized -O3 -cpp"/>
+    <flags FFLAGS="-std=legacy"/>
+    <flags FOPTIMISEDFLAGS="-O3"/>
+    <flags FSHAREDOBJECTFLAGS="-fPIC"/>
+  </tool>

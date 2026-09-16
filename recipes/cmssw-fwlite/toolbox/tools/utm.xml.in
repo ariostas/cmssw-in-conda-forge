@@ -1,0 +1,14 @@
+<tool name="utm" version="utm_0.14.1" path="@PREFIX@" revision="3">
+  <lib name="tmeventsetup"/>
+  <lib name="tmtable"/>
+  <lib name="tmxsd"/>
+  <lib name="tmgrammar"/>
+  <lib name="tmutil"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+  <runtime name="UTM_XSD_DIR" value="$TOOL_BASE"/>
+  <use name="root_cxxdefaults"/>
+</tool>

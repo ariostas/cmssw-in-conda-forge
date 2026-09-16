@@ -1,0 +1,9 @@
+<tool name="zlib" version="1.3.2" path="@PREFIX@" revision="3">
+  <lib name="z"/>
+  <client>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+  <use name="root_cxxdefaults"/>
+</tool>

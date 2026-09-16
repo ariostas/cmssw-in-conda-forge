@@ -1,0 +1,47 @@
+context:
+  version: "2.1.1"
+
+package:
+  name: alpaka
+  version: ${{ version }}
+
+source:
+  url: https://github.com/alpaka-group/alpaka/archive/refs/tags/${{ version }}.tar.gz
+  sha256: 2d30a43594c55067297947b0ec83300e4f2899497464c5cc6f142c823f3ea1b2
+
+build:
+  number: 0
+  noarch: generic
+  script:
+    - cmake -S . -B build -G Ninja ${CMAKE_ARGS} -DCMAKE_INSTALL_PREFIX=${PREFIX} -DBUILD_TESTING=OFF -Dalpaka_BUILD_EXAMPLES=OFF -Dalpaka_BUILD_BENCHMARKS=OFF
+    - cmake --install build
+
+requirements:
+  build:
+    - cmake
+    - ninja
+    # CMake's project() checks for a working C++ compiler
+    - ${{ compiler('cxx') }}
+
+tests:
+  - package_contents:
+      include:
+        - alpaka/alpaka.hpp
+      files:
+        - lib/cmake/alpaka/alpakaConfig.cmake
+
+about:
+  homepage: https://github.com/alpaka-group/alpaka
+  summary: Abstraction Library for Parallel Kernel Acceleration
+  description: |
+    The alpaka library is a header-only C++20 abstraction library for accelerator
+    development. It provides performance portability across accelerators (CPUs, GPUs)
+    through a single-source programming model.
+  license: MPL-2.0
+  license_file: LICENSE
+  documentation: https://alpaka.readthedocs.io
+  repository: https://github.com/alpaka-group/alpaka
+
+extra:
+  recipe-maintainers:
+    - ariostas

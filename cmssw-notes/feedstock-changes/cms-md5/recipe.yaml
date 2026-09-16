@@ -1,0 +1,41 @@
+# Local copy of conda-forge/cms-md5-feedstock (meta.yaml there), used to build linux-aarch64 and
+# osx-arm64 packages locally. Upstream changes needed: add those platforms and run_exports to the feedstock.
+context:
+  version: "1.0.0"
+
+package:
+  name: cms-md5
+  version: ${{ version }}
+
+source:
+  url: https://github.com/cms-externals/md5/archive/d97a571864a119cd5408d2670d095b4410e926cc.tar.gz
+  sha256: 4de5d122e59059c33c9e4e3923462a5d95fe6952dc3d289335fe56ab9d939752
+
+build:
+  number: 3
+  skip:
+    - win
+  script:
+    - mkdir -p ${PREFIX}/lib ${PREFIX}/include
+    - cp md5.h ${PREFIX}/include/
+    - ${CC} md5.c -shared -fPIC -o libcms-md5${SHLIB_EXT} ${LDFLAGS}
+    - cp libcms-md5${SHLIB_EXT} ${PREFIX}/lib/
+
+requirements:
+  run_exports:
+    - ${{ pin_subpackage('cms-md5', upper_bound='x') }}
+  build:
+    - ${{ compiler('c') }}
+    - ${{ stdlib('c') }}
+
+tests:
+  - package_contents:
+      lib:
+        - cms-md5
+      include:
+        - md5.h
+
+about:
+  homepage: https://github.com/cms-externals/md5
+  summary: Independent implementation of MD5 (RFC 1321).
+  license: Zlib

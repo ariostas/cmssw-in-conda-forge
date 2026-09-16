@@ -1,0 +1,9 @@
+<tool name="tinyxml2" version="6.2.0" path="@PREFIX@" revision="3">
+  <info url="https://github.com/leethomason/tinyxml2"/>
+  <lib name="tinyxml2"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/> 
+</tool>

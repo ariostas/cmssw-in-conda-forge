@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Instantiate the CMSSW SCRAM tool file templates for a conda environment.
+
+usage: cmssw-generate-toolbox <outdir> [--prefix PREFIX] [--templates DIR]
+
+Writes <outdir>/tools/selected/<tool>.xml. Compilers are taken from $CXX, $CC and
+$FC (as set by the conda compiler activation scripts), or looked up in PATH.
+"""
+
+import argparse
+import os
+import re
+import shutil
+import subprocess
+import sys
+import sysconfig
+
+
+def find_program(env, candidates):
+    if os.environ.get(env):
+        prog = os.environ[env].split()[0]
+        return shutil.which(prog) or prog
+    for c in candidates:
+        path = shutil.which(c)
+        if path:
+            return path
+    return candidates[0]
+
+
+def output(cmd):
+    try:
+        return subprocess.check_output(cmd, stderr=subprocess.DEVNULL, text=True).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return ""
+
+
+def main():
+    here = os.path.dirname(os.path.realpath(__file__))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("outdir")
+    parser.add_argument("--prefix", default=os.environ.get("PREFIX", os.environ.get("CONDA_PREFIX", sys.prefix)))
+    parser.add_argument("--templates", default=os.path.join(here, "..", "share", "cmssw-tool-conf", "tools"))
+    args = parser.parse_args()
+    if not os.path.isdir(args.templates):
+        args.templates = os.path.join(here, "tools")
+
+    cxx = find_program("CXX", ["c++", "g++", "clang++"])
+    gcc_version = output([cxx, "-dumpfullversion"]) or "0.0.0"
+    major, minor, patch = (gcc_version.split(".") + ["0", "0"])[:3]
+    make_version = re.sub(r"^GNU Make ", "", output(["make", "--version"]).split("\n")[0])
+    # ROOT built with Vc needs the (static) Vc library, its headers reference Vc symbols
+    rconfigure = os.path.join(args.prefix, "include", "RConfigure.h")
+    root_has_vc = os.path.exists(rconfigure) and re.search(r"#define\s+R__HAS_VC\b", open(rconfigure).read())
+    values = {
+        "PREFIX": os.path.abspath(args.prefix),
+        "CXX": cxx,
+        "CC": find_program("CC", ["cc", "gcc", "clang"]),
+        "FC": find_program("FC", ["gfortran"]),
+        "GCC_VERSION": gcc_version,
+        "GLIBCXX_VERSION": "%d%02d%02d" % (int(major), int(minor), int(patch)),
+        # PY_VER is set by conda-build/rattler-build for the host python
+        "PYTHON_VERSION": os.environ.get("PY_VER") or sysconfig.get_python_version(),
+        "MAKE_VERSION": make_version or "4",
+        "ROOT_VC_LIB": '<lib name="Vc"/>' if root_has_vc else "",
+    }
+
+    selected = os.path.join(args.outdir, "tools", "selected")
+    os.makedirs(selected, exist_ok=True)
+    os.makedirs(os.path.join(args.outdir, "tools", "available"), exist_ok=True)
+    for name in sorted(os.listdir(args.templates)):
+        if not name.endswith(".xml.in"):
+            continue
+        text = open(os.path.join(args.templates, name)).read()
+        text = re.sub(r"@([A-Z_]+)@", lambda m: values.get(m.group(1), m.group(0)), text)
+        leftover = re.findall(r"@[A-Z_]+@", text)
+        if leftover:
+            sys.exit("ERROR: unresolved placeholders %s in %s" % (leftover, name))
+        with open(os.path.join(selected, name[: -len(".in")]), "w") as f:
+            f.write(text)
+    print("Generated SCRAM toolbox in %s" % selected)
+
+
+if __name__ == "__main__":
+    main()

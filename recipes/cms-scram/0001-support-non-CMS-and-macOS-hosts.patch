@@ -1,0 +1,34 @@
+diff --git a/SCRAM/BuildSystem/MakeInterface.py b/SCRAM/BuildSystem/MakeInterface.py
+index ad56881..0ef04eb 100644
+--- a/SCRAM/BuildSystem/MakeInterface.py
++++ b/SCRAM/BuildSystem/MakeInterface.py
+@@ -1,6 +1,13 @@
+ import re
+ from SCRAM import scramerror
+-from os import environ, execl, sched_getaffinity
++from os import environ, execl
++try:
++    from os import sched_getaffinity
++except ImportError:  # not available on macOS
++    from os import cpu_count
++
++    def sched_getaffinity(pid):
++        return range(cpu_count() or 1)
+ 
+ regex_j = re.compile('^(-j|--jobs=)([0-9]*)$')
+ regex_number = re.compile('^[0-9]+$')
+diff --git a/SCRAM/Core/Utils.py b/SCRAM/Core/Utils.py
+index 9b86432..577f0db 100644
+--- a/SCRAM/Core/Utils.py
++++ b/SCRAM/Core/Utils.py
+@@ -63,6 +63,10 @@ def spawnversion(newversion='V2_99_99', basedir=None):
+ def cmsos():
+     e, os = SCRAM.run_command('cmsos')
+     if e:
++        # cmsos (from cms-common) is not available outside of CMS installations,
++        # assume that the OS matches SCRAM_ARCH.
++        if 'SCRAM_ARCH' in environ:
++            return '_'.join(environ['SCRAM_ARCH'].split('_', 2)[:2])
+         return None
+     return '_'.join(os.split('_', 2)[:2])
+ 

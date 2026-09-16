@@ -1,0 +1,11 @@
+  <tool name="xz" version="5.8.3" path="@PREFIX@" revision="3">
+    <info url="http://tukaani.org/xz/"/>
+    <lib name="lzma"/>
+    <client>
+      <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+      <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+    </client>
+    <runtime name="PATH" value="$TOOL_BASE/bin" type="path"/>
+    <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+    <use name="root_cxxdefaults"/>
+  </tool>

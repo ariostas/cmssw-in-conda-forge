@@ -1,0 +1,7 @@
+<tool name="vdt" version="0.4.3" path="@PREFIX@" revision="3">
+  <lib name="vdt"/>
+  <use name="vdt_headers"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+</tool>

@@ -1,0 +1,5 @@
+<tool name="py3-pybind11" version="3.0.4" path="@PREFIX@" revision="3">
+  <client>
+    <environment name="INCLUDE" default="$TOOL_BASE/lib/python@PYTHON_VERSION@/site-packages/pybind11/include"/>
+  </client>
+</tool>

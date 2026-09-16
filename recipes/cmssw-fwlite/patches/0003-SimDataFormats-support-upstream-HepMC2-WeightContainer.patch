@@ -1,0 +1,15 @@
+diff --git a/SimDataFormats/GeneratorProducts/src/classes_def.xml b/SimDataFormats/GeneratorProducts/src/classes_def.xml
+index b2c783190..7c938d42b 100644
+--- a/SimDataFormats/GeneratorProducts/src/classes_def.xml
++++ b/SimDataFormats/GeneratorProducts/src/classes_def.xml
+@@ -29,7 +29,9 @@
+     <class name="HepMC::GenCrossSection" ClassVersion="3">
+      <version ClassVersion="3" checksum="920043842"/>
+     </class>
+-	<class name="HepMC::WeightContainer" ClassVersion="3">
++	<class name="HepMC::WeightContainer" ClassVersion="4">
++  <!-- version 4: WeightContainer::size_type is std::size_t in upstream HepMC 2 (unsigned long long in the CMS fork) -->
++  <version ClassVersion="4" checksum="376377869"/>
+   <version ClassVersion="3" checksum="481001444"/>
+  </class>
+ 	<class name="HepMC::FourVector" ClassVersion="3">

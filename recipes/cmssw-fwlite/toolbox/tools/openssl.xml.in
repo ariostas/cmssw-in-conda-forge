@@ -1,0 +1,8 @@
+  <tool name="openssl" version="system" path="@PREFIX@" revision="2">
+    <lib name="ssl"/>
+    <lib name="crypto"/>
+    <client>
+      <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+      <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    </client>
+  </tool>

@@ -1,0 +1,55 @@
+context:
+  version: "3.0.95"
+  scram_version: V3_00_95
+  commit: 21a9cd17bdeb37d0ad4a42b3bcbbc4597a65aa2a
+
+package:
+  name: cms-scram
+  version: ${{ version }}
+
+source:
+  url: https://github.com/cms-sw/SCRAM/archive/${{ commit }}.tar.gz
+  sha256: 485320b8ba2c2541bbc216315a6d7337657d39b7bd4c6b8c214351eb623cbba2
+  patches:
+    - 0001-support-non-CMS-and-macOS-hosts.patch
+
+build:
+  number: 0
+  noarch: generic
+  script:
+    env:
+      PKG_VERSION_SCRAM: ${{ scram_version }}
+    file: build.sh
+
+requirements:
+  run:
+    - python >=3.9
+    - bash
+    - make
+    - sed
+    - coreutils
+    - findutils
+    - grep
+    - gawk
+    - which
+    - rsync
+
+tests:
+  - script:
+      - export SCRAM_ARCH=linux_amd64_gcc
+      - scram version
+      - scram version | grep ${{ scram_version }}
+
+about:
+  homepage: https://github.com/cms-sw/SCRAM
+  summary: Software Configuration, Release And Management tool used by the CMS experiment
+  description: |
+    SCRAM is the build and configuration management tool of the CMS experiment's
+    software (CMSSW). It parses tool and BuildFile.xml descriptions and drives GNU make.
+  license: MIT
+  license_file: LICENSE
+  repository: https://github.com/cms-sw/SCRAM
+
+extra:
+  recipe-maintainers:
+    - ariostas

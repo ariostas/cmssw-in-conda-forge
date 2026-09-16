@@ -1,0 +1,66 @@
+diff --git a/FWCore/PluginManager/src/PluginManager.cc b/FWCore/PluginManager/src/PluginManager.cc
+index 8878dd0f6..8849d5822 100644
+--- a/FWCore/PluginManager/src/PluginManager.cc
++++ b/FWCore/PluginManager/src/PluginManager.cc
+@@ -11,10 +11,12 @@
+ //
+ 
+ // system include files
++#include <algorithm>
+ #include <filesystem>
+ #include <fstream>
+ #include <functional>
+ #include <set>
++#include <vector>
+ 
+ // TEMPORARY
+ #include "TInterpreter.h"
+@@ -100,6 +102,25 @@ namespace edmplugin {
+           foundAtLeastOneCacheFile = true;
+         }
+ 
++        // A release split into several separately installed packages (e.g. conda packages)
++        // can not share a single cache file, so each package provides its own cache in a
++        // '<cache file>.d' directory.
++        std::filesystem::path cacheDir = dir / (kCacheFile.string() + ".d");
++        if (is_directory(cacheDir)) {
++          std::vector<std::filesystem::path> cacheFiles;
++          for (auto const& entry : std::filesystem::directory_iterator(cacheDir)) {
++            if (entry.is_regular_file()) {
++              cacheFiles.push_back(entry.path());
++            }
++          }
++          std::sort(cacheFiles.begin(), cacheFiles.end());
++          for (auto const& file : cacheFiles) {
++            if (readCacheFile(file, dir, categoryToInfos_)) {
++              foundAtLeastOneCacheFile = true;
++            }
++          }
++        }
++
+         // We do not check for return code since we do not want to consider a
+         // poison cache file as a valid cache file having been found.
+         std::filesystem::path poisonedCacheFile = dir / kPoisonedCacheFile;
+diff --git a/FWCore/PluginManager/src/standard.cc b/FWCore/PluginManager/src/standard.cc
+index 268ebcb7f..d05b480a0 100644
+--- a/FWCore/PluginManager/src/standard.cc
++++ b/FWCore/PluginManager/src/standard.cc
+@@ -11,6 +11,7 @@
+ //
+ 
+ // system include files
++#include <cstdlib>
+ 
+ // user include files
+ #include "FWCore/PluginManager/interface/standard.h"
+@@ -30,6 +31,10 @@ namespace edmplugin {
+         path = "";
+ 
+       std::string spath(path);
++      // CMSSW_PLUGIN_PATH takes precedence over the library search path
++      if (const char* pluginPath = std::getenv("CMSSW_PLUGIN_PATH"); pluginPath and *pluginPath) {
++        spath = spath.empty() ? std::string(pluginPath) : std::string(pluginPath) + ":" + spath;
++      }
+       std::string::size_type last = 0;
+       std::string::size_type i = 0;
+       std::vector<std::string> paths;

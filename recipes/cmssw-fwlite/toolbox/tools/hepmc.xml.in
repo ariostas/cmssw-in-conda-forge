@@ -1,0 +1,8 @@
+<tool name="hepmc" version="2.06.10" path="@PREFIX@" revision="3">
+  <lib name="HepMC"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+  <use name="hepmc_headers"/>
+  <runtime name="CMSSW_FWLITE_INCLUDE_PATH" value="$TOOL_BASE/include" type="path"/>
+</tool>

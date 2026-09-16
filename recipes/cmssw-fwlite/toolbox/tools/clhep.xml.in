@@ -1,0 +1,8 @@
+<tool name="clhep" version="2.4.7.2" path="@PREFIX@" revision="3">
+  <info url="http://wwwinfo.cern.ch/asd/lhc++/clhep"/>
+  <lib name="CLHEP"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+  <use name="clhepheader"/>
+</tool>
