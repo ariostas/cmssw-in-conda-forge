@@ -82,8 +82,8 @@ tests:
       - edmPluginDump | head
       - python -c "import ctypes, glob, os; libs = glob.glob(os.path.join(os.environ['CMSSW_BASE'], 'lib', os.environ['SCRAM_ARCH'], '*.[ds][oy]*')); assert libs; [ctypes.CDLL(lib, mode=ctypes.RTLD_GLOBAL) for lib in sorted(libs)]; print(len(libs), 'libraries loaded')"
       # write an EDM file and read it back with the full framework
-      - cmsRun ${{ "%RECIPE_DIR%" if win else "$RECIPE_DIR" }}/test/write.py
-      - cmsRun ${{ "%RECIPE_DIR%" if win else "$RECIPE_DIR" }}/test/read.py
+      - cmsRun test/write.py
+      - cmsRun test/read.py
       - edmProvDump test.root | head -30
       - edmFileUtil -P test.root
     files:

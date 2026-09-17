@@ -1,0 +1,12 @@
+[
+   {  "site": "conda",
+      "volume": "global",
+      "protocols": [
+         {  "protocol": "XRootD",
+            "access": "global-ro",
+            "comment": "the global CMS redirector, which finds a replica of any CMS file",
+            "prefix": "root://cms-xrd-global.cern.ch/"
+         }
+      ]
+   }
+]

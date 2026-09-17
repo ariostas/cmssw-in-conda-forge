@@ -577,6 +577,26 @@ its own copy.
   file or license headers. This is a second licensing blocker next to `utm` and has to be raised
   with CERN/CMS. The recipe is marked `LicenseRef-Unresolved` and cannot be submitted.
 
+**`cmsRun` works, with one open bug.** The layer's tests write an EDM file and read it back,
+and `cmsRun` opens a real CMS Open Data MiniAOD over XRootD through the site configuration
+below. Reading through `PoolSource` needs `cacheSize=0` though: `RootTreeCacheManager` sets a
+cache size on the Events tree and then detaches the `TTreeCache` it created, so ROOT's one-shot
+automatic cache setup finds a size but no cache and calls `Error("SetCacheSizeAux", "Not
+setting up an automatically sized TTreeCache because of missing cache previously set")`, which
+CMSSW's `InitRootHandlers` turns into a fatal exception. Checked and ruled out: the ROOT
+version (the CMS fork is upstream `v6-36-00-patches` plus one commit in `TBasket.cxx`, and
+nothing touched `TTree.cxx` between that and 6.36.10), the ROOT build options (IMT is on in
+both), `system.rootrc`, the `cache-hint` of the site configuration, and the thread count.
+`edmProvDump`, `edmFileUtil` and FWLite are not affected. This has to be understood with CMS;
+it is currently unclear why their own tests do not hit it.
+
+**A conda environment is not a CMS site.** `PoolSource` needs a site-local configuration
+(`$SITECONFIG_PATH/JobConfig/site-local-config.xml` plus a `storage.json` next to it), which at
+CMS comes from `/cvmfs/cms.cern.ch/SITECONF`. `cmssw-framework` ships one that describes a
+"conda site" using the global CMS services: files are read through the global XRootD redirector
+and conditions come from the central Frontier servers, with no Squid proxy. An activation script
+points `SITECONFIG_PATH` at it, and a user at a real site can override it.
+
 **How far `utm` reaches.** Earlier this looked like 3 FWLite packages. `CondFormats/L1TObjects`
 blocks, among others, `CondCore/Utilities` (the `conddb` tools), `CondCore/L1TPlugins`,
 `DataFormats/RPCDigi`, `EventFilter/L1GlobalTriggerRawToDigi` and the `L1Trigger/*` emulator, so

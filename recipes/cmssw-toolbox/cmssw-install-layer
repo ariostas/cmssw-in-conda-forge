@@ -4,8 +4,8 @@
 A CMSSW release installed by conda is assembled from several packages (layers), each of
 which builds a set of CMSSW packages in a developer area on top of the layers already
 installed. conda packages may not share files, so only files that the release does not
-have yet are installed. Files that exist with identical content (the per-subsystem
-python __init__.py files, SCRAM's empty caches) are skipped, anything else is an error.
+have yet are installed; a file that the release already has with different content is an
+error, unless the directory it is in says otherwise (see SUBDIRS).
 """
 
 import argparse
@@ -14,21 +14,28 @@ import os
 import shutil
 import sys
 
-# directories of the area that hold installable products, relative to its top; @ is the
-# SCRAM architecture
+# Directories of the area that hold installable products, relative to its top; @ is the SCRAM
+# architecture. The policy says what to do when the release already has a file:
+#   "new"   every file must be new (identical files are skipped)
+#   "init"  as "new", but the per-subsystem python __init__.py markers may already be there
+#   "keep"  the release's version wins; these are per-tool files whose compiler paths are
+#           specific to the build that produced them, and only the release's are used again
 SUBDIRS = [
-    "lib/@",
-    "bin/@",
-    "src",
-    "python",
-    "cfipython/@",
+    ("lib/@", "new"),
+    ("bin/@", "new"),
+    ("src", "new"),
+    ("python", "init"),
+    ("cfipython/@", "init"),
     # build metadata, so that later layers and developer areas can build against this one
-    ".SCRAM/@/MakeData/DirCache",
-    ".SCRAM/@/BuildFiles",
-    ".SCRAM/@/tools",
-    ".SCRAM/@/InstalledTools",
-    "config/toolbox/@/tools/selected",
+    (".SCRAM/@/MakeData/DirCache", "new"),
+    (".SCRAM/@/BuildFiles", "keep"),
+    (".SCRAM/@/tools", "keep"),
+    (".SCRAM/@/InstalledTools", "keep"),
+    ("config/toolbox/@/tools/selected", "keep"),
 ]
+
+# python namespace package markers: one per subsystem, owned by whichever layer got there first
+INIT_NAMES = ("__init__.py", "__init__.pyc")
 
 
 def same(a, b):
@@ -37,7 +44,14 @@ def same(a, b):
     return filecmp.cmp(a, b, shallow=False)
 
 
-def install(src_dir, dst_dir):
+def is_init(rel, name):
+    if name in INIT_NAMES:
+        return True
+    # __pycache__/__init__.cpython-312.pyc, which embeds the path it was compiled from
+    return os.path.basename(rel) == "__pycache__" and name.startswith("__init__.")
+
+
+def install(src_dir, dst_dir, policy):
     copied = skipped = 0
     clashes = []
     for root, dirs, files in os.walk(src_dir):
@@ -55,7 +69,7 @@ def install(src_dir, dst_dir):
             src = os.path.join(root, name)
             dst = os.path.join(dst_root, name)
             if os.path.lexists(dst):
-                if same(src, dst):
+                if same(src, dst) or policy == "keep" or (policy == "init" and is_init(rel, name)):
                     skipped += 1
                 else:
                     clashes.append(os.path.join(rel, name))
@@ -76,12 +90,12 @@ def main():
     args = parser.parse_args()
 
     clashes = []
-    for subdir in SUBDIRS:
+    for subdir, policy in SUBDIRS:
         sub = subdir.replace("@", args.arch)
         src = os.path.join(args.src, sub)
         if not os.path.isdir(src):
             continue
-        copied, skipped, bad = install(src, os.path.join(args.dst, sub))
+        copied, skipped, bad = install(src, os.path.join(args.dst, sub), policy)
         print("%-40s %5d new, %5d unchanged" % (sub, copied, skipped))
         clashes += [os.path.join(sub, c) for c in bad]
 

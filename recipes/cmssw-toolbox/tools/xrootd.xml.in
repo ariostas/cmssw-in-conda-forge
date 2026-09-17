@@ -4,6 +4,8 @@
   <lib name="XrdCl"/>
   <client>
     <environment name="INCLUDE" default="$TOOL_BASE/include/xrootd"/>
+    <!-- FWStorage/XrdAdaptor uses XrdCl/XrdClPostMasterInterfaces.hh -->
+    <environment name="INCLUDE" default="$TOOL_BASE/include/xrootd/private"/>
     <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
   </client>
   <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>

@@ -1,4 +1,5 @@
 DataFormats/Streamer
+DataFormats/TestObjects
 FWCore/MessageService
 FWCore/Modules
 FWCore/Services
@@ -6,6 +7,7 @@ FWCore/Sources
 FWStorage/Catalog
 FWStorage/Services
 FWStorage/StorageFactory
+FWStorage/TFileAdaptor
 FWStorage/XrdAdaptor
 IOPool/Common
 IOPool/Input

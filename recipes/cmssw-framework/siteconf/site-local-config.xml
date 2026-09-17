@@ -1,0 +1,41 @@
+<!--
+  CMS site configuration for a conda installation.
+
+  CMSSW expects to run at a CMS site, which provides this file plus a storage description
+  through $SITECONFIG_PATH. A conda environment is not a CMS site, so this describes a
+  "site" that uses the global CMS services: files are read through the global XRootD
+  redirector and conditions come from the central Frontier servers.
+
+  A real CMS site should point SITECONFIG_PATH at its own configuration instead
+  (/cvmfs/cms.cern.ch/SITECONF/<site>/JobConfig), which is faster and kinder to the
+  central services.
+-->
+<site-local-config>
+  <site name="conda">
+    <data-access>
+      <catalog volume="global" protocol="XRootD"/>
+    </data-access>
+
+    <source-config>
+      <cache-hint value="application-only"/>
+      <native-protocols>
+        <protocol prefix="file"/>
+        <protocol prefix="root"/>
+      </native-protocols>
+    </source-config>
+
+    <calib-data>
+      <!--
+        No <proxy> is listed: a machine outside a computing centre has no Squid cache, so the
+        requests go straight to the central servers. Anyone running more than a few jobs should
+        put a Squid in front of them.
+      -->
+      <frontier-connect>
+        <server url="http://cmsfrontier.cern.ch:8000/FrontierProd"/>
+        <server url="http://cmsfrontier1.cern.ch:8000/FrontierProd"/>
+        <server url="http://cmsfrontier2.cern.ch:8000/FrontierProd"/>
+        <server url="http://cmsfrontier3.cern.ch:8000/FrontierProd"/>
+      </frontier-connect>
+    </calib-data>
+  </site>
+</site-local-config>
