@@ -61,11 +61,11 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 
 **What works**
 
-- `cmssw-fwlite` (138 CMSSW packages, a 60 MB package) builds against conda-forge's ROOT 6.36,
-  gcc 15 and python 3.12. It takes about 1 CPU-hour natively on aarch64, so it fits the default
-  conda-forge CI runners.
-- From a plain conda environment (no SCRAM, no CVMFS), FWLite reads CMS MiniAOD files, e.g.
-  CMS Open Data over XRootD:
+- `cmssw-fwlite` (138 CMSSW packages, 1.7k translation units, a 60 MB package) builds against
+  conda-forge's ROOT 6.36, gcc 15 and python 3.12. It takes about 1 CPU-hour natively on aarch64
+  (10 min wall time on 10 cores), so it fits the default conda-forge CI runners.
+- From a plain conda environment (no SCRAM, no CVMFS, no `cmsenv`), FWLite reads CMS MiniAOD files,
+  e.g. CMS Open Data over XRootD:
 
   ```python
   from DataFormats.FWLite import Events, Handle
@@ -77,15 +77,53 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
       print([m.pt() for m in muons.product()])
   ```
 
-- The layering mechanism (a second set of packages built on top of an installed first one) was
-  tested by hand with SCRAM. It is not yet a recipe.
+- Only 6 small CMSSW patches are needed (4 of them only for macOS), all meant for upstream.
+
+## Where this stands
+
+**There is an MVP on Linux**, but nothing has been submitted to conda-forge yet. What remains for a
+released MVP is process rather than research: submit the dependency recipes (`alpaka`,
+`hls-arbitrary-precision-types`, a `cms-md5` feedstock PR) and then `cmssw-fwlite`, and upstream the
+CMSSW patches.
+
+**Proven so far**
+
+- Build cost is about 1-3 CPU-s per translation unit, roughly 10x cheaper than the first estimate.
+  The full release extrapolates to about 15-25 CPU-hours, i.e. a handful of layered feedstocks
+  rather than dozens.
+- SCRAM runs inside rattler-build with small patches, so CMS's own dictionary, plugin and
+  configuration generation is reused instead of being reimplemented.
+- Layering works: a SCRAM developer area builds against an installed release.
+- CMSSW compiles against conda-forge's toolchain and externals (it built with 3 different ROOT
+  versions), so the ecosystem fits.
+
+**Not proven yet** (roughly by risk)
+
+1. Only about 10% of the code is built, and it is the cheapest 10%. Reco, Sim and L1 are heavier and
+   more likely to need missing externals.
+2. Layering exists only as a spike, not as recipes. The per-package plugin caches and build metadata
+   need an end-to-end test with two installed conda packages.
+3. `cmsRun` has not been run. It needs conditions access, i.e. new `coral` and `frontier_client`
+   recipes (coral itself builds with SCRAM).
+4. Heavy externals: geant4 with VecGeom and C++20, TensorFlow and libtorch which currently cannot be
+   installed together, and a long tail of generators.
+5. 8.6 GB of external data packages (one is 2.9 GB) versus what conda-forge accepts.
+6. Maintenance: every ROOT/boost/python migration forces a coordinated rebuild of all layers. This
+   is what ended the previous FWLite feedstock in 2022, so automation and upstreaming matter more
+   than the initial build.
+
+Rough estimate: `cmsRun` with reconstruction is a few weeks of work, a complete release with
+simulation and generators is months plus an ongoing commitment. Nothing found so far looks like a
+blocker; the two hard external blockers are small and social rather than technical (utm's missing
+license, and the ROOT 6.36 macOS backport).
 
 **Known issues / open questions**
 
 - **macOS runtime:** `cmssw-fwlite` builds on osx-arm64, but conda-forge's ROOT 6.36.10 interpreter only
-  handles system headers with the macOS 11.0 SDK it was built with (fixed upstream in ROOT 6.38). FWLite
-  therefore only works on macOS with `SDKROOT` pointing at a MacOSX11.0.sdk. CMSSW stays on ROOT 6.36 for
-  consistency with CMS releases, so macOS runtime support is postponed.
+  handles system headers with the macOS 11.0 SDK it was built with (fixed upstream in ROOT 6.38, and
+  conda-forge's ROOT 6.40 is fine). FWLite therefore only works on macOS with `SDKROOT` pointing at a
+  MacOSX11.0.sdk. CMSSW stays on ROOT 6.36 for consistency with CMS releases, so the plan assumes the
+  fix gets backported to conda-forge's `root-feedstock` 6.36.x branch; until then macOS is build-only.
 - [utm](https://gitlab.cern.ch/cms-l1t-utm/utm), the CMS L1 trigger menu library, has **no
   license**, so it cannot be packaged yet. The 3 FWLite packages that need it are excluded for now.
 - CMS's HepMC2 fork changes an ABI-relevant type. conda-forge's stock `hepmc2` is used instead,
@@ -96,11 +134,13 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 
 ## Roadmap
 
-1. Run the recipes in real conda-forge CI (linux-64) and submit the dependency recipes.
-2. osx-arm64: the build works; runtime needs a fix for ROOT 6.36's interpreter on newer macOS SDKs.
-3. Turn layering into recipes: the framework with `cmsRun` and conditions access (CORAL,
-   frontier_client), then reconstruction, simulation and DQM.
-4. Automate updates to new CMSSW releases and conda-forge migrations.
+1. Submit the dependency recipes and upstream the CMSSW patches; they gate everything else.
+2. Build the next layer as a recipe: the framework with `cmsRun` and conditions access (CORAL,
+   frontier_client). This tests layering and conditions, the two biggest unknowns, and is where
+   CMSSW becomes useful beyond reading files.
+3. Ask the CMS L1 utm authors for a license (pure lead time).
+4. Then reconstruction, simulation, DQM, and automation for new CMSSW releases and conda-forge
+   migrations.
 
 See [PLAN.md](PLAN.md) for details.
 
