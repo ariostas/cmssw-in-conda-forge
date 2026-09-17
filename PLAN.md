@@ -597,6 +597,28 @@ CMS comes from `/cvmfs/cms.cern.ch/SITECONF`. `cmssw-framework` ships one that d
 and conditions come from the central Frontier servers, with no Squid proxy. An activation script
 points `SITECONFIG_PATH` at it, and a user at a real site can override it.
 
+**Conditions work against the real CMS database.** `cmssw-conditions` (58 packages, about 6 min
+on 10 aarch64 cores) builds CondCore and CondFormats against CORAL, and `cmsRun` reads a real
+payload from `frontier://FrontierProd/CMS_CONDITIONS`:
+
+```python
+CondDB.connect = cms.string("frontier://FrontierProd/CMS_CONDITIONS")
+process.beamspot = cms.ESSource("PoolDBESSource", CondDB, toGet=cms.VPSet(cms.PSet(
+    record=cms.string("BeamSpotObjectsRcd"), tag=cms.string("BeamSpotObjects_PCL_byLumi_v0_prompt"))))
+process.get = cms.EDAnalyzer("EventSetupRecordDataGetter", toGet=cms.VPSet(cms.PSet(
+    record=cms.string("BeamSpotObjectsRcd"), data=cms.vstring("BeamSpotObjects"))))
+```
+
+```
+%MSG-s DataGetter: EventSetupRecordDataGetter:get@beginRun Run: 325175
+got data of type "BeamSpotObjects" with name "" in record BeamSpotObjectsRcd
+```
+
+That is CORAL, frontier_client, the Frontier servers listed in the conda site configuration and
+the payload deserialization all working together. The recipe's own tests stay offline (they check
+that the libraries load and that `PoolDBESSource` is registered), because conda-forge CI has no
+network; this check is run by hand.
+
 **DD4hep blocks geometry twice over.** The alignment, HCAL and Phase-2 tracker payload
 registrations pull in the geometry builders and through them DD4hep, and conda-forge's DD4hep
 cannot be used with this stack:

@@ -1,3 +1,6 @@
+# The plugins/ of the CondCore payload registrations are the payload inspectors of the
+# conditions web tool, which need Oracle and utm; CondFormats/JetMETObjects/bin is a
+# diagnostic that needs ROOT's graphics libraries.
 CondCore/BTauPlugins
 CondCore/BaseKeyedPlugins
 CondCore/BasicCondPlugins
@@ -22,3 +25,4 @@ CondCore/OptAlignPlugins
 CondCore/PhysicsToolsPlugins
 CondCore/RecoMuonPlugins
 CondCore/RunInfoPlugins
+CondFormats/JetMETObjects

@@ -60,7 +60,7 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 | `coral` | [recipes/coral](recipes/coral) | ✅ | ✅ | — |
 | `cmssw-fwlite` | [recipes/cmssw-fwlite](recipes/cmssw-fwlite) | ✅ | ✅ | ⚠️ builds, runtime blocked |
 | `cmssw-framework` (`cmsRun`) | [recipes/cmssw-framework](recipes/cmssw-framework) | ✅ | ✅ | — |
-| `cmssw-conditions` | [recipes/cmssw-conditions](recipes/cmssw-conditions) | in progress | — | — |
+| `cmssw-conditions` | [recipes/cmssw-conditions](recipes/cmssw-conditions) | ✅ | — | — |
 
 ✅ = builds locally with rattler-build (in Docker) and passes the recipe tests.
 — = not tried yet.
@@ -97,6 +97,14 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 - `coral` and `frontier-client`, which CMSSW needs to read detector conditions, both build in
   well under five minutes. CORAL turns out to be a SCRAM project like CMSSW, so it reuses the
   same toolbox.
+- **Detector conditions come from the real CMS database.** With `cmssw-conditions` installed,
+  `cmsRun` reads a payload from `frontier://FrontierProd/CMS_CONDITIONS` over the network, which
+  exercises CORAL, the Frontier client and the payload deserialization:
+
+  ```
+  %MSG-s DataGetter: EventSetupRecordDataGetter:get@beginRun Run: 325175
+  got data of type "BeamSpotObjects" with name "" in record BeamSpotObjectsRcd
+  ```
 - Only 6 small CMSSW patches are needed (4 of them only for macOS), all meant for upstream.
 
 ## Where this stands
