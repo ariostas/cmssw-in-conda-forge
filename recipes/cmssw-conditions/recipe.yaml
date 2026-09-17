@@ -1,0 +1,115 @@
+context:
+  cmssw_tag: CMSSW_20_1_0_pre2
+  version: "20.1.0pre2"
+
+package:
+  name: cmssw-conditions
+  version: ${{ version }}
+
+source:
+  - url: https://github.com/cms-sw/cmssw/archive/refs/tags/${{ cmssw_tag }}.tar.gz
+    sha256: 39afc8deff3e31952cc43699324b25bbc10e619abe616b0eb6c3c20b4746312e
+    target_directory: cmssw
+    patches:
+      - patches/0001-CondFormats-find-libstdc-headers-in-conda-gcc-layout.patch
+      - patches/0002-CondFormats-support-unpatched-boost-serialization.patch
+
+build:
+  number: 0
+  skip:
+    - win
+    - osx and x86_64
+  script:
+    env:
+      CMSSW_TAG: ${{ cmssw_tag }}
+    file: build.sh
+  dynamic_linking:
+    rpath_allowlist:
+      - share/cmssw/**
+  prefix_detection:
+    ignore_binary_files: true
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ compiler('fortran') }}
+    - ${{ stdlib('c') }}
+    - cms-scram
+    - cmssw-toolbox ==${{ version }}
+    - make
+    - bash
+    - sed
+    - coreutils
+    - findutils
+    - grep
+    - gawk
+    - which
+    - rsync
+    # the CondFormats serialization code is generated with libclang
+    - clangxx
+  host:
+    - cms-scram
+    - cmssw-framework ==${{ version }}
+    - python
+    - numpy
+    - root_base
+    - libboost-devel
+    - tbb-devel
+    - clhep
+    - fmt
+    - xerces-c
+    - libuuid
+    - eigen
+    - vdt
+    - tinyxml2
+    - zlib
+    - xz
+    - zstd
+    - bzip2
+    - openssl
+    - gsl
+    - libcurl
+    - coral
+    - frontier-client
+    - sqlite
+    - expat
+    - alpaka
+    - hls-arbitrary-precision-types
+    - cms-md5
+    - python-clang
+    - libclang
+  run:
+    - cms-scram
+    - cmssw-framework ==${{ version }}
+    - python
+    - root_base
+    - coral
+    - frontier-client
+  ignore_run_exports:
+    from_package:
+      - libclang
+      - python-clang
+
+tests:
+  - script:
+      - python -c "import ctypes, glob, os; libs = glob.glob(os.path.join(os.environ['CMSSW_BASE'], 'lib', os.environ['SCRAM_ARCH'], '*.[ds][oy]*')); assert libs; [ctypes.CDLL(lib, mode=ctypes.RTLD_GLOBAL) for lib in sorted(libs)]; print(len(libs), 'libraries loaded')"
+      # the conditions event setup source must be registered
+      - edmPluginDump | grep -q PoolDBESSource
+      - python -c "import CondCore.CondDB.CondDB_cfi"
+
+about:
+  homepage: https://cms-sw.github.io
+  summary: Detector conditions access for CMSSW (CondCore and CondFormats)
+  description: |
+    CMSSW is the software framework of the CMS experiment at CERN. This package adds the
+    conditions layer on top of cmssw-framework: the condition data formats and the event
+    setup sources that read them from SQLite files or from the CMS conditions database
+    through Frontier.
+  license: Apache-2.0
+  license_file: cmssw/LICENSE
+  repository: https://github.com/cms-sw/cmssw
+
+extra:
+  recipe-maintainers:
+    - ariostas

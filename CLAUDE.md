@@ -9,14 +9,22 @@ first, and add to its progress log (section 6) when something significant is lea
 - `recipes/`: rattler-build (v1 `recipe.yaml`) recipes. `example-v1/` and `example-v0-deprecated/`
   are upstream staged-recipes examples; leave them alone.
   - `cms-scram`: the SCRAM build tool (noarch).
+  - `cmssw-toolbox` (noarch): everything the CMSSW and CORAL recipes share:
+    - `tools/`, `tools-osx/`: SCRAM tool file templates;
+    - `cmssw-generate-toolbox`: instantiates them for a conda prefix;
+    - `cmssw-build-layer`: builds a set of CMSSW packages against an installed release;
+    - `cmssw-install-layer`: adds the result to that release.
   - `alpaka`, `hls-arbitrary-precision-types`: header-only dependencies (noarch).
-  - `cmssw-fwlite`: FWLite built from `CMSSW_20_1_0_pre2`. It contains:
-    - `packages.txt`: CMSSW packages to build;
-    - `patches/`: CMSSW source patches;
-    - `cmssw-config-patches/`: patches to cms-sw/cmssw-config;
-    - `toolbox/`: SCRAM tool file templates plus the `cmssw-generate-toolbox` generator;
+  - `frontier-client`, `coral`: conditions database access. CORAL is a SCRAM project like
+    CMSSW and builds with the same toolbox.
+  - The CMSSW layers, each built on the previous one and all installed into **one** release
+    directory: `cmssw-fwlite` (the base release) → `cmssw-framework` (`cmsRun`, IOPool,
+    services, storage) → `cmssw-conditions` (CondCore/CondFormats). A layer contains:
+    - `packages.txt`: CMSSW packages to build; `src-only.txt`: those of which only `src/` is;
+    - `patches/`, `cmssw-config-patches/`: source patches;
     - `variants.yaml`: ROOT/CLHEP pins for this CMSSW version;
-    - activation scripts.
+    - `build.sh`: a few lines around `cmssw-build-layer`;
+    - activation scripts (`cmssw-fwlite` only; there is one release directory).
 - `cmssw-notes/`
   - `research/`: background reports (SCRAM internals, conda-forge dependency survey, prior art).
   - `analysis/scripts/`: BuildFile.xml dependency graph, build cost and partitioning scripts.
@@ -60,6 +68,9 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
 - Explicit `-m` variant files disable rattler-build's auto-discovery of `variants.yaml`, so
   `build-local.sh` passes the recipe's `variants.yaml` last. Without it, the global pinning's
   multiple `root_base`/`clhep` versions give 9 variants.
+- Rebuilding a recipe without bumping its build number would otherwise reuse the previously
+  extracted package from `~/.cache/rattler/cache/pkgs`; `build-local.sh` deletes those first.
+  A stale `cmssw-toolbox` there is silent and very confusing.
 
 ### macOS (native)
 
@@ -80,10 +91,16 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
 ## CMSSW/SCRAM gotchas learned so far
 
 - `SCRAM_ARCH` is `linux_amd64_gcc`, `linux_aarch64_gcc` or `osx_arm64_clang` (no compiler version).
-  SCRAM only lists a release if `share/cmssw/<arch>/cms/cms-common` exists. Releases are installed at
-  `$PREFIX/share/cmssw/<arch>/cms/cmssw/<CMSSW_VERSION>`.
+  SCRAM only lists a release if `share/cmssw/<arch>/cms/cms-common` exists, and that directory has
+  to contain a file because conda does not carry empty directories. Releases are installed at
+  `$PREFIX/share/cmssw/<arch>/cms/cmssw/<CMSSW_VERSION>`. The list of releases comes from
+  `share/cmssw/etc/scramrc/cmssw.map`, which cms-scram installs, so **cms-scram has to be a host
+  dependency** of anything that builds a layer: the copy in the build prefix knows no releases.
 - Tool files need explicit `INCLUDE`/`LIBDIR` pointing at `$PREFIX`, because in rattler-build the
   compiler lives in `BUILD_PREFIX` and does not search `$PREFIX/include`.
+- SCRAM checks that a tool's `INCLUDE`/`LIBDIR`/`BINDIR` exist when it sets the tool up, so a
+  toolbox cannot describe packages that are not installed. `cmssw-generate-toolbox` leaves those
+  tool files out, and each layer adds the ones for its own externals with `scram setup`.
 - The build loads freshly built plugins and dictionaries from python, so `$PREFIX/bin` (host python
   with ROOT) must come first in `PATH`, and the tool files must use `PY_VER`.
 - conda-forge ROOT 6.36 has Vc enabled, so dictionaries need `libVc.a`. The generator adds it when
@@ -92,10 +109,28 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
 - Packages installed by separate conda packages must not share files. Use per-package plugin caches
   (`lib/<arch>/.edmplugincache.d/<pkg>`, which needs the PluginManager patch) and per-directory
   `.SCRAM/<arch>/MakeData/DirCache/*.mk` fragments (which need the cmssw-config `updateToolMK.py` patch).
-- Layering works: a `scram project` dev area on top of the installed release (`RELEASETOP`).
+- **A layer must not contain a directory for a package that a lower layer owns.** SCRAM treats
+  `src/<Sub>/<Pkg>` in a developer area as the local definition of that package, so the release's
+  library drops out of every link line (`****WARNING: Invalid tool <Sub>/<Pkg>`). This is why
+  `cmsRun` is built in `cmssw-fwlite`, even though it is only useful once `cmssw-framework` adds
+  input, output and services: its source lives in `FWCore/Framework/bin`, and that package's
+  library belongs to the base layer.
+- Layering: a layer is a `scram project` developer area on top of the installed release
+  (`RELEASETOP`), whose products are then copied **into that release** by `cmssw-install-layer`.
+  There is one release directory, so the activation scripts and a user's own developer area (which
+  can only chain one level) keep working. Everything a layer installs is at a per-package or
+  per-tool path: `lib/<arch>/*`, `src/<Sub>/<Pkg>`, `python/`, `cfipython/`,
+  `.SCRAM/<arch>/MakeData/DirCache/*.mk`, `.SCRAM/<arch>/{BuildFiles,tools,InstalledTools}`,
+  `config/toolbox/<arch>/tools/selected`. `.SCRAM/<arch>/DirCache.json` is not needed by a
+  developer area, and `MakeData/Tools.mk` and `edmplugins` are regenerated in each area.
 - The CMSSW 20_1 data formats use `io_v1` namespaces with `using` aliases (e.g. `pat::Muon`). FWLite
   `Handle`s and TClass lookups need the `io_v1` name.
-- The `utm` package has no license, so the 3 packages that depend on it are excluded.
+- Two dependencies have **no license** and cannot go to conda-forge until that is resolved:
+  - `utm` (CMS L1 trigger menu). It blocks `CondFormats/L1TObjects`, and through it
+    `CondCore/Utilities` (the `conddb` tools), `DataFormats/RPCDigi`, the L1 unpackers and the
+    `L1Trigger/*` emulator, so it is on the critical path for reconstruction from RAW.
+  - `coral` (the LCG relational abstraction layer, needed for conditions). Neither the CMS fork
+    nor the upstream LCG repository has a license file or license headers.
 - macOS: libc++ is stricter than libstdc++, and `uint64_t` is `unsigned long long` there. EDM class
   checksums differ for 64-bit integer members, so the checks are skipped (`SCRAM_NOEDM_CHECKS`).
   ROOT 6.36's interpreter only works with the SDK its modules were built with.

@@ -26,7 +26,7 @@ source:
       - cmssw-config-patches/0001-conda-build-environment-fixes.patch
 
 build:
-  number: 1
+  number: 2
   skip:
     - win
     - osx and x86_64
@@ -64,6 +64,7 @@ requirements:
     # CondFormats serialization code is generated with libclang
     - clangxx
   host:
+    - cms-scram
     - python
     - numpy
     - root_base
@@ -94,6 +95,8 @@ requirements:
     - python-clang
     - libclang
   run:
+    # so that users can create a developer area on top of the release
+    - cms-scram
     - python
     - root_base
     # ROOT parses CMSSW headers at runtime (dictionaries), which include these headers

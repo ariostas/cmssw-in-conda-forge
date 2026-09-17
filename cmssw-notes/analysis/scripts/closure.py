@@ -59,8 +59,10 @@ def main():
 
     need = closure(pkgs, targets)
     new = sorted(p for p in need if p not in installed)
-    print("%d targets, %d in the closure, %d already packaged, %d new"
-          % (len(targets), len(need), len(need) - len(new), len(new)))
+    print(
+        "%d targets, %d in the closure, %d already packaged, %d new"
+        % (len(targets), len(need), len(need) - len(new), len(new))
+    )
     print("%d source files in the new packages" % sum(pkgs[p]["nsrc"] for p in new))
     for p in new:
         print("  %-50s %5d %s" % (p, pkgs[p]["nsrc"], need[p]))

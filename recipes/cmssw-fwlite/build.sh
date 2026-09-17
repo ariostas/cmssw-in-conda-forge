@@ -48,8 +48,27 @@ while read -r pkg; do
 done < "${RECIPE_DIR}/packages.txt"
 pushd "${STAGE}/src"
 rm -rf ./*/*/test DataFormats/*/plugins Heterogeneous*/*/plugins CommonTools/Utils/plugins \
-  CommonTools/Utils/src/TMVAEvaluator.cc FWCore/MessageLogger/python/MessageLogger_cfi.py \
-  FWCore/Framework/bin
+  CommonTools/Utils/src/TMVAEvaluator.cc FWCore/MessageLogger/python/MessageLogger_cfi.py
+# cmsRun. It only becomes useful with the later layers (it needs input, output and services),
+# but it has to be built here: a layer that had a src/FWCore/Framework directory would shadow
+# this package and its library would drop out of every link line.
+# Of the seven executables in FWCore/Framework/bin only the plain one is built; the others
+# differ just in the allocator they link (jemalloc, tcmalloc, gperftools).
+cat > FWCore/Framework/bin/BuildFile.xml <<'BUILDFILE'
+<bin name="cmsRun" file="cmsRun.cpp">
+  <use name="tbb"/>
+  <use name="boost"/>
+  <use name="boost_program_options"/>
+  <use name="FWCore/AbstractServices"/>
+  <use name="FWCore/Framework"/>
+  <use name="FWCore/MessageLogger"/>
+  <use name="FWCore/PluginManager"/>
+  <use name="FWCore/ServiceRegistry"/>
+  <use name="FWCore/Utilities"/>
+  <use name="FWCore/ParameterSet"/>
+  <use name="FWCore/ParameterSetReader"/>
+</bin>
+BUILDFILE
 popd
 
 # 4. create the release area in its final location and build it

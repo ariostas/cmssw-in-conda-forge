@@ -1,0 +1,14 @@
+DataFormats/Streamer
+FWCore/MessageService
+FWCore/Modules
+FWCore/Services
+FWCore/Sources
+FWStorage/Catalog
+FWStorage/Services
+FWStorage/StorageFactory
+FWStorage/XrdAdaptor
+IOPool/Common
+IOPool/Input
+IOPool/Output
+IOPool/Provenance
+IOPool/Streamer

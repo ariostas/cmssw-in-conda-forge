@@ -525,3 +525,60 @@ the on-disk layout is identical.
   **postponed** (decision 9).
 - The recipe tests don't catch this, because the test env has `CONDA_BUILD_SYSROOT` set and
   `Declare()` still returns true.
+
+### 2026-09-17: layering as conda packages, CORAL and Frontier
+
+**Shared build tooling.** The SCRAM tool file templates, the toolbox generator and the new
+layer installer moved out of `cmssw-fwlite` into a `cmssw-toolbox` package (noarch), which
+every layer and CORAL uses as a build dependency. Each layer feedstock would otherwise need
+its own copy.
+
+**How a layer is packaged.** `cmssw-framework` is the first layer built on top of an installed
+`cmssw-fwlite`:
+- `scram project <version>` creates a developer area against the installed release;
+- the packages of the layer are copied into it and built with `scram b`;
+- `cmssw-install-layer` copies the products into the **installed release tree**, refusing to
+  overwrite anything: libraries, binaries, `src/`, `python/`, `cfipython/`, and the build
+  metadata (`MakeData/DirCache/*.mk`, `BuildFiles/`, `tools/`, `InstalledTools/`) that later
+  layers and users' developer areas need. All of those are per-package or per-tool paths, so
+  conda packages never share a file. Files that already exist with identical content (the
+  per-subsystem `python/<Sub>/__init__.py`) are skipped.
+  There is one CMSSW release directory, so the activation scripts of `cmssw-fwlite` keep working
+  unchanged and a user's developer area still chains only one level.
+
+**Things that had to change for this to work**
+- A layer must not contain a directory for a package that a lower layer owns: SCRAM takes
+  `src/<Sub>/<Pkg>` in a developer area as the local definition of that package, and the release's
+  library then drops out of every link line. `cmsRun` is therefore built in `cmssw-fwlite`, since
+  its source sits in `FWCore/Framework/bin` and that library belongs to the base layer.
+- SCRAM only offers a release if `share/cmssw/<arch>/cms/cms-common` exists, and conda does not
+  carry empty directories: the directory now holds a README.
+- `cms-scram` is a *build* dependency, so its baked-in project database points at `BUILD_PREFIX`.
+  A layer build sets `SCRAM_LOOKUPDB` to the host prefix.
+- **SCRAM checks that a tool's `INCLUDE`/`LIBDIR`/`BINDIR` exist** when it sets the tool up. So
+  the toolbox cannot simply contain every tool of the release: `cmssw-generate-toolbox` now
+  leaves out the tools whose directories are missing, and every layer generates the tool files
+  for its own externals and adds them to the release with `scram setup`.
+- Rebuilding a recipe locally without bumping the build number serves the previous package from
+  rattler's cache; `build-local.sh` now drops the cached copies first.
+
+**New external recipes**
+- `frontier-client` 2.10.2 (`recipes/frontier-client`): plain Makefile, BSD. Its rules hardcode
+  `c++` and only pass `CXXOPT_APP`/`COPT` to the link steps, so the compiler and the link flags
+  are overridden on the make command line. The pure python DB-API client it also ships is left
+  out, so the package stays python-independent.
+- `coral` 2.3.21 (`recipes/coral`): CORAL is a SCRAM project like CMSSW, and cmssw-config carries
+  its project definition (`Projects/CORAL`), so it builds with the same toolbox and about 30 s of
+  CPU. Oracle, MySQL, the CORAL server and the LFC replica service are dropped. Its products are
+  installed into the normal conda layout (`lib/liblcg_*`, `include/LCG`) instead of a SCRAM area;
+  CMSSW refers to them through four plain tool files (`coralbase`, `coralkernel`, `coralcommon`,
+  `relationalaccess`), which is all CMSSW actually uses.
+- **CORAL has no license.** Neither the CMS fork nor the upstream LCG repository has a license
+  file or license headers. This is a second licensing blocker next to `utm` and has to be raised
+  with CERN/CMS. The recipe is marked `LicenseRef-Unresolved` and cannot be submitted.
+
+**How far `utm` reaches.** Earlier this looked like 3 FWLite packages. `CondFormats/L1TObjects`
+blocks, among others, `CondCore/Utilities` (the `conddb` tools), `CondCore/L1TPlugins`,
+`DataFormats/RPCDigi`, `EventFilter/L1GlobalTriggerRawToDigi` and the `L1Trigger/*` emulator, so
+**it is on the critical path for reconstruction from RAW and for RPC muon reconstruction**. It
+does not block conditions access itself (`CondCore/CondDB` and `CondCore/ESSources` do not need it).

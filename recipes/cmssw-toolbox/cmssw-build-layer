@@ -1,0 +1,113 @@
+#!/bin/bash
+# Build a set of CMSSW packages as a layer on top of an installed CMSSW release.
+#
+# usage: cmssw-build-layer --release DIR --source DIR --packages FILE
+#                          [--src-only FILE] [--prepare SCRIPT] [--work DIR]
+#
+#   --release   the installed release to build against, i.e.
+#               $PREFIX/share/cmssw/$SCRAM_ARCH/cms/cmssw/<version>
+#   --source    the unpacked CMSSW source tree
+#   --packages  file listing the Subsystem/Package directories to build
+#   --src-only  file listing packages of which only src/ is built
+#   --prepare   script sourced in the developer area's src/ before building
+#   --work      where the developer area is created (default: $SRC_DIR/layer)
+#
+# Expects PREFIX, SCRAM_ARCH, target_platform and CPU_COUNT from the conda build.
+set -euo pipefail
+
+RELEASE= SOURCE= PACKAGES= SRC_ONLY= PREPARE= WORK=${SRC_DIR:-$PWD}/layer
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --release)  RELEASE=$2; shift 2 ;;
+    --source)   SOURCE=$2; shift 2 ;;
+    --packages) PACKAGES=$2; shift 2 ;;
+    --src-only) SRC_ONLY=$2; shift 2 ;;
+    --prepare)  PREPARE=$2; shift 2 ;;
+    --work)     WORK=$2; shift 2 ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+: "${RELEASE:?--release is required}" "${SOURCE:?--source is required}" \
+  "${PACKAGES:?--packages is required}" "${PREFIX:?}" "${SCRAM_ARCH:?}"
+test -d "${RELEASE}"
+
+CMSSW_VERSION=$(basename "${RELEASE}")
+LIBDIR=lib/${SCRAM_ARCH}
+DEV=${WORK}/${CMSSW_VERSION}
+
+# Built plugins and dictionaries are loaded by python during the build, so the host python
+# (the one with ROOT) has to come first in PATH.
+export PATH=${PREFIX}/bin:${PATH}
+# The project database that lists the installed releases comes with cms-scram in the host
+# prefix; the copy in the build prefix knows nothing about them.
+export SCRAM_LOOKUPDB=${PREFIX}/share/cmssw
+export SCRAM_LOOKUPDB_WRITE=${SCRAM_LOOKUPDB}
+
+set -x
+
+# 1. a developer area on top of the installed release
+mkdir -p "${WORK}"
+(cd "${WORK}" && scram project "${CMSSW_VERSION}")
+
+# 2. SCRAM tool files for this layer's externals. cmssw-generate-toolbox writes one for every
+#    external that is installed in the host prefix, which adds the ones the base release does
+#    not have yet. `scram setup` puts them in the release's toolbox, where later layers and
+#    users' developer areas find them; they are per-tool files, so layers never share a file.
+cmssw-generate-toolbox "${WORK}/toolbox" --prefix "${PREFIX}"
+cd "${DEV}"
+for tool in "${WORK}"/toolbox/tools/selected/*.xml; do
+  scram setup "${tool}"
+done
+
+# 3. the sources of this layer
+cd "${DEV}/src"
+while read -r pkg; do
+  [ -z "${pkg}" ] && continue
+  mkdir -p "$(dirname "${pkg}")"
+  cp -R "${SOURCE}/${pkg}" "${pkg}"
+done < "${PACKAGES}"
+rm -rf ./*/*/test
+if [ -n "${SRC_ONLY}" ]; then
+  while read -r pkg; do
+    [ -z "${pkg}" ] && continue
+    rm -rf "${pkg}/plugins" "${pkg}/bin"
+  done < "${SRC_ONLY}"
+fi
+if [ -n "${PREPARE}" ]; then
+  # shellcheck disable=SC1090
+  source "${PREPARE}"
+fi
+
+# 4. build
+cd "${DEV}"
+USER_LDFLAGS="-Wl,-rpath,${RELEASE}/${LIBDIR} -Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib"
+if [[ "${target_platform}" == linux-* ]]; then
+  USER_LDFLAGS="${USER_LDFLAGS} -Wl,-rpath-link,${PREFIX}/lib"
+fi
+if [[ "${target_platform}" == osx-* ]]; then
+  # The EDM class version checks compare ROOT checksums computed on Linux, which differ on
+  # macOS for classes with (u)int64_t members. The SDK is passed to the compiler explicitly by
+  # the toolbox; ROOT's interpreter, which runs during the build, must not see it.
+  export SCRAM_NOEDM_CHECKS=1
+  env -u SDKROOT -u CONDA_BUILD_SYSROOT scram b -k -j "${CPU_COUNT:-1}" USER_LDFLAGS="${USER_LDFLAGS}" </dev/null
+else
+  scram b -k -j "${CPU_COUNT:-1}" USER_LDFLAGS="${USER_LDFLAGS}" </dev/null
+fi
+
+# 5. install into the release tree
+cmssw-install-layer --from "${DEV}" --to "${RELEASE}" --arch "${SCRAM_ARCH}"
+
+# one plugin cache per conda package (see the PluginManager patch)
+if [ -f "${RELEASE}/${LIBDIR}/.edmplugincache" ]; then
+  mkdir -p "${RELEASE}/${LIBDIR}/.edmplugincache.d"
+  mv "${RELEASE}/${LIBDIR}/.edmplugincache" "${RELEASE}/${LIBDIR}/.edmplugincache.d/${PKG_NAME}"
+fi
+
+# executables of this layer, next to the ones of the release
+for exe in "${RELEASE}/bin/${SCRAM_ARCH}"/*; do
+  name=$(basename "${exe}")
+  # the base release already linked its own executables
+  if [ -e "${PREFIX}/bin/${name}" ]; then continue; fi
+  ln -s "../share/cmssw/${SCRAM_ARCH}/cms/cmssw/${CMSSW_VERSION}/bin/${SCRAM_ARCH}/${name}" \
+    "${PREFIX}/bin/${name}"
+done
