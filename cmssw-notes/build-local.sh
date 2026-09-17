@@ -13,8 +13,9 @@ CONFIG=$1
 shift
 RECIPES=("$@")
 if [ ${#RECIPES[@]} -eq 0 ]; then
-  RECIPES=(recipes/cms-scram recipes/alpaka recipes/hls-arbitrary-precision-types
-           cmssw-notes/feedstock-changes/cms-md5 recipes/cmssw-fwlite)
+  RECIPES=(recipes/cms-scram recipes/cmssw-toolbox recipes/alpaka
+           recipes/hls-arbitrary-precision-types cmssw-notes/feedstock-changes/cms-md5
+           recipes/frontier-client recipes/cmssw-fwlite recipes/cmssw-framework)
 fi
 
 WORK=$(mkdir -p "${WORK:-/work}" && cd "${WORK:-/work}" && pwd)
@@ -26,8 +27,13 @@ sed "s|^- conda-forge$|- ${OUT},conda-forge|" ".ci_support/${CONFIG}.yaml" > "${
 # only one python version for local testing
 printf 'python:\n  - 3.12.* *_cpython\nis_python_min:\n  - false\n' > ${WORK}/local_variants.yaml
 
+# Rebuilding a recipe without bumping its build number reuses the already extracted package
+# from rattler's cache, so drop the cached copies of what we are about to rebuild.
+PKG_CACHE=${RATTLER_CACHE_DIR:-${HOME}/.cache/rattler/cache}/pkgs
+
 for recipe in "${RECIPES[@]}"; do
   name=$(basename "${recipe}")
+  rm -rf "${PKG_CACHE}/${name}-"*
   echo ">> building ${recipe} (log: ${WORK}/logs/${name}-${CONFIG}.log)"
   start=$(date +%s)
   # explicit -m disables the auto-discovery of the recipe's variants.yaml, add it last so it wins

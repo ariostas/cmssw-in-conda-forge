@@ -18,12 +18,16 @@ STAGE=${SRC_DIR}/stage
 # host python (with ROOT) has to come first in PATH.
 export PATH=${PREFIX}/bin:${PATH}
 
-# SCRAM only considers architectures that have a cms-common directory
+# SCRAM only considers architectures that have a cms-common directory. It needs to contain a
+# file, because conda packages do not carry empty directories.
 mkdir -p "${CMSSW_ROOT}/${SCRAM_ARCH}/cms/cms-common"
+echo "This directory marks ${SCRAM_ARCH} as an available SCRAM architecture (see SCRAM's ProjectDB)." \
+  > "${CMSSW_ROOT}/${SCRAM_ARCH}/cms/cms-common/README"
 
-# 1. SCRAM toolbox pointing to the host prefix
-python "${RECIPE_DIR}/toolbox/cmssw-generate-toolbox" "${STAGE}/toolbox" \
-  --prefix "${PREFIX}" --templates "${RECIPE_DIR}/toolbox/tools"
+# 1. SCRAM toolbox pointing to the host prefix (templates come from cmssw-toolbox). It holds
+#    every tool of this CMSSW release, including ones only used by later layers: the tool files
+#    only refer to $PREFIX, so they do not depend on what is installed while building this layer.
+cmssw-generate-toolbox "${STAGE}/toolbox" --prefix "${PREFIX}"
 
 # 2. project configuration
 cp -R "${SRC_DIR}/config" "${STAGE}/config"

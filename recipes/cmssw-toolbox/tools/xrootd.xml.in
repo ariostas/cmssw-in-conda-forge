@@ -1,0 +1,11 @@
+<tool name="xrootd" version="5.8.0" path="@PREFIX@" revision="1">
+  <info url="https://xrootd.slac.stanford.edu"/>
+  <lib name="XrdUtils"/>
+  <lib name="XrdCl"/>
+  <client>
+    <environment name="INCLUDE" default="$TOOL_BASE/include/xrootd"/>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+  <use name="root_cxxdefaults"/>
+</tool>

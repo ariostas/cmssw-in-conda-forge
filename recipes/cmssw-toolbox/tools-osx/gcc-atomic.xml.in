@@ -1,0 +1,3 @@
+<!-- libc++/clang on macOS has the atomic builtins in the runtime, there is no separate libatomic -->
+<tool name="gcc-atomic" version="@GCC_VERSION@" path="@PREFIX@" revision="1">
+</tool>

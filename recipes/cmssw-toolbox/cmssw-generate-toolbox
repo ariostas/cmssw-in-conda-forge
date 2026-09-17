@@ -27,6 +27,20 @@ def find_program(env, candidates):
     return candidates[0]
 
 
+def missing_paths(text, prefix):
+    """The <client> <environment> defaults of a tool file that do not exist in the prefix.
+
+    SCRAM checks them when the tool is set up, so a tool file may only be written if the
+    package it describes is actually installed.
+    """
+    missing = []
+    for value in re.findall(r'<environment\s+name="(?:INCLUDE|LIBDIR|BINDIR)"\s+default="([^"]+)"', text):
+        path = value.replace("$TOOL_BASE", prefix)
+        if path.startswith("/") and not os.path.exists(path):
+            missing.append(path[len(prefix) + 1:] if path.startswith(prefix) else path)
+    return missing
+
+
 def output(cmd):
     try:
         return subprocess.check_output(cmd, stderr=subprocess.DEVNULL, text=True).strip()
@@ -39,7 +53,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("outdir")
     parser.add_argument("--prefix", default=os.environ.get("PREFIX", os.environ.get("CONDA_PREFIX", sys.prefix)))
-    parser.add_argument("--templates", default=os.path.join(here, "..", "share", "cmssw-tool-conf", "tools"))
+    parser.add_argument("--templates", default=os.path.join(here, "..", "share", "cmssw-toolbox", "tools"))
     args = parser.parse_args()
     if not os.path.isdir(args.templates):
         args.templates = os.path.join(here, "tools")
@@ -75,6 +89,7 @@ def main():
     overlay = os.path.join(os.path.dirname(os.path.abspath(args.templates)), "tools-" + ("osx" if sys.platform == "darwin" else "linux"))
     if os.path.isdir(overlay):
         templates.update({n: os.path.join(overlay, n) for n in os.listdir(overlay)})
+    skipped = []
     for name in sorted(templates):
         if not name.endswith(".xml.in"):
             continue
@@ -83,8 +98,17 @@ def main():
         leftover = re.findall(r"@[A-Z_]+@", text)
         if leftover:
             sys.exit("ERROR: unresolved placeholders %s in %s" % (leftover, name))
+        missing = missing_paths(text, values["PREFIX"])
+        if missing:
+            # SCRAM refuses to set up a tool whose directories do not exist, so a tool of a
+            # package that is not part of this build is left out. A build that needs it fails
+            # with "Unknown tool", which points back here.
+            skipped.append("%s (%s)" % (name[: -len(".xml.in")], ", ".join(missing)))
+            continue
         with open(os.path.join(selected, name[: -len(".in")]), "w") as f:
             f.write(text)
+    if skipped:
+        print("Not installed in this environment, tool files left out:\n  %s" % "\n  ".join(skipped))
     print("Generated SCRAM toolbox in %s" % selected)
 
 

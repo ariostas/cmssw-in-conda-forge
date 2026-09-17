@@ -1,0 +1,7 @@
+The SCRAM tool file templates in this package are derived from the tool files of
+cms-sw/cmsdist (scram-tools.file/tools) and from the resolved tool files of a CMSSW
+release, with the CMS-specific paths replaced by the conda prefix.
+
+cms-sw/cmsdist carries no LICENSE file of its own; the CMS software distribution it
+belongs to is licensed under the Apache License 2.0 (see LICENSE), which is what this
+package assumes.

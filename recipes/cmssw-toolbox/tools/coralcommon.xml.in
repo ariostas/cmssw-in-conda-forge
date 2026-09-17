@@ -1,0 +1,9 @@
+<tool name="CoralCommon" version="CORAL_2_3_21" path="@PREFIX@" revision="1">
+  <info url="https://github.com/cms-externals/coral"/>
+  <lib name="lcg_CoralCommon"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include/LCG"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+</tool>

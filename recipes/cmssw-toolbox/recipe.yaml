@@ -1,0 +1,46 @@
+context:
+  # the tool files describe the externals of this CMSSW release, so they are versioned with it
+  version: "20.1.0pre2"
+
+package:
+  name: cmssw-toolbox
+  version: ${{ version }}
+
+build:
+  number: 0
+  noarch: generic
+  script:
+    - mkdir -p ${PREFIX}/bin ${PREFIX}/share/cmssw-toolbox
+    - install -m 755 ${RECIPE_DIR}/cmssw-generate-toolbox ${RECIPE_DIR}/cmssw-install-layer ${PREFIX}/bin/
+    - cp -R ${RECIPE_DIR}/tools ${RECIPE_DIR}/tools-osx ${PREFIX}/share/cmssw-toolbox/
+
+requirements:
+  run:
+    - python >=3.8
+
+tests:
+  - script:
+      - cmssw-install-layer --help
+      - cmssw-generate-toolbox ${PREFIX}/tmp-toolbox --prefix ${PREFIX}
+      - test -f ${PREFIX}/tmp-toolbox/tools/selected/root.xml
+      - grep -q "${PREFIX}" ${PREFIX}/tmp-toolbox/tools/selected/root.xml
+      - rm -rf ${PREFIX}/tmp-toolbox
+
+about:
+  homepage: https://github.com/cms-sw/cmsdist
+  summary: Build-time helpers for packaging CMSSW and CORAL with conda
+  description: |
+    SCRAM, the build system of the CMS experiment's software, describes every external
+    dependency with an XML "tool file". This package holds templates for those files and
+    cmssw-generate-toolbox, which instantiates them for a conda prefix, so that CMSSW and
+    CORAL can be built against conda-forge packages instead of CMS's own externals. It also
+    holds cmssw-install-layer, which installs a SCRAM developer area into the release it was
+    built on, so that a CMSSW release can be assembled from several conda packages.
+  license: Apache-2.0
+  license_file:
+    - LICENSE
+    - NOTICE
+
+extra:
+  recipe-maintainers:
+    - ariostas

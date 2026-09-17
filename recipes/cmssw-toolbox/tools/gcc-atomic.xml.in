@@ -1,0 +1,6 @@
+<tool name="gcc-atomic" version="@GCC_VERSION@" path="@PREFIX@" revision="1">
+  <lib name="atomic"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+</tool>

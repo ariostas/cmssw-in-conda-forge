@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+"""Install the build products of a SCRAM developer area into the release it was built on.
+
+A CMSSW release installed by conda is assembled from several packages (layers), each of
+which builds a set of CMSSW packages in a developer area on top of the layers already
+installed. conda packages may not share files, so only files that the release does not
+have yet are installed. Files that exist with identical content (the per-subsystem
+python __init__.py files, SCRAM's empty caches) are skipped, anything else is an error.
+"""
+
+import argparse
+import filecmp
+import os
+import shutil
+import sys
+
+# directories of the area that hold installable products, relative to its top; @ is the
+# SCRAM architecture
+SUBDIRS = [
+    "lib/@",
+    "bin/@",
+    "src",
+    "python",
+    "cfipython/@",
+    # build metadata, so that later layers and developer areas can build against this one
+    ".SCRAM/@/MakeData/DirCache",
+    ".SCRAM/@/BuildFiles",
+    ".SCRAM/@/tools",
+    ".SCRAM/@/InstalledTools",
+    "config/toolbox/@/tools/selected",
+]
+
+
+def same(a, b):
+    if os.path.islink(a) or os.path.islink(b):
+        return os.path.islink(a) and os.path.islink(b) and os.readlink(a) == os.readlink(b)
+    return filecmp.cmp(a, b, shallow=False)
+
+
+def install(src_dir, dst_dir):
+    copied = skipped = 0
+    clashes = []
+    for root, dirs, files in os.walk(src_dir):
+        rel = os.path.relpath(root, src_dir)
+        dst_root = os.path.join(dst_dir, rel) if rel != "." else dst_dir
+        os.makedirs(dst_root, exist_ok=True)
+        # a symlinked directory is copied as a symlink, not walked
+        for name in list(dirs):
+            src = os.path.join(root, name)
+            if not os.path.islink(src):
+                continue
+            dirs.remove(name)
+            files.append(name)
+        for name in files:
+            src = os.path.join(root, name)
+            dst = os.path.join(dst_root, name)
+            if os.path.lexists(dst):
+                if same(src, dst):
+                    skipped += 1
+                else:
+                    clashes.append(os.path.join(rel, name))
+                continue
+            if os.path.islink(src):
+                os.symlink(os.readlink(src), dst)
+            else:
+                shutil.copy2(src, dst)
+            copied += 1
+    return copied, skipped, clashes
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--from", dest="src", required=True)
+    parser.add_argument("--to", dest="dst", required=True)
+    parser.add_argument("--arch", required=True)
+    args = parser.parse_args()
+
+    clashes = []
+    for subdir in SUBDIRS:
+        sub = subdir.replace("@", args.arch)
+        src = os.path.join(args.src, sub)
+        if not os.path.isdir(src):
+            continue
+        copied, skipped, bad = install(src, os.path.join(args.dst, sub))
+        print("%-40s %5d new, %5d unchanged" % (sub, copied, skipped))
+        clashes += [os.path.join(sub, c) for c in bad]
+
+    if clashes:
+        print("\nERROR: these files already exist in the release with different content:",
+              file=sys.stderr)
+        for c in clashes:
+            print("  " + c, file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,10 @@
+<tool name="sqlite" version="3.50.0" path="@PREFIX@" revision="1">
+  <info url="https://www.sqlite.org"/>
+  <lib name="sqlite3"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+    <environment name="BINDIR" default="$TOOL_BASE/bin"/>
+  </client>
+  <runtime name="PATH" value="$BINDIR" type="path"/>
+</tool>

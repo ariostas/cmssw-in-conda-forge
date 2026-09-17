@@ -1,0 +1,59 @@
+context:
+  version: "2.10.2"
+
+package:
+  name: frontier-client
+  version: ${{ version }}
+
+source:
+  url: http://frontier.cern.ch/dist/frontier_client__${{ version }}__src.tar.gz
+  sha256: 9354d9a8c71512c8442b1f50b2fd48b67c7536b2f1c5252102f3f14bc1ebc5bf
+
+build:
+  number: 0
+  skip:
+    - win
+  script:
+    file: build.sh
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+    - make
+  host:
+    - expat
+    - zlib
+    - openssl
+    - pacparser
+  run:
+    # loaded with dlopen at runtime, so it is not a link-time dependency
+    - pacparser
+
+tests:
+  - script:
+      # fn-req exits non-zero without a server, but it must start and find its library
+      - fn-req -h | grep -q Usage
+  - package_contents:
+      lib:
+        - frontier_client
+      include:
+        - frontier_client/frontier.h
+
+about:
+  homepage: https://twiki.cern.ch/twiki/bin/view/Frontier/WebHome
+  summary: Client library for the Frontier database caching system
+  description: |
+    Frontier distributes data from central databases (used by the CMS and ATLAS experiments
+    for detector conditions) to many client systems around the world, over HTTP and through
+    Squid caches. This package provides the C and C++ client library.
+  license: BSD-3-Clause
+  license_file:
+    - COPYING
+    - Fermilab-2009.txt
+  documentation: http://frontier.cern.ch
+
+extra:
+  recipe-maintainers:
+    - ariostas
