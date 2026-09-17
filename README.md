@@ -52,12 +52,18 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 | Package | Recipe | linux-aarch64 | linux-64 | osx-arm64 |
 |---|---|---|---|---|
 | `cms-scram` | [recipes/cms-scram](recipes/cms-scram) | ✅ | ✅ | ✅ |
+| `cmssw-toolbox` | [recipes/cmssw-toolbox](recipes/cmssw-toolbox) | ✅ | ✅ | ✅ |
 | `alpaka` | [recipes/alpaka](recipes/alpaka) | ✅ | ✅ | ✅ |
 | `hls-arbitrary-precision-types` | [recipes/hls-arbitrary-precision-types](recipes/hls-arbitrary-precision-types) | ✅ | ✅ | ✅ |
 | `cms-md5` (existing feedstock needs new platforms) | [cmssw-notes/feedstock-changes/cms-md5](cmssw-notes/feedstock-changes/cms-md5) | ✅ | ✅ | ✅ |
+| `frontier-client` | [recipes/frontier-client](recipes/frontier-client) | ✅ | ✅ | — |
+| `coral` | [recipes/coral](recipes/coral) | ✅ | ✅ | — |
 | `cmssw-fwlite` | [recipes/cmssw-fwlite](recipes/cmssw-fwlite) | ✅ | ✅ | ⚠️ builds, runtime blocked |
+| `cmssw-framework` (`cmsRun`) | [recipes/cmssw-framework](recipes/cmssw-framework) | ✅ | ✅ | — |
+| `cmssw-conditions` | [recipes/cmssw-conditions](recipes/cmssw-conditions) | in progress | — | — |
 
 ✅ = builds locally with rattler-build (in Docker) and passes the recipe tests.
+— = not tried yet.
 
 **What works**
 
@@ -77,6 +83,20 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
       print([m.pt() for m in muons.product()])
   ```
 
+- `cmsRun` runs from that same environment. `cmssw-framework` adds the event processing
+  framework, the EDM input and output modules and the storage layer, and its tests write an EDM
+  file and read it back:
+
+  ```sh
+  cmsRun write.py && cmsRun read.py      # 5 events, products intact
+  ```
+
+  It also opens a CMS Open Data MiniAOD over XRootD. A conda environment is not a CMS site, so
+  the package ships a site configuration that uses the global CMS services: files through the
+  global XRootD redirector, conditions from the central Frontier servers.
+- `coral` and `frontier-client`, which CMSSW needs to read detector conditions, both build in
+  well under five minutes. CORAL turns out to be a SCRAM project like CMSSW, so it reuses the
+  same toolbox.
 - Only 6 small CMSSW patches are needed (4 of them only for macOS), all meant for upstream.
 
 ## Where this stands

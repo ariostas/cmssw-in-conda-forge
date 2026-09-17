@@ -71,6 +71,10 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
 - Rebuilding a recipe without bumping its build number would otherwise reuse the previously
   extracted package from `~/.cache/rattler/cache/pkgs`; `build-local.sh` deletes those first.
   A stale `cmssw-toolbox` there is silent and very confusing.
+- `build-local.sh` takes a lock: two runs share the output directory and the per-recipe logs,
+  and the interleaved logs look like impossible build errors.
+- Do not edit `build-local.sh` while it is running. bash reads a script as it goes, so an edit
+  makes the running copy fail with a syntax error somewhere unrelated.
 
 ### macOS (native)
 

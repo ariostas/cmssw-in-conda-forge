@@ -51,6 +51,7 @@ requirements:
   host:
     - cms-scram
     - cmssw-framework ==${{ version }}
+    # the same externals as the layers below, because the release's headers include them
     - python
     - numpy
     - root_base
@@ -62,13 +63,24 @@ requirements:
     - libuuid
     - eigen
     - vdt
+    - hepmc2
+    - hepmc3
     - tinyxml2
     - zlib
     - xz
     - zstd
     - bzip2
+    - pcre2
     - openssl
+    - libxcrypt
     - gsl
+    - openblas
+    - alpaka
+    - hls-arbitrary-precision-types
+    - cms-md5
+    - python-clang
+    - libclang
+    # conditions access
     - coral
     - frontier-client
     - sqlite
@@ -77,11 +89,6 @@ requirements:
     # CondCore/CondDB also builds python bindings
     - pybind11
     - libboost-python-devel
-    - alpaka
-    - hls-arbitrary-precision-types
-    - cms-md5
-    - python-clang
-    - libclang
   run:
     - cms-scram
     - cmssw-framework ==${{ version }}
