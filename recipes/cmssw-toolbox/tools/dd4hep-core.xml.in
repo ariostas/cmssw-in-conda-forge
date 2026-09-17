@@ -1,0 +1,25 @@
+<tool name="dd4hep-core" version="1.33" path="@PREFIX@" revision="1">
+  <info url="https://github.com/AIDASoft/DD4hep"/>
+  <lib name="DDCore"/>
+  <lib name="DDParsers"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+  <runtime name="PATH" value="$TOOL_BASE/bin" type="path"/>
+  <flags LISTCOMPONENTS="$TOOL_BASE/bin/listcomponents_dd4hep"/>
+  <!--
+    CMS builds DD4hep with DD4HEP_USE_GEANT4_UNITS=ON and compiles CMSSW with the matching
+    define. conda-forge's DD4hep is built without it, so it uses TGeo units, and defining it
+    here would make CMSSW and the DD4hep library disagree about lengths by a factor of ten
+    wherever a value crosses the library boundary. The define is therefore left out, which is
+    at least self consistent; the geometry cannot be trusted until conda-forge's DD4hep offers
+    a Geant4-units build. See PLAN.md.
+  -->
+  <use name="root_cxxdefaults"/>
+  <use name="root"/>
+  <use name="boost"/>
+  <use name="xerces-c"/>
+  <use name="clhep"/>
+</tool>

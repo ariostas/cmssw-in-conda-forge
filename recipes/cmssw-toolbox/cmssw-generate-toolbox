@@ -59,6 +59,10 @@ def main():
         args.templates = os.path.join(here, "tools")
 
     cxx = find_program("CXX", ["c++", "g++", "clang++"])
+    # clang, for the CondFormats serialization generator (libclang) and the LLVM analyzer
+    clangxx = shutil.which("clang++") or ""
+    clang = shutil.which("clang") or ""
+    clang_version = re.sub(r".*version ([0-9.]+).*", r"\1", output([clangxx, "--version"]).split("\n")[0]) if clangxx else ""
     gcc_version = output([cxx, "-dumpfullversion"]) or output([cxx, "-dumpversion"]) or "0.0.0"
     major, minor, patch = (gcc_version.split(".") + ["0", "0"])[:3]
     make_version = re.sub(r"^GNU Make ", "", output(["make", "--version"]).split("\n")[0])
@@ -75,6 +79,9 @@ def main():
         # PY_VER is set by conda-build/rattler-build for the host python
         "PYTHON_VERSION": os.environ.get("PY_VER") or sysconfig.get_python_version(),
         "MAKE_VERSION": make_version or "4",
+        "CLANGXX": clangxx,
+        "CLANG": clang,
+        "CLANG_VERSION": clang_version or "0.0.0",
         "ROOT_VC_LIB": '<lib name="Vc"/>' if root_has_vc else "",
         # macOS: pass the SDK explicitly, so that SDKROOT/CONDA_BUILD_SYSROOT do not need to be set
         # while building (ROOT's interpreter, which runs during the build, breaks with some SDKs)
@@ -99,6 +106,8 @@ def main():
         if leftover:
             sys.exit("ERROR: unresolved placeholders %s in %s" % (leftover, name))
         missing = missing_paths(text, values["PREFIX"])
+        if name.startswith("llvm-") and not clangxx:
+            missing = missing or ["clang++"]
         if missing:
             # SCRAM refuses to set up a tool whose directories do not exist, so a tool of a
             # package that is not part of this build is left out. A build that needs it fails

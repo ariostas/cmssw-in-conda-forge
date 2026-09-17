@@ -20,6 +20,13 @@ if [ ${#RECIPES[@]} -eq 0 ]; then
 fi
 
 WORK=$(mkdir -p "${WORK:-/work}" && cd "${WORK:-/work}" && pwd)
+# Two runs would share the output directory and the per-recipe logs, which is very confusing
+# to debug: the logs interleave and the packages come from whichever run finished last.
+exec 9>"${WORK}/.build-local.lock"
+if command -v flock >/dev/null && ! flock -n 9; then
+  echo "another build-local.sh is running in ${WORK}; wait for it or kill it" >&2
+  exit 1
+fi
 cd "$(dirname "$0")/.."
 OUT=${WORK}/output
 mkdir -p "${OUT}" "${WORK}/logs"

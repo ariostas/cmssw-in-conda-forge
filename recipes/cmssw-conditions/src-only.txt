@@ -1,4 +1,3 @@
-CondCore/AlignmentPlugins
 CondCore/BTauPlugins
 CondCore/BaseKeyedPlugins
 CondCore/BasicCondPlugins
@@ -16,7 +15,6 @@ CondCore/GBRForestPlugins
 CondCore/GEMPlugins
 CondCore/HIPlugins
 CondCore/HLTPlugins
-CondCore/HcalPlugins
 CondCore/JetMETPlugins
 CondCore/LuminosityPlugins
 CondCore/MLObjectsPlugins
@@ -25,4 +23,3 @@ CondCore/OptAlignPlugins
 CondCore/PhysicsToolsPlugins
 CondCore/RecoMuonPlugins
 CondCore/RunInfoPlugins
-CondCore/SiPhase2TrackerPlugins

@@ -45,7 +45,10 @@ export SCRAM_LOOKUPDB_WRITE=${SCRAM_LOOKUPDB}
 
 set -x
 
-# 1. a developer area on top of the installed release
+# 1. a developer area on top of the installed release. rattler-build reuses the work directory
+#    when it rebuilds a recipe, so an area left over from an earlier run would still hold the
+#    sources of that run's package list and they would be built again.
+rm -rf "${WORK}"
 mkdir -p "${WORK}"
 (cd "${WORK}" && scram project "${CMSSW_VERSION}")
 
