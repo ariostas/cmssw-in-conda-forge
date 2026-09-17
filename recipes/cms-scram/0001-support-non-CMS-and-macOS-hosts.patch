@@ -1,12 +1,12 @@
 diff --git a/SCRAM/BuildSystem/MakeInterface.py b/SCRAM/BuildSystem/MakeInterface.py
-index ad56881..0ef04eb 100644
+index ad56881..498b1f0 100644
 --- a/SCRAM/BuildSystem/MakeInterface.py
 +++ b/SCRAM/BuildSystem/MakeInterface.py
 @@ -1,6 +1,13 @@
  import re
  from SCRAM import scramerror
 -from os import environ, execl, sched_getaffinity
-+from os import environ, execl
++from os import environ, execlp
 +try:
 +    from os import sched_getaffinity
 +except ImportError:  # not available on macOS
@@ -17,6 +17,16 @@ index ad56881..0ef04eb 100644
  
  regex_j = re.compile('^(-j|--jobs=)([0-9]*)$')
  regex_number = re.compile('^[0-9]+$')
+@@ -40,6 +47,8 @@ class MakeInterface:
+             environ["SCRAM_BUILDVERBOSE"] = "1"
+         script = "%s/%s/SCRAM/run_gmake.sh" % (environ['LOCALTOP'], environ['SCRAM_CONFIGDIR'])
+         try:
+-            execl(script, *gmake_arg)
++            # Run the script with the bash found in PATH instead of its #!/bin/bash: on macOS,
++            # SIP removes DYLD_* variables (needed by the build rules) when running /bin/bash.
++            execlp("bash", "bash", script, *gmake_arg[1:])
+         except Exception as e:
+             scramerror("SCRAM MakeInterface::exec(): Unable to run gmake ...  %s" % e)
 diff --git a/SCRAM/Core/Utils.py b/SCRAM/Core/Utils.py
 index 9b86432..577f0db 100644
 --- a/SCRAM/Core/Utils.py

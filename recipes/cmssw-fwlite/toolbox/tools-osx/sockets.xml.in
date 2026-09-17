@@ -1,0 +1,3 @@
+  <!-- macOS: everything is part of libSystem -->
+  <tool name="sockets" version="system" revision="2">
+  </tool>

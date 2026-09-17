@@ -10,3 +10,11 @@ clhep:
   - "2.4.7.2"
 geant4:
   - "11.4.2"
+
+# std::to_chars/from_chars for floating point types (used by std::format) need macOS 13.3
+c_stdlib_version:
+  - if: osx
+    then: "13.3"
+MACOSX_DEPLOYMENT_TARGET:
+  - if: osx
+    then: "13.3"

@@ -1,0 +1,154 @@
+diff --git a/DataFormats/ForwardDetId/src/BTLDetId.cc b/DataFormats/ForwardDetId/src/BTLDetId.cc
+index 0039bb125..c00a5bb3e 100644
+--- a/DataFormats/ForwardDetId/src/BTLDetId.cc
++++ b/DataFormats/ForwardDetId/src/BTLDetId.cc
+@@ -1,4 +1,5 @@
+ #include "DataFormats/ForwardDetId/interface/BTLDetId.h"
++#include <sstream>
+ 
+ BTLDetId BTLDetId::geographicalId(CrysLayout lay) const {
+   // For tracking geometry navigation
+diff --git a/DataFormats/ForwardDetId/src/ETLDetId.cc b/DataFormats/ForwardDetId/src/ETLDetId.cc
+index 7bb8f0f5b..8cbf57520 100644
+--- a/DataFormats/ForwardDetId/src/ETLDetId.cc
++++ b/DataFormats/ForwardDetId/src/ETLDetId.cc
+@@ -1,5 +1,6 @@
+ #include "DataFormats/ForwardDetId/interface/ETLDetId.h"
+ #include <iomanip>
++#include <sstream>
+ 
+ namespace io_v1 {
+   std::ostream& operator<<(std::ostream& os, const ETLDetId& id) {
+diff --git a/DataFormats/L1TParticleFlow/interface/gt_datatypes.h b/DataFormats/L1TParticleFlow/interface/gt_datatypes.h
+index 981a66dc2..f1ccdba3d 100644
+--- a/DataFormats/L1TParticleFlow/interface/gt_datatypes.h
++++ b/DataFormats/L1TParticleFlow/interface/gt_datatypes.h
+@@ -150,6 +150,7 @@ namespace l1gt {
+       return unpack_ap(bits);
+     }
+ 
++#if !defined(__APPLE__)  // uint64_t is unsigned long long on macOS
+     inline static Jet unpack(long long unsigned int &src) {
+       // unpack from single 64b int
+       ap_uint<BITWIDTH> bits = src;
+@@ -163,6 +164,7 @@ namespace l1gt {
+       bits(127, 64) = src[1];
+       return unpack_ap(bits);
+     }
++#endif
+ 
+   };  // struct Jet
+ 
+@@ -224,6 +226,7 @@ namespace l1gt {
+       return unpack_ap(bits);
+     }
+ 
++#if !defined(__APPLE__)  // uint64_t is unsigned long long on macOS
+     inline static WideJet unpack(long long unsigned int &src) {
+       // unpack from single 64b int
+       ap_uint<BITWIDTH> bits = src;
+@@ -237,6 +240,7 @@ namespace l1gt {
+       bits(127, 64) = src[1];
+       return unpack_ap(bits);
+     }
++#endif
+ 
+   };  // struct WideJet
+ 
+diff --git a/DataFormats/L1TParticleFlow/interface/jets.h b/DataFormats/L1TParticleFlow/interface/jets.h
+index c9a3e399b..1513ed983 100644
+--- a/DataFormats/L1TParticleFlow/interface/jets.h
++++ b/DataFormats/L1TParticleFlow/interface/jets.h
+@@ -169,6 +169,7 @@ namespace l1ct {
+       return unpack_ap(bits);
+     }
+ 
++#if !defined(__APPLE__)  // uint64_t is unsigned long long on macOS
+     inline static Jet unpack(long long unsigned int &src) {
+       // unpack from single 64b int
+       ap_uint<BITWIDTH> bits = src;
+@@ -182,6 +183,7 @@ namespace l1ct {
+       // bits(127, 64) = src[1];
+       return unpack_ap(bits);
+     }
++#endif
+ 
+     l1gt::Jet toGT() const {
+       l1gt::Jet j;
+diff --git a/DataFormats/L1TrackTrigger/interface/TTBV.h b/DataFormats/L1TrackTrigger/interface/TTBV.h
+index eccf3903e..a5c6f1c7d 100644
+--- a/DataFormats/L1TrackTrigger/interface/TTBV.h
++++ b/DataFormats/L1TrackTrigger/interface/TTBV.h
+@@ -376,8 +376,9 @@ private:
+   // look up table initializer for powers of 2
+   constexpr std::array<double, S_ + 1> powersOfTwo() const {
+     std::array<double, S_ + 1> lut = {};
+-    for (int i = 0; i <= S_; i++)
+-      lut[i] = std::pow(2, i);
++    double power = 1.;
++    for (int i = 0; i <= S_; i++, power *= 2.)
++      lut[i] = power;
+     return lut;
+   }
+ 
+diff --git a/DataFormats/L1TrackTrigger/interface/TTTrack_TrackWord.h b/DataFormats/L1TrackTrigger/interface/TTTrack_TrackWord.h
+index e191bfd1a..edadc26e0 100644
+--- a/DataFormats/L1TrackTrigger/interface/TTTrack_TrackWord.h
++++ b/DataFormats/L1TrackTrigger/interface/TTTrack_TrackWord.h
+@@ -90,10 +90,10 @@ public:
+   static constexpr double minZ0 = -20.46912512;
+   static constexpr double minD0 = -16.;
+ 
+-  static constexpr double stepRinv = (2. * std::abs(minRinv)) / (1 << TrackBitWidths::kRinvSize);
+-  static constexpr double stepPhi0 = (2. * std::abs(minPhi0)) / (1 << TrackBitWidths::kPhiSize);
++  static constexpr double stepRinv = (2. * -minRinv) / (1 << TrackBitWidths::kRinvSize);
++  static constexpr double stepPhi0 = (2. * -minPhi0) / (1 << TrackBitWidths::kPhiSize);
+   static constexpr double stepTanL = (1. / (1 << 12));
+-  static constexpr double stepZ0 = (2. * std::abs(minZ0)) / (1 << TrackBitWidths::kZ0Size);
++  static constexpr double stepZ0 = (2. * -minZ0) / (1 << TrackBitWidths::kZ0Size);
+   static constexpr double stepD0 = (1. / (1 << 8));
+ 
+   // Bin edges for chi2/dof
+diff --git a/FWCore/Concurrency/src/WaitingThreadPool.cc b/FWCore/Concurrency/src/WaitingThreadPool.cc
+index 47634f063..80e2d273f 100644
+--- a/FWCore/Concurrency/src/WaitingThreadPool.cc
++++ b/FWCore/Concurrency/src/WaitingThreadPool.cc
+@@ -13,7 +13,12 @@ namespace edm::impl {
+     // including the null termination
+     static_assert(std::string_view(poolName).size() < 16);
+ 
++#if defined(__APPLE__)
++    // on macOS a thread can only set its own name, so it is not named here
++    [[maybe_unused]] int err = 0;
++#else
+     [[maybe_unused]] int err = pthread_setname_np(thread_.native_handle(), poolName);
++#endif
+     // According to the glibc documentation, the only error
+     // pthread_setname_np() can return is about the argument C-string
+     // being too long. We already check above the C-string is shorter
+diff --git a/FWCore/Framework/interface/IOVSyncValue.h b/FWCore/Framework/interface/IOVSyncValue.h
+index e15e0e42d..80df021f2 100644
+--- a/FWCore/Framework/interface/IOVSyncValue.h
++++ b/FWCore/Framework/interface/IOVSyncValue.h
+@@ -111,7 +111,7 @@ namespace edm {
+ 
+ template <>
+ struct std::formatter<edm::IOVSyncValue> : std::formatter<std::string_view> {
+-  auto format(const edm::IOVSyncValue& syncValue, auto& ctx) {
++  auto format(const edm::IOVSyncValue& syncValue, auto& ctx) const {
+     std::string temp;
+     if (syncValue.haveID_ && syncValue.haveTime_) {
+       std::format_to(std::back_inserter(temp),
+diff --git a/FWCore/Framework/interface/ValidityInterval.h b/FWCore/Framework/interface/ValidityInterval.h
+index d14220373..92edb4e9a 100644
+--- a/FWCore/Framework/interface/ValidityInterval.h
++++ b/FWCore/Framework/interface/ValidityInterval.h
+@@ -64,7 +64,7 @@ namespace edm {
+ 
+ template <>
+ struct std::formatter<edm::ValidityInterval> : std::formatter<std::string_view> {
+-  auto format(const edm::ValidityInterval& interval, auto& ctx) {
++  auto format(const edm::ValidityInterval& interval, auto& ctx) const {
+     std::string temp;
+     std::format_to(std::back_inserter(temp), "ValidityInterval{{ {}, {} }}", interval.first(), interval.last());
+     return std::formatter<std::string_view>::format(temp, ctx);

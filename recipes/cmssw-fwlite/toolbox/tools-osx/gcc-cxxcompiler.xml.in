@@ -1,0 +1,24 @@
+  <!-- macOS: the "gcc" compiler tool is conda-forge's clang with libc++ -->
+  <tool name="gcc-cxxcompiler" version="@GCC_VERSION@" type="compiler" revision="2">
+    <client>
+      <environment name="CXX" value="@CXX@"/>
+    </client>
+    <flags CPPDEFINES="GNU_GCC _GNU_SOURCE"/>
+    <flags CXXSHAREDOBJECTFLAGS="-fPIC"/>
+    <flags CXXFLAGS="@SYSROOT_FLAGS@"/>
+    <flags CXXFLAGS="-O3 -pthread -pipe -std=c++20 -ftree-vectorize -fvisibility-inlines-hidden -fno-math-errno"/>
+    <flags CXXFLAGS="-Wall -Wextra -Wno-long-long -Wreturn-type -Wpessimizing-move"/>
+    <flags CXXFLAGS="-Wno-cast-function-type -Wno-unused-but-set-parameter -Wno-ignored-qualifiers -Wno-unused-parameter"/>
+    <flags CXXFLAGS="-Wunused -Wparentheses -Werror=return-type -Werror=unused-value -Werror=unused-result -Werror=unused-label"/>
+    <flags CXXFLAGS="-Werror=address -Werror=format -Werror=sign-compare -Werror=write-strings -Werror=delete-non-virtual-dtor"/>
+    <flags CXXFLAGS="-Werror=narrowing -Werror=reorder -Werror=unused-variable -Wnon-virtual-dtor -Werror=switch"/>
+    <flags CXXFLAGS="-Wno-unused-local-typedefs -Wno-attributes -Wno-psabi"/>
+    <!-- same as CMS's llvm-cxxcompiler tool -->
+    <flags CXXFLAGS="-Wno-c99-extensions -Wno-c++11-narrowing -Wno-unused-private-field -Wno-unknown-pragmas"/>
+    <flags CXXFLAGS="-Wno-unused-command-line-argument -Wno-unknown-warning-option -ftemplate-depth=512"/>
+    <flags CXXFLAGS="-Wno-error=potentially-evaluated-expression -Wno-tautological-type-limit-compare -Wno-vla-cxx-extension"/>
+    <flags CXXFLAGS="-fsized-deallocation"/>
+    <flags LDFLAGS="@SYSROOT_FLAGS@ -Wl,-headerpad_max_install_names -Wl,-dead_strip_dylibs"/>
+    <flags CXXSHAREDFLAGS="@SYSROOT_FLAGS@ -dynamiclib -Wl,-headerpad_max_install_names"/>
+    <flags LD_UNIT="-r"/>
+  </tool>

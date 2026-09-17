@@ -1,0 +1,7 @@
+  <tool name="gcc-ccompiler" version="@GCC_VERSION@" type="compiler" revision="2">
+    <client>
+      <environment name="CC" value="@CC@"/>
+    </client>
+    <flags CSHAREDOBJECTFLAGS="-fPIC"/>
+    <flags CFLAGS="@SYSROOT_FLAGS@ -O3 -pthread"/>
+  </tool>

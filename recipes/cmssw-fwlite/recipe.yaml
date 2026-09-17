@@ -26,7 +26,8 @@ source:
 build:
   number: 0
   skip:
-    - not linux
+    - win
+    - osx and x86_64
   script:
     env:
       CMSSW_TAG: ${{ cmssw_tag }}

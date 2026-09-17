@@ -18,7 +18,7 @@ build:
   script:
     - mkdir -p ${PREFIX}/lib ${PREFIX}/include
     - cp md5.h ${PREFIX}/include/
-    - ${CC} md5.c -shared -fPIC -o libcms-md5${SHLIB_EXT} ${LDFLAGS}
+    - ${CC} ${CFLAGS} md5.c -shared -fPIC -o libcms-md5${SHLIB_EXT} ${LDFLAGS}
     - cp libcms-md5${SHLIB_EXT} ${PREFIX}/lib/
 
 requirements:

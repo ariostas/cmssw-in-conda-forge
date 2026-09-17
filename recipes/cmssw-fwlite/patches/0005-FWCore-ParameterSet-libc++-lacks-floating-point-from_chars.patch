@@ -1,0 +1,38 @@
+diff --git a/FWCore/ParameterSet/src/types.cc b/FWCore/ParameterSet/src/types.cc
+index 40d16cd00..945fc3cf6 100644
+--- a/FWCore/ParameterSet/src/types.cc
++++ b/FWCore/ParameterSet/src/types.cc
+@@ -16,6 +16,8 @@
+ #include <limits>
+ #include <sstream>
+ #include <stdexcept>
++#include <string>
++#include <type_traits>
+ #include <cassert>
+ #include <optional>
+ 
+@@ -441,10 +443,24 @@ namespace {
+     if (!from.empty() && from.front() == '+') {
+       from.remove_prefix(1);
+     }
++#if defined(_LIBCPP_VERSION)
++    // libc++ does not implement std::from_chars for floating point types, use strtod/strtof
++    // instead (they also handle subnormals, only setting errno to ERANGE).
++    std::string const str(from);
++    char* end = nullptr;
++    if (std::is_same_v<T, float>) {
++      to = std::strtof(str.c_str(), &end);
++    } else {
++      to = std::strtod(str.c_str(), &end);
++    }
++    // Trailing characters after a valid number are ignored to be compatible with earlier behavior.
++    return end != str.c_str();
++#else
+     auto const* const first = from.data();
+     auto const* const last = first + from.size();
+     // Trailing characters after a valid number are ignored to be compatible with earlier behavior.
+     return std::from_chars(first, last, to).ec == std::errc();
++#endif
+   }
+ }  // namespace
+ 

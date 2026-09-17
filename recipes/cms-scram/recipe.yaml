@@ -14,7 +14,7 @@ source:
     - 0001-support-non-CMS-and-macOS-hosts.patch
 
 build:
-  number: 0
+  number: 1
   noarch: generic
   script:
     env:

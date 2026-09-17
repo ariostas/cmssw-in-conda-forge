@@ -31,5 +31,9 @@ for glob in "$@"; do
   rm -rf ${glob}
 done
 
-LDFLAGS_RPATH="-Wl,-rpath,${PREFIX}/lib -Wl,-rpath-link,${PREFIX}/lib -L${PREFIX}/lib"
-time scram b -k -j "${CPU_COUNT:-$(nproc)}" USER_LDFLAGS="${LDFLAGS_RPATH}"
+# the products must find the libraries of the release they are built on (on macOS DYLD_* variables
+# are not reliable because SIP strips them)
+RELEASETOP=$(sed -n 's/^RELEASETOP=//p' "../.SCRAM/${SCRAM_ARCH}/Environment")
+LDFLAGS_RPATH="-Wl,-rpath,${RELEASETOP}/lib/${SCRAM_ARCH} -Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib"
+[ "$(uname)" = Linux ] && LDFLAGS_RPATH="${LDFLAGS_RPATH} -Wl,-rpath-link,${PREFIX}/lib"
+time scram b -k -j "${CPU_COUNT:-$(getconf _NPROCESSORS_ONLN)}" USER_LDFLAGS="${LDFLAGS_RPATH}"

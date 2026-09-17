@@ -52,8 +52,21 @@ popd
 mkdir -p "${RELEASE_PARENT}"
 (cd "${STAGE}" && scram project -d "${RELEASE_PARENT}" -b config/bootsrc.xml)
 cd "${RELEASE}"
-USER_LDFLAGS="-Wl,-rpath,${RELEASE}/lib/${SCRAM_ARCH} -Wl,-rpath,${PREFIX}/lib -Wl,-rpath-link,${PREFIX}/lib -L${PREFIX}/lib"
-scram b -k -j "${CPU_COUNT}" USER_LDFLAGS="${USER_LDFLAGS}" </dev/null
+USER_LDFLAGS="-Wl,-rpath,${RELEASE}/lib/${SCRAM_ARCH} -Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib"
+if [[ "${target_platform}" == linux-* ]]; then
+  USER_LDFLAGS="${USER_LDFLAGS} -Wl,-rpath-link,${PREFIX}/lib"
+fi
+if [[ "${target_platform}" == osx-* ]]; then
+  # The EDM class version checks compare ROOT checksums computed on Linux, which differ on macOS
+  # for classes with (u)int64_t members ((unsigned) long long instead of (unsigned) long).
+  export SCRAM_NOEDM_CHECKS=1
+  # The SDK is passed to the compiler explicitly by the toolbox (-isysroot). ROOT's interpreter,
+  # which runs during the build, must not see it: conda-forge's ROOT ships system modules built
+  # against an older SDK and they conflict with the ones built from a newer SDK.
+  env -u SDKROOT -u CONDA_BUILD_SYSROOT scram b -k -j "${CPU_COUNT}" USER_LDFLAGS="${USER_LDFLAGS}" </dev/null
+else
+  scram b -k -j "${CPU_COUNT}" USER_LDFLAGS="${USER_LDFLAGS}" </dev/null
+fi
 
 # 5. clean up build products that are not needed at runtime
 # external/ is SCRAM's symlink farm into the prefix, not needed in conda

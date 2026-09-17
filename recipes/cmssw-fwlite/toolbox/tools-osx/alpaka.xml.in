@@ -1,0 +1,19 @@
+<!-- macOS: libc++ does not provide std::atomic_ref -->
+<tool name="alpaka" version="2.1.1" path="@PREFIX@" revision="4">
+  <client>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+  <!-- set ALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128 for host, device, and dictionaries -->
+  <flags CXXFLAGS="-DALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128"/>
+  <flags CUDA_FLAGS="-DALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128"/>
+  <flags GENREFLEX_CPPFLAGS="-DALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128"/>
+  <!-- disable the vendor specific random number generators (NVIDIA cuRAND, AMD rocRAND, Intel DPL) -->
+  <flags CXXFLAGS="-DALPAKA_DISABLE_VENDOR_RNG"/>
+  <flags CUDA_FLAGS="-DALPAKA_DISABLE_VENDOR_RNG"/>
+  <flags GENREFLEX_CPPFLAGS="-DALPAKA_DISABLE_VENDOR_RNG"/>
+  <!-- std::call_once is implemented using a pthread weak symbol on EL8 -->
+  <ifarchitecture name="el8">
+    <flags LDFLAGS="-Wl,-no-as-needed -lpthread -Wl,-as-needed"/>
+  </ifarchitecture>
+</tool>
