@@ -1,0 +1,9 @@
+<tool name="boost_python" version="1.88.0" path="@PREFIX@" revision="1">
+  <info url="http://www.boost.org"/>
+  <lib name="boost_python@PYTHON_VERSION_NODOT@"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+  <use name="boost_header"/>
+  <use name="python3"/>
+</tool>

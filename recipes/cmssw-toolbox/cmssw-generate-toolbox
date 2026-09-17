@@ -78,6 +78,8 @@ def main():
         "GLIBCXX_VERSION": "%d%02d%02d" % (int(major), int(minor), int(patch)),
         # PY_VER is set by conda-build/rattler-build for the host python
         "PYTHON_VERSION": os.environ.get("PY_VER") or sysconfig.get_python_version(),
+        # boost's python library is named after the version without the dot, e.g. boost_python312
+        "PYTHON_VERSION_NODOT": (os.environ.get("PY_VER") or sysconfig.get_python_version()).replace(".", ""),
         "MAKE_VERSION": make_version or "4",
         "CLANGXX": clangxx,
         "CLANG": clang,

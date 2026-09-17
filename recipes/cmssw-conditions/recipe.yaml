@@ -69,11 +69,14 @@ requirements:
     - bzip2
     - openssl
     - gsl
-    - libcurl
     - coral
     - frontier-client
     - sqlite
     - expat
+    - libcurl
+    # CondCore/CondDB also builds python bindings
+    - pybind11
+    - libboost-python-devel
     - alpaka
     - hls-arbitrary-precision-types
     - cms-md5

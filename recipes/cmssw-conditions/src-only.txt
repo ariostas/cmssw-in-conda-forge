@@ -17,7 +17,6 @@ CondCore/HIPlugins
 CondCore/HLTPlugins
 CondCore/JetMETPlugins
 CondCore/LuminosityPlugins
-CondCore/MLObjectsPlugins
 CondCore/MTDPlugins
 CondCore/OptAlignPlugins
 CondCore/PhysicsToolsPlugins

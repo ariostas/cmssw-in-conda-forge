@@ -20,7 +20,6 @@ CondCore/HIPlugins
 CondCore/HLTPlugins
 CondCore/JetMETPlugins
 CondCore/LuminosityPlugins
-CondCore/MLObjectsPlugins
 CondCore/MTDPlugins
 CondCore/OptAlignPlugins
 CondCore/PhysicsToolsPlugins
@@ -46,7 +45,6 @@ CondFormats/HIObjects
 CondFormats/HLTObjects
 CondFormats/JetMETObjects
 CondFormats/Luminosity
-CondFormats/MLObjects
 CondFormats/MTDObjects
 CondFormats/OptAlignObjects
 CondFormats/PPSObjects
@@ -57,5 +55,4 @@ CondFormats/SerializationHelper
 DataFormats/CTPPSDetId
 Geometry/Records
 JetMETCorrections/Objects
-PhysicsTools/ONNXRuntime
 Utilities/Xerces
