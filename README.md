@@ -61,7 +61,7 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 
 **What works**
 
-- `cmssw-fwlite` (148 CMSSW packages, a 60 MB package) builds against conda-forge's ROOT 6.36,
+- `cmssw-fwlite` (138 CMSSW packages, a 60 MB package) builds against conda-forge's ROOT 6.36,
   gcc 15 and python 3.12. It takes about 1 CPU-hour natively on aarch64, so it fits the default
   conda-forge CI runners.
 - From a plain conda environment (no SCRAM, no CVMFS), FWLite reads CMS MiniAOD files, e.g.

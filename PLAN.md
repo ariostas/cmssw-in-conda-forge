@@ -373,7 +373,7 @@ Setup: `condaforge/miniforge3` container, a conda env with conda-forge externals
     `$PREFIX/share/cmssw/<arch>/cms/cmssw/CMSSW_X`;
   - layer 2 is a `scram project` dev area on top of it (`RELEASETOP`), including
     dictionaries that depend on layer-1 `.pcm` files.
-- **FWLite builds with no errors** (148 packages, i.e. cmsdist's FWLite set minus Fireworks and
+- **FWLite builds with no errors** (138 packages, i.e. cmsdist's FWLite set minus Fireworks and
   minus the 3 packages that need `utm`). It needed 4 CMSSW patches
   (`recipes/cmssw-fwlite/patches`), all candidates for upstreaming:
   1. The serialization generator filtered out conda's libstdc++ include dir (`lib/gcc/.../include/c++`).
