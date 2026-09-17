@@ -61,6 +61,22 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
   `build-local.sh` passes the recipe's `variants.yaml` last. Without it, the global pinning's
   multiple `root_base`/`clhep` versions give 9 variants.
 
+### macOS (native)
+
+- Everything under `_work/` (git-ignored):
+  - dev env: `_work/osx-env`, activated with `source _work/osx-activate.sh`;
+  - rattler-build and the pinning: `_work/osx-tools`;
+  - `WORK` dir for `build-local.sh`: `_work/osx-work`;
+  - CMSSW source with the patch series applied: `_work/osx-src/cmssw-CMSSW_20_1_0_pre2` (a git repo).
+- `PATH=$PWD/_work/osx-tools/bin:$PATH WORK=_work/osx-work bash cmssw-notes/build-local.sh osx_arm64 recipes/cmssw-fwlite`
+- conda-forge's ld64 can't read the macOS 26 SDK, so `_work/osx-work/extra_variants.yaml` sets
+  `CONDA_BUILD_SYSROOT` to `/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk`.
+- `_work/sdks/MacOSX11.0.sdk` matches conda-forge ROOT 6.36.10's prebuilt modules. It's needed as
+  `SDKROOT` for ROOT's interpreter at runtime (see PLAN.md, osx-arm64 port).
+- The old mamba 1.5 on the host can't solve with the local channel; install local `.conda` files directly with `conda install --offline`.
+- SIP strips `DYLD_*` variables when running `/bin/bash`, `/usr/bin/env` and similar protected
+  binaries. Rely on rpaths and `ROOT_LIBRARY_PATH`, never on `DYLD_*`.
+
 ## CMSSW/SCRAM gotchas learned so far
 
 - `SCRAM_ARCH` is `linux_amd64_gcc`, `linux_aarch64_gcc` or `osx_arm64_clang` (no compiler version).
@@ -80,6 +96,9 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
 - The CMSSW 20_1 data formats use `io_v1` namespaces with `using` aliases (e.g. `pat::Muon`). FWLite
   `Handle`s and TClass lookups need the `io_v1` name.
 - The `utm` package has no license, so the 3 packages that depend on it are excluded.
+- macOS: libc++ is stricter than libstdc++, and `uint64_t` is `unsigned long long` there. EDM class
+  checksums differ for 64-bit integer members, so the checks are skipped (`SCRAM_NOEDM_CHECKS`).
+  ROOT 6.36's interpreter only works with the SDK its modules were built with.
 
 ## Patches
 

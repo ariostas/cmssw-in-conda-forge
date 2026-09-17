@@ -52,9 +52,10 @@ popd
 mkdir -p "${RELEASE_PARENT}"
 (cd "${STAGE}" && scram project -d "${RELEASE_PARENT}" -b config/bootsrc.xml)
 cd "${RELEASE}"
-USER_LDFLAGS="-Wl,-rpath,${RELEASE}/lib/${SCRAM_ARCH} -Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib"
+USER_LDFLAGS="-Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib"
 if [[ "${target_platform}" == linux-* ]]; then
-  USER_LDFLAGS="${USER_LDFLAGS} -Wl,-rpath-link,${PREFIX}/lib"
+  # (on macOS the build rules add the release library directory to the rpaths themselves)
+  USER_LDFLAGS="${USER_LDFLAGS} -Wl,-rpath,${RELEASE}/lib/${SCRAM_ARCH} -Wl,-rpath-link,${PREFIX}/lib"
 fi
 if [[ "${target_platform}" == osx-* ]]; then
   # The EDM class version checks compare ROOT checksums computed on Linux, which differ on macOS

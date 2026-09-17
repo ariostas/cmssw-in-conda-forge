@@ -51,11 +51,11 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 
 | Package | Recipe | linux-aarch64 | linux-64 | osx-arm64 |
 |---|---|---|---|---|
-| `cms-scram` | [recipes/cms-scram](recipes/cms-scram) | ✅ | ✅ | not tried |
-| `alpaka` | [recipes/alpaka](recipes/alpaka) | ✅ | ✅ | not tried |
-| `hls-arbitrary-precision-types` | [recipes/hls-arbitrary-precision-types](recipes/hls-arbitrary-precision-types) | ✅ | ✅ | not tried |
-| `cms-md5` (existing feedstock needs new platforms) | [cmssw-notes/feedstock-changes/cms-md5](cmssw-notes/feedstock-changes/cms-md5) | ✅ | ✅ | not tried |
-| `cmssw-fwlite` | [recipes/cmssw-fwlite](recipes/cmssw-fwlite) | ✅ | ✅ | not tried |
+| `cms-scram` | [recipes/cms-scram](recipes/cms-scram) | ✅ | ✅ | ✅ |
+| `alpaka` | [recipes/alpaka](recipes/alpaka) | ✅ | ✅ | ✅ |
+| `hls-arbitrary-precision-types` | [recipes/hls-arbitrary-precision-types](recipes/hls-arbitrary-precision-types) | ✅ | ✅ | ✅ |
+| `cms-md5` (existing feedstock needs new platforms) | [cmssw-notes/feedstock-changes/cms-md5](cmssw-notes/feedstock-changes/cms-md5) | ✅ | ✅ | ✅ |
+| `cmssw-fwlite` | [recipes/cmssw-fwlite](recipes/cmssw-fwlite) | ✅ | ✅ | ⚠️ builds, runtime blocked |
 
 ✅ = builds locally with rattler-build (in Docker) and passes the recipe tests.
 
@@ -82,6 +82,10 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 
 **Known issues / open questions**
 
+- **macOS runtime:** `cmssw-fwlite` builds on osx-arm64, but conda-forge's ROOT 6.36.10 interpreter only
+  handles system headers with the macOS 11.0 SDK it was built with (fixed upstream in ROOT 6.38). FWLite
+  therefore only works on macOS with `SDKROOT` pointing at a MacOSX11.0.sdk. CMSSW stays on ROOT 6.36 for
+  consistency with CMS releases, so macOS runtime support is postponed.
 - [utm](https://gitlab.cern.ch/cms-l1t-utm/utm), the CMS L1 trigger menu library, has **no
   license**, so it cannot be packaged yet. The 3 FWLite packages that need it are excluded for now.
 - CMS's HepMC2 fork changes an ABI-relevant type. conda-forge's stock `hepmc2` is used instead,
@@ -93,7 +97,7 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 ## Roadmap
 
 1. Run the recipes in real conda-forge CI (linux-64) and submit the dependency recipes.
-2. Port to osx-arm64 (clang/libc++, SCRAM macOS fixes).
+2. osx-arm64: the build works; runtime needs a fix for ROOT 6.36's interpreter on newer macOS SDKs.
 3. Turn layering into recipes: the framework with `cmsRun` and conditions access (CORAL,
    frontier_client), then reconstruction, simulation and DQM.
 4. Automate updates to new CMSSW releases and conda-forge migrations.

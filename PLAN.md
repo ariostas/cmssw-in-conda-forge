@@ -341,6 +341,9 @@ Submit to staged-recipes (each is its own small PR):
    `variants.yaml`. It doesn't follow the global pinning's multiple versions.
 8. **linux-64 local builds:** use the conda-forge CI image `quay.io/condaforge/linux-anvil-x86_64:alma9`
    through Docker's Rosetta emulation on the arm64 Mac (`cmssw-notes/build-local.sh linux64`).
+9. **macOS runtime (2026-09-17):** stay on ROOT 6.36.10 on macOS too, for consistency with the CMS
+   releases. osx-arm64 remains a *compile-only* target until the ROOT 6.36 interpreter/SDK issue
+   (see progress log) is resolved; runtime use on macOS is postponed.
 
 ## 6. Progress log
 
@@ -467,3 +470,58 @@ all recipes build and `cmssw-fwlite` passes its tests. It took 22 min wall / 147
    recipe for the next layer (e.g. `cmssw-core` framework + `cmsRun`), and install
    `DirCache/*.mk`, `BuildFiles/` and `.edmplugincache.d/<pkg>` per package.
 5. Upstream the 4 CMSSW patches to cms-sw/cmssw and ask the utm maintainers about a license.
+
+### 2026-09-17: osx-arm64 port
+
+FWLite now builds natively on osx-arm64 (M1 Max, conda-forge clang 21 + libc++), both as a
+hand-built spike (two layers) and through the `cmssw-fwlite` recipe with rattler-build (about 10 min).
+The spike reads the CMS Open Data MiniAOD file with the same results as on Linux, **but only when ROOT's
+interpreter uses the macOS 11.0 SDK** (see blocker below).
+
+**Build environment**
+- The conda-forge linker (ld64) can't parse the macOS 26 SDK (`arm64e.x1` in `libSystem.tbd`), so local
+  builds use `CONDA_BUILD_SYSROOT=.../MacOSX15.4.sdk` (via `$WORK/extra_variants.yaml`). CI uses its own SDKs.
+- Deployment target 13.3 (`variants.yaml`), needed for floating point `std::to_chars` (std::format).
+  conda-forge's ROOT uses `-D_LIBCPP_DISABLE_AVAILABILITY` instead.
+- The toolbox gets a `tools-osx/` overlay: clang flags (from CMS's llvm tool), `-isysroot`,
+  `-dynamiclib`, `-headerpad_max_install_names`, no GNU ld options, and alpaka without
+  `ALPAKA_HAS_STD_ATOMIC_REF`. Do not use `-dead_strip_dylibs`: it produced a dylib with no load
+  commands, which dyld refuses to load.
+
+**SIP (System Integrity Protection) and DYLD_* variables**
+- SIP strips `DYLD_*` whenever a protected binary (`/bin/bash`, `/usr/bin/env`, ...) is executed.
+- SCRAM exec'd `run_gmake.sh` via its `#!/bin/bash` shebang, so the make rules lost
+  `DYLD_FALLBACK_LIBRARY_PATH` and all `-L` flags. Fixed in the cms-scram patch (exec `bash` from PATH);
+  make's `SHELL` also prefers the PATH bash.
+- Build-time python checks start via `#!/usr/bin/env python3`, so they lose `DYLD_*` too:
+  - libraries from the release weren't found → explicit rpaths;
+  - ROOT didn't find the release's rootmaps, so base-class dictionaries were missing and **class checksums
+    changed** → `ROOT_LIBRARY_PATH` is now exported next to the library path in the project
+    `Self.xml` (cmssw-config patch).
+
+**CMSSW source fixes for clang/libc++** (patches 0005, 0006), all small and upstreamable:
+- floating-point `std::from_chars` doesn't exist in libc++;
+- `std::formatter::format` must be const;
+- no constexpr `std::abs`/`std::pow`;
+- `uint64_t` is `unsigned long long` on macOS, which gives duplicate overloads;
+- missing `<sstream>` includes;
+- `pthread_setname_np` can only name the calling thread.
+- `hls-arbitrary-precision-types` forward-declared `std::complex`, which breaks with libc++'s inline namespace.
+
+**EDM class version checks** are skipped on macOS (`SCRAM_NOEDM_CHECKS=1`). Checksums of classes with
+`(u)int64_t` members differ from the Linux ones (`unsigned long long` vs `unsigned long`), even though
+the on-disk layout is identical.
+
+**Blocker for macOS runtime: conda-forge ROOT 6.36.10 and the macOS SDK**
+- ROOT 6.36.10 on conda-forge ships prebuilt system modules (`Darwin.pcm`, `_DarwinFoundation*.pcm`,
+  `std.pcm`, ...) built against `/opt/conda-sdks/MacOSX11.0.sdk`. With any other SDK (Xcode's 26.5, the
+  Command Line Tools' 15.x), cling fails on plain `#include <unistd.h>`: "`_OSSwapInt16` has different
+  definitions in different modules", "could not build module `_DarwinFoundation3`".
+- FWLite parses CMSSW headers at runtime, so it breaks for users. It works when `SDKROOT` points to a
+  MacOSX11.0.sdk (tested).
+- ROOT 6.38+ generates the Darwin modulemap from the active SDK (root-project/root commit
+  `dfc83fa305`), and conda-forge's ROOT 6.40.04 works with the default SDK.
+- Possible fix: backport that change to conda-forge/root-feedstock's `6.36.x` branch and rebuild. This was
+  **postponed** (decision 9).
+- The recipe tests don't catch this, because the test env has `CONDA_BUILD_SYSROOT` set and
+  `Declare()` still returns true.

@@ -17,6 +17,8 @@ source:
       - patches/0002-CondFormats-support-unpatched-boost-serialization.patch
       - patches/0003-SimDataFormats-support-upstream-HepMC2-WeightContainer.patch
       - patches/0004-FWCore-PluginManager-per-package-caches-and-CMSSW_PLUGIN_PATH.patch
+      - patches/0005-FWCore-ParameterSet-libc++-lacks-floating-point-from_chars.patch
+      - patches/0006-Support-clang-and-libc++-on-macOS.patch
   - url: https://github.com/cms-sw/cmssw-config/archive/refs/tags/${{ cmssw_config_tag }}.tar.gz
     sha256: 3326a15f8ba28ab984259d98a1798c1558d5f89664d01911441adefe802928ad
     target_directory: config
@@ -107,6 +109,8 @@ requirements:
 tests:
   - script:
       - edmPluginDump | head
+      # every library and plugin must be loadable (with RTLD_GLOBAL, like the edm PluginManager)
+      - python -c "import ctypes, glob, os; libs = glob.glob(os.path.join(os.environ['CMSSW_BASE'], 'lib', os.environ['SCRAM_ARCH'], '*.[ds][oy]*')); assert libs; [ctypes.CDLL(lib, mode=ctypes.RTLD_GLOBAL) for lib in sorted(libs)]; print(len(libs), 'libraries loaded')"
       - edmFileInPath FWCore/ParameterSet/python/Config.py
       - python -c "import FWCore.ParameterSet.Config as cms; print(cms.Process('TEST'))"
       - python -c "from DataFormats.FWLite import Events, Handle"

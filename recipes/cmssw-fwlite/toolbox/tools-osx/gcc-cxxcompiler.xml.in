@@ -18,7 +18,7 @@
     <flags CXXFLAGS="-Wno-unused-command-line-argument -Wno-unknown-warning-option -ftemplate-depth=512"/>
     <flags CXXFLAGS="-Wno-error=potentially-evaluated-expression -Wno-tautological-type-limit-compare -Wno-vla-cxx-extension"/>
     <flags CXXFLAGS="-fsized-deallocation"/>
-    <flags LDFLAGS="@SYSROOT_FLAGS@ -Wl,-headerpad_max_install_names -Wl,-dead_strip_dylibs"/>
+    <flags LDFLAGS="@SYSROOT_FLAGS@ -Wl,-headerpad_max_install_names"/>
     <flags CXXSHAREDFLAGS="@SYSROOT_FLAGS@ -dynamiclib -Wl,-headerpad_max_install_names"/>
     <flags LD_UNIT="-r"/>
   </tool>
