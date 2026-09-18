@@ -629,6 +629,8 @@ cannot be used with this stack:
   anyway would make CMSSW and the library disagree about lengths by a factor of ten wherever a
   value crosses the boundary. The tool file therefore leaves it out, which is self consistent
   but is not what CMS validates.
+  **(Revised 2026-09-18: every CMSSW use of a DD4hep unit is a conversion factor, so TGeo units
+  are probably fine, not merely self consistent. See the progress log.)**
 - **boost.** The DD4hep build for ROOT 6.36.10 (which is the one that matches our pin) was built
   against boost 1.90, while conda-forge's global pinning is still 1.88, so it cannot be installed
   next to anything built against the pinning. Moving the whole CMSSW stack to boost 1.90 would
@@ -817,12 +819,23 @@ migration's pin into its variant config. Worth doing before there are many layer
 variants, and the `==20` one exists for exactly our `root_base 6.36.10`. The earlier `cxx23`
 conflict in a failed solve was just the solver reporting the other variant.
 
-**Units are the real question, and it is empirical.** The feedstock's cmake line sets
+**Units look much less dangerous than assumed.** The feedstock's cmake line sets
 `DD4HEP_USE_GEANT4=ON` but not `DD4HEP_USE_GEANT4_UNITS`, so conda-forge's DD4hep uses TGeo
-units where CMS uses Geant4 units. A conda-forge *variant* for this is awkward: the two builds
-would differ in the meaning of the numbers rather than in any ABI signature, so nothing stops
-a solver mixing them. The open question is whether CMSSW works when both sides consistently
-use TGeo units — our tool file already leaves the define out, which is self consistent. That
-cannot be answered by reading: it needs a geometry layer built against this DD4hep and its
-numbers compared against the CVMFS release. That comparison is the next real experiment, and
-it is now the only thing between here and reconstruction that is not a licensing question.
+units where CMS uses Geant4 units. But CMSSW never assumes what DD4hep's base unit is. It does
+not reference `DD4HEP_USE_GEANT4_UNITS` anywhere, and every one of the 511 uses of
+`dd4hep::mm`, `dd4hep::cm` and `dd4hep::deg` in the release is a conversion: 335 divide by one
+(`dpar[1] / dd4hep::cm`), 167 multiply by one, and the handful left over define named scale
+constants (`k_ScaleToDD4hep = dd4hep::cm`, `k_ScaleToDD4hepFromG4 = dd4hep::mm`) that are used
+the same way. No file mixes them with CLHEP units. The constant comes from DD4hep's own
+headers, so the ratio is right whichever base the library was compiled with, as long as the two
+sides agree — and with the define left out on both, they do.
+
+That makes TGeo units *probably* fine rather than *merely self consistent*. It is still a
+reading of the code, not a measurement: the geometry layer has to be built against this DD4hep
+and its numbers compared against the CVMFS release before this is settled. A conda-forge
+*variant* for Geant4 units would be a poor fallback anyway — the two builds would differ in the
+meaning of their numbers rather than in any ABI signature, so nothing would stop a solver
+mixing them.
+
+Net effect: of the three things blocking geometry, one is an ordinary migration, one was never
+real, and the third is an experiment rather than a decision.
