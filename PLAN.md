@@ -887,3 +887,29 @@ want, pulling its own data packages with it. `reach.py` currently blocks geant4 
 CMS-configured build", which was an assumption rather than a finding; it is worth re-testing,
 because geant4 is the single largest remaining step in the ladder (+18 points). That is a
 question for after geometry, not before.
+
+### 2026-09-18: conda-forge's geant4 may already be good enough
+
+`reach.py` blocks geant4 as "needs a CMS-configured build", which was an assumption carried over
+from the first survey. Comparing `_work/cmsdist/geant4.spec` against the conda-forge feedstock's
+`build_geant4.sh` line by line, the configurations agree on everything that matters:
+
+| option | CMS | conda-forge |
+|---|---|---|
+| `GEANT4_BUILD_MULTITHREADED` | ON | ON |
+| `GEANT4_BUILD_TLS_MODEL` | `global-dynamic` | `global-dynamic` |
+| `GEANT4_USE_GDML` | ON | ON |
+| `GEANT4_USE_SYSTEM_CLHEP` / `EXPAT` / `ZLIB` | ON | ON |
+| `GEANT4_USE_USOLIDS` | `"all"` (VecGeom) | not set |
+
+The two that usually break a plugin-loading, multithreaded framework — the TLS model and the
+multithreaded build — match exactly, which is the part that would have been expensive to
+discover the hard way. The single difference is VecGeom solids, and that is a performance choice
+internal to Geant4: **CMSSW never links against VecGeom.** The only mentions of it anywhere in
+the release are four ROOT plotting macros (`PlotVecGeom.C` and friends); no `BuildFile.xml`
+names the tool.
+
+So the ladder's largest remaining rung (+18 points, 72% to 90%) may not need a custom Geant4 at
+all. This is a reading of two build scripts, not a test, so the classification in `reach.py`
+stays as it is until something is actually built against it — but it means simulation should be
+attempted with conda-forge's geant4 before anyone considers packaging a CMS-configured one.

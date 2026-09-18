@@ -28,6 +28,8 @@ BLOCKED = {
     "dd4hep-core": "geometry (dd4hep)",
     "dd4hep-geant4": "geometry (dd4hep)",
     "utm": "L1 menu (unlicensed utm)",
+    # Provisional: conda-forge's geant4 11.4.2 matches CMS's configuration except for
+    # GEANT4_USE_USOLIDS (VecGeom), which CMSSW never links against. See PLAN.md 2026-09-18.
     "geant4": "simulation (geant4)",
     "geant4core": "simulation (geant4)",
     "geant4static": "simulation (geant4)",
