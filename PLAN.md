@@ -867,3 +867,23 @@ Two things the dependency graph does not show, both of which have bitten this pr
 So the layer is small, its data is small, and the blocker in front of it is a migration plus a
 numerical check. The check itself is easy once the layer builds: compare the numbers a
 `DDCompactView`/`TrackerGeometry` produces against the same query on the CVMFS release.
+
+### 2026-09-18: the data packages are probably not out of reach after all
+
+The working assumption has been that `cms-data` has to stay outside conda-forge. Checking the
+precedent, that looks too pessimistic. The largest noarch packages conda-forge hosts today are
+`presto-server` at 1.32 GB and **`geant4-data-ndl` at 1.12 GB** — a physics data package of
+exactly the kind in question — followed by `proj-data` at 0.84 GB and a row of 0.5 GB spaCy
+models.
+
+Against that, the reconstruction data set is 2.94 GB spread over 55 repositories whose largest
+member is `CalibTracker-SiPixelESProducers` at 0.78 GB: every one of them is smaller than
+packages conda-forge already carries. Only `SimG4CMS-Calo` (2.9 GB uncompressed, simulation
+only) clearly exceeds the precedent, and it would want checking compressed before being called
+impossible.
+
+The same solve also shows **geant4 11.4.2 is on conda-forge** and pairs with the DD4hep build we
+want, pulling its own data packages with it. `reach.py` currently blocks geant4 as "needs a
+CMS-configured build", which was an assumption rather than a finding; it is worth re-testing,
+because geant4 is the single largest remaining step in the ladder (+18 points). That is a
+question for after geometry, not before.
