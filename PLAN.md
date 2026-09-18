@@ -298,11 +298,13 @@ Submit to staged-recipes (each is its own small PR):
 ### M7: DQM, validation, alignment (group 7), full `cmssw` metapackage
 
 ### M8: macOS (osx-arm64, then maybe osx-64), in parallel from M3 onward
-- [ ] SCRAM/cmssw-config osx fixes (dylib handling, GNU tools, link flags).
-- [ ] libc++ + clang fixes in CMSSW, upstreamed as PRs to cms-sw/cmssw. Could add a
-      CMS clang+libc++ syntax-check IB to prevent regressions.
-- [ ] Linux-specific API fallbacks in the 30 affected files.
-- [ ] Build-time code execution on osx-arm64 runners (native, not cross).
+- [x] SCRAM/cmssw-config osx fixes (dylib handling, GNU tools, link flags).
+- [x] libc++ + clang fixes in CMSSW for the layers built so far. **Not** yet upstreamed as PRs to
+      cms-sw/cmssw. Could add a CMS clang+libc++ syntax-check IB to prevent regressions.
+- [x] Linux-specific API fallbacks, for the packages built so far (`pipe2`, `execv`, `environ`,
+      `HOST_NAME_MAX`, `/proc`). More will appear as later layers are added.
+- [ ] Build-time code execution on osx-arm64 runners (native, not cross). Works locally; not yet
+      tried on conda-forge's runners.
 
 ### M9: automation and hand-off
 - [ ] Script to bump all layers to a new CMSSW release: rerun partition, regenerate recipes,
@@ -343,9 +345,12 @@ Submit to staged-recipes (each is its own small PR):
    `variants.yaml`. It doesn't follow the global pinning's multiple versions.
 8. **linux-64 local builds:** use the conda-forge CI image `quay.io/condaforge/linux-anvil-x86_64:alma9`
    through Docker's Rosetta emulation on the arm64 Mac (`cmssw-notes/build-local.sh linux64`).
-9. **macOS runtime (2026-09-17):** stay on ROOT 6.36.10 on macOS too, for consistency with the CMS
-   releases. osx-arm64 remains a *compile-only* target until the ROOT 6.36 interpreter/SDK issue
-   (see progress log) is resolved; runtime use on macOS is postponed.
+9. **macOS runtime (2026-09-17, reversed 2026-09-18):** the original decision was to stay on ROOT
+   6.36.10 on macOS for consistency with the CMS releases, leaving osx-arm64 a *compile-only*
+   target. That traded a working platform for a version number: conda-forge's 6.36 cannot run on
+   macOS at all. macOS now pins ROOT 6.40 instead, is a full runtime target, and the mismatch with
+   the release's 6.36.13 is documented in each `variants.yaml`. Revisit if conda-forge's 6.36.x
+   gains the SDK fix.
 
 ## 6. Progress log
 
@@ -527,6 +532,10 @@ the on-disk layout is identical.
   **postponed** (decision 9).
 - The recipe tests don't catch this, because the test env has `CONDA_BUILD_SYSROOT` set and
   `Declare()` still returns true.
+
+(**Resolved 2026-09-18** by pinning ROOT 6.40 on macOS instead of backporting, and by adding a test
+that does catch it. The diagnosis above was right in every detail; only the conclusion — wait for
+6.36.x — was wrong. See the 2026-09-18 entry and decision 9.)
 
 ### 2026-09-17: layering as conda packages, CORAL and Frontier
 
@@ -985,3 +994,111 @@ numeric comparison against the CVMFS release, which cannot be run on this machin
 mounted on the arm64 Mac while the release there is `el9_amd64_gcc13`. The cheapest honest test
 is probably to compare against published CMS geometry numbers instead, or to run the same
 configuration inside the amd64 container with CVMFS mounted into it.
+
+### 2026-09-18: osx-arm64 catches up with Linux, on a newer ROOT
+
+The whole stack now builds and passes its tests natively on osx-arm64: `frontier-client` 29 s,
+`coral` 86 s, `cmssw-fwlite` 646 s, `cmssw-framework` 347 s, `cmssw-conditions` 575 s,
+`cmssw-geometry` 592 s, `cmssw-devel` 92 s (M1 Max, 10 cores). `cmsRun` writes and reads an EDM
+file, DD4hep builds the CMS detector from the CMS XML, and the developer loop ends with
+
+```
+OK: the work area shadows the installed release
+```
+
+Before today macOS had only `cmssw-fwlite`, and that was marked *builds, runtime blocked*.
+
+**ROOT 6.40 on macOS, and it does not match the release.** The 2026-09-17 blocker was real and is
+unchanged: conda-forge's ROOT 6.36 ships prebuilt Darwin system modules built against
+`/opt/conda-sdks/MacOSX11.0.sdk`, and with any other SDK cling dies on `#include <unistd.h>`
+("could not build module `_DarwinFoundation3`"). Verified again before changing anything, and
+verified that 6.40.04 does the same include with the Command Line Tools SDK and no `SDKROOT` at
+all. So `variants.yaml` now selects `root_base` 6.40 on osx and keeps 6.36.10 on Linux. This is a
+deliberate deviation from the release's validated ROOT 6.36.13 and is written down in the file
+that does it. It should go away once conda-forge's 6.36.x branch backports root-project/root
+`dfc83fa305`, or once CMSSW moves to a ROOT whose macOS builds work.
+
+The old test did not catch this, as suspected, for two reasons rather than one: the build and test
+environments set `SDKROOT`/`CONDA_BUILD_SYSROOT` and users do not, *and* the CMSSW headers it
+declared never reach the Darwin modules that fail. `cmssw-fwlite` now has a test that drops both
+variables and declares `#include <unistd.h>`, which does return false on 6.36 with the system SDK.
+
+`root_cxx_standard` had to become an explicit host dependency: 6.36.10 only exists as a cxx20
+build, but 6.40 comes in cxx20 and cxx23, and nothing else would have chosen between them.
+
+**Nine portability problems, all small, none of them conceptual.**
+
+- *frontier-client* decided between `.so` and `.dylib` with `[ -f /usr/lib/libc.dylib ]`. Since Big
+  Sur the system dylibs only exist inside the dyld shared cache, so that test is false on every
+  supported macOS: the build took the Linux path and died on `ld: unknown option: -soname`.
+- *cmssw-config* `createSymLinks.sh` uses associative arrays, which need bash 4, and its shebang is
+  `#!/bin/bash` — bash 3.2 on macOS. There the array assignments parse as arithmetic subscripts and
+  CORAL failed with `division by 0 (error token is "/CoralCommon")`. Now `#!/usr/bin/env bash`.
+  While there, the terminal probe `[ -t 1 ] >> /proc/$PPID/fd/1` prints an error on every macOS
+  build before correctly concluding "pipe"; silenced.
+- *CORAL* `MessageStream.h` declares `operator<<` for `std::_Setfill`, `std::_Setiosflags` and
+  friends. Those are libstdc++ implementation details, but the guard is `#elif defined(__GNUC__)`
+  — and clang defines `__GNUC__` too. Changed to `__GLIBCXX__`, which is what it actually meant.
+- *libc++ availability annotations.* conda-forge's libc++ marks everything introduced in LLVM 19
+  and 20 as `introduced = 99.0` with a deliberately invalid attribute pointing at its knowledge
+  base, so anything including `<charconv>` (through `<chrono>`, so: a lot) fails with
+  `error: expected ')'`. The annotations do not apply here, because the libc++ used at run time is
+  the conda one, not the system's; the macOS compiler tool file now defines
+  `_LIBCPP_DISABLE_AVAILABILITY`, which is what conda-forge's own ROOT does.
+  **This made patch 0005 obsolete**: it replaced floating point `std::from_chars` with `strtod`
+  "because libc++ does not implement it". libc++ does implement it now — that is why there is an
+  availability annotation at all — so the patch was removing a parser difference that no longer
+  existed and introducing one of its own (`strtod` accepts hex floats and leading whitespace,
+  `from_chars` does not). Dropped, and checked by compiling and running the call.
+- *FWCore/Services and FWStorage/Services*: `pipe2` is Linux-only (replaced with `pipe` +
+  `FD_CLOEXEC`, which cannot be atomic on macOS), `execv` takes `char* const*` so the existing
+  non-Linux branch never compiled, and `environ` needs `_NSGetEnviron()`.
+- *CondCore/CondDB* `Utils.h` uses `HOST_NAME_MAX`, which macOS does not define, and `std::map`
+  without including `<map>`.
+- *DetectorDescription and Geometry*: four includes of libstdc++ internals
+  (`<ext/alloc_traits.h>`, `<ext/pool_allocator.h>`) that nothing uses, and two missing standard
+  includes (`<utility>`, `<sstream>`).
+- *python extension modules.* `cmsRun` reads its configuration through
+  `import libFWCorePythonParameterSet`, and CPython only recognises `.so` as an extension suffix,
+  on macOS as well as on Linux — but SCRAM builds `.dylib` there. dyld does not care about the
+  extension, so `cmssw-link-python-modules` (new, in the toolbox) adds a `.so` symlink for every
+  library that exports `PyInit_<its own name>`. Only the libraries a layer built get an alias, so
+  no two conda packages claim the same file. Exactly one library matches today.
+- *cpu_features* has no osx-arm64 build: the conda-forge feedstock has `skip: true  # [osx]`, which
+  looks like it predates upstream's macOS/aarch64 support (0.8.0, through `sysctlbyname`). It
+  builds there unchanged, and `cmssw-framework` cannot be built without it, because
+  `FWCore/Services/plugins/CPU.cc` includes `cpu_features_macros.h` unconditionally. Local recipe
+  in `cmssw-notes/feedstock-changes/`; the real fix is dropping the skip in the feedstock.
+
+**DD4hep on macOS reads `DYLD_LIBRARY_PATH`.** Same mechanism as on Linux, different variable, and
+it is chosen at compile time in `GaudiPluginService/src/PluginServiceV2.cpp`; there is no
+`DD4HEP_LIBRARY_PATH` in DD4hep at all. (conda-forge's patch 0004 additionally prepends the
+directory of `libGaudiPluginMgr` itself, which is why `$PREFIX/lib` works without help and the
+release's `lib/` still does not.) The `cmssw-geometry` activation script now picks the variable at
+build time. SIP limits this: a variable exported by an already-running shell does reach a
+non-protected child, so `cmsRun` gets it, but a wrapper shell script in between would not.
+
+**The developer area needed a link path that the layer builds had been hiding.** `scram b` in a
+work area on macOS failed with `ld: library not found for -lTree`. The link line SCRAM generates
+has no `-L` for the conda prefix at all — not for ROOT, boost, TBB or anything else. On Linux that
+is harmless because conda-forge's gcc is configured with the prefix in its default search path
+("the compiler adds `${PREFIX}/lib` to rpath, so it's better to add `-L` ... as well", says its own
+activation script); conda-forge's macOS clang is not, and only gets there through `LDFLAGS`. Every
+layer build passes `-L$PREFIX/lib` as `USER_LDFLAGS`, so nothing had noticed. The macOS compiler
+tool files now carry `-L$PREFIX/lib -Wl,-rpath,$PREFIX/lib`, which is where it belongs.
+
+**One thing that cannot be fixed yet.** `cmssw-devel` pulls `c-compiler`/`cxx-compiler`, which
+resolve to conda-forge's current defaults — clang 18 on osx-arm64, against layers built with
+clang 21. Asking for the exact version does not solve: `clangxx_osx-arm64 21` needs
+`libcxx-devel 21`, and conda-forge's `root_base` 6.40 needs `libcxx-devel 20`. The two cannot
+share an environment. It does not affect the layers, whose build and host environments are
+separate, and the developer loop passes as it is, so this is recorded rather than worked around.
+
+**Two of my own mistakes worth recording.** `build-local.sh` deletes rattler's extracted copy of
+each package it is about to rebuild, and looked only in `~/.cache/rattler`; on macOS the cache is
+in `~/Library/Caches/rattler`. The deletion silently did nothing, so a rebuilt `cmssw-toolbox`
+with the same build string was ignored and the fix looked ineffective — twice, before I checked
+the file that was actually used. And an XML comment in a tool file contained `--`, which SCRAM's
+parser rejects; it prints `ERROR: Failed to parse` and then continues with `root = None`, so the
+real message was a `TypeError` twenty lines further down. All ~86 tool templates are now checked
+with an XML parser after editing.

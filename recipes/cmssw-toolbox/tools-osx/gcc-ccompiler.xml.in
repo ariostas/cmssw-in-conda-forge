@@ -1,7 +1,9 @@
-  <tool name="gcc-ccompiler" version="@GCC_VERSION@" type="compiler" revision="2">
+  <tool name="gcc-ccompiler" version="@GCC_VERSION@" type="compiler" revision="3">
     <client>
       <environment name="CC" value="@CC@"/>
     </client>
     <flags CSHAREDOBJECTFLAGS="-fPIC"/>
     <flags CFLAGS="@SYSROOT_FLAGS@ -O3 -pthread"/>
+    <!-- see gcc-cxxcompiler: conda-forge's macOS clang does not search the prefix by default -->
+    <flags LDFLAGS="-L@PREFIX@/lib -Wl,-rpath,@PREFIX@/lib"/>
   </tool>

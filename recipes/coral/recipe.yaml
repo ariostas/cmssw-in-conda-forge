@@ -18,6 +18,7 @@ source:
       - patches/0001-CoralBase-silence-a-format-overflow-warning-with-new-gcc.patch
       - patches/0002-PyCoral-PyUnicode_GET_SIZE-was-removed-in-python-3.12.patch
       - patches/0003-CoralKernel-plugins-are-dylib-on-macOS.patch
+      - patches/0004-CoralBase-libstdc-manipulator-types-do-not-exist-in-libc.patch
   - url: https://github.com/cms-sw/cmssw-config/archive/refs/tags/${{ cmssw_config_tag }}.tar.gz
     sha256: 3326a15f8ba28ab984259d98a1798c1558d5f89664d01911441adefe802928ad
     target_directory: config
@@ -25,7 +26,7 @@ source:
       - cmssw-config-patches/0001-conda-build-environment-fixes.patch
 
 build:
-  number: 1
+  number: 2
   skip:
     - win
     - osx and x86_64

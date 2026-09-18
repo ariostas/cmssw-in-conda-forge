@@ -7,11 +7,11 @@ package:
   version: ${{ version }}
 
 build:
-  number: 2
+  number: 5
   noarch: generic
   script:
     - mkdir -p ${PREFIX}/bin ${PREFIX}/share/cmssw-toolbox
-    - install -m 755 ${RECIPE_DIR}/cmssw-generate-toolbox ${RECIPE_DIR}/cmssw-build-layer ${RECIPE_DIR}/cmssw-install-layer ${PREFIX}/bin/
+    - install -m 755 ${RECIPE_DIR}/cmssw-generate-toolbox ${RECIPE_DIR}/cmssw-build-layer ${RECIPE_DIR}/cmssw-install-layer ${RECIPE_DIR}/cmssw-link-python-modules ${PREFIX}/bin/
     - cp -R ${RECIPE_DIR}/tools ${RECIPE_DIR}/tools-osx ${PREFIX}/share/cmssw-toolbox/
 
 requirements:

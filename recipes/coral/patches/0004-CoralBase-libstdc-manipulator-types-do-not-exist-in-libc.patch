@@ -1,0 +1,16 @@
+diff --git a/CoralBase/CoralBase/MessageStream.h b/CoralBase/CoralBase/MessageStream.h
+index b879710..07bb2aa 100644
+--- a/CoralBase/CoralBase/MessageStream.h
++++ b/CoralBase/CoralBase/MessageStream.h
+@@ -118,7 +118,10 @@ namespace coral
+       COND_RETURN((*m._Pf)(m_stream,m._Manarg))
+ #endif
+ 
+-#elif defined (__GNUC__) 
++// Not __GNUC__: these are libstdc++ implementation details, and clang defines __GNUC__ too,
++// so with libc++ (macOS) the declarations below do not compile. __GLIBCXX__ is set by the
++// <iomanip> included above when the standard library really is libstdc++.
++#elif defined (__GLIBCXX__)
+     template<typename T> _P& operator <<(const std::_Setfill<T> &m) THIS_RETURN(m_stream<<m)
+     _P& operator << (const std::_Setiosflags &m)     COND_RETURN(m_stream<<m)
+     _P& operator << (const std::_Resetiosflags &m)   COND_RETURN(m_stream<<m)

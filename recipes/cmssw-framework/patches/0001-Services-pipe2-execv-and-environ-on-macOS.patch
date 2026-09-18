@@ -1,0 +1,67 @@
+diff --git a/FWCore/Services/plugins/InitRootHandlers.cc b/FWCore/Services/plugins/InitRootHandlers.cc
+index 426be7b21..22412a35c 100644
+--- a/FWCore/Services/plugins/InitRootHandlers.cc
++++ b/FWCore/Services/plugins/InitRootHandlers.cc
+@@ -32,6 +32,9 @@
+ #include <vector>
+ #include <string>
+ #include <array>
++#include <fcntl.h>
++#include <unistd.h>
++#include <cerrno>
+ 
+ // WORKAROUND: At CERN, execv is replaced with a non-async-signal safe
+ // version.  This can break our stack trace printer.  Avoid this by
+@@ -58,6 +61,26 @@ namespace {
+   // size of static buffer allocated for listing module names following a
+   // stacktrace abort
+   constexpr std::size_t moduleBufferSize = 128;
++
++#ifdef __APPLE__
++  // macOS has no pipe2(). O_CLOEXEC is the only flag this file asks for, and there is no way to
++  // set it atomically with the pipe there, so a concurrent fork() can still inherit the fds.
++  int pipe2(int fds[2], int flags) {
++    if (pipe(fds) == -1) {
++      return -1;
++    }
++    for (int i = 0; i < 2; ++i) {
++      if (fcntl(fds[i], F_SETFD, (flags & O_CLOEXEC) ? FD_CLOEXEC : 0) == -1) {
++        int const savedErrno = errno;
++        close(fds[0]);
++        close(fds[1]);
++        errno = savedErrno;
++        return -1;
++      }
++    }
++    return 0;
++  }
++#endif
+ }  // namespace
+ 
+ namespace edm {
+@@ -749,7 +772,8 @@ namespace edm {
+ #ifdef __linux__
+       syscall(SYS_execve, "/bin/sh", argv, __environ);
+ #else
+-      execv("/bin/sh", argv);
++      // POSIX declares the argument as char* const*, so the const has to be cast away here.
++      execv("/bin/sh", const_cast<char* const*>(argv));
+ #endif
+       ::abort();
+       return 1;
+diff --git a/FWStorage/Services/plugins/CondorStatusService.cc b/FWStorage/Services/plugins/CondorStatusService.cc
+index 2fb7d0999..279caf3b4 100644
+--- a/FWStorage/Services/plugins/CondorStatusService.cc
++++ b/FWStorage/Services/plugins/CondorStatusService.cc
+@@ -20,6 +20,11 @@
+ #include <unistd.h>
+ #include <sys/wait.h>
+ #include <spawn.h>
++#ifdef __APPLE__
++// macOS does not declare `environ` for a shared library; this is the documented way to reach it.
++#include <crt_externs.h>
++#define environ (*_NSGetEnviron())
++#endif
+ #include <iostream>
+ #include <fstream>
+ #include <sstream>

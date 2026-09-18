@@ -52,8 +52,10 @@ grep -q "${MARKER}" FWCore/Modules/plugins/BooleanProducer.cc
 scram b -j "${CPU_COUNT:-2}"
 
 # the plugin was rebuilt into the work area and not into the release
-test -f "${CMSSW_BASE}/lib/${SCRAM_ARCH}/pluginFWCoreModulesPlugins.so"
-grep -qa "${MARKER}" "${CMSSW_BASE}/lib/${SCRAM_ARCH}/pluginFWCoreModulesPlugins.so"
+case "${SCRAM_ARCH}" in osx_*) SO=dylib ;; *) SO=so ;; esac
+PLUGIN="${CMSSW_BASE}/lib/${SCRAM_ARCH}/pluginFWCoreModulesPlugins.${SO}"
+test -f "${PLUGIN}"
+grep -qa "${MARKER}" "${PLUGIN}"
 
 # ... and cmsRun loads it in preference to the one in the release
 cat > run.py <<'PYEOF'

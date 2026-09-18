@@ -14,10 +14,21 @@ index 1363685..65ae67a 100644
   <runtime name="PATH"                  value="$LOCALTOP/external/$SCRAM_ARCH/bin"    type="path" handler="warn"/>
   <runtime name="PYTHON3PATH"            value="$LOCALTOP/python"                     type="path" handler="warn"/>
 diff --git a/SCRAM/GMake/Makefile.rules b/SCRAM/GMake/Makefile.rules
-index bf0879f..e3463a9 100644
+index bf0879f..0bb0a3c 100644
 --- a/SCRAM/GMake/Makefile.rules
 +++ b/SCRAM/GMake/Makefile.rules
-@@ -132,7 +132,9 @@ POISON_EDMPLUGIN_CACHE      :=
+@@ -21,7 +21,9 @@ TARGETDIR:= $(subst /,_,$(THISDIR))
+ .DEFAULT_GOAL := all
+ .PHONY: FORCE_TARGET
+ ##############################################################################
+-ifeq ($(shell [ -t 1 ] >> /proc/$${PPID}/fd/1 && echo terminal || echo pipe),terminal)
++# 2>/dev/null: there is no /proc on macOS, so this prints an error before correctly
++# concluding "pipe".
++ifeq ($(shell { [ -t 1 ] >> /proc/$${PPID}/fd/1 ; } 2>/dev/null && echo terminal || echo pipe),terminal)
+ PASS := "\033[0;32mPass\033[0m"
+ FAIL := "\033[1;31mFail\033[0m"
+ SKIP := "\033[1;33mSkip\033[0m"
+@@ -132,7 +134,9 @@ POISON_EDMPLUGIN_CACHE      :=
  EDM_CHECKSUM_HELP_MSG       = Suggestion: You can run 'scram build updateclassversion' to generate $$x.generated with updated ClassVersion
  CMDS_COMPILERS_MAP          := CXX:g++ CC:gcc FC:g77
  ALL_CMDS                    := sh awk basename cat cd chmod cp dirname diff echo false find g77 g++ c++ gcc grep ln ls mkdir mv printf python python2 python3 md5sum rm sed sort touch tr true uname uniq xargs ld wc cut git gunzip tail head objcopy ar rsync
@@ -28,6 +39,19 @@ index bf0879f..e3463a9 100644
  BASECMD_which               := which
  CMD_cd  := cd
  ifdef CXX
+diff --git a/SCRAM/createSymLinks.sh b/SCRAM/createSymLinks.sh
+index 5bca9af..f3673e2 100755
+--- a/SCRAM/createSymLinks.sh
++++ b/SCRAM/createSymLinks.sh
+@@ -1,4 +1,7 @@
+-#!/bin/bash
++#!/usr/bin/env bash
++# env bash, not /bin/bash: this script uses associative arrays, which need bash 4, and the
++# /bin/bash of every macOS is 3.2. There the array assignments below are parsed as arithmetic
++# subscripts instead and the build fails with "division by 0".
+ 
+ src=$1                    #source directory to search directories in
+ des=$2                    #destination directory to create symlinks in
 diff --git a/SCRAM/run_gmake.sh b/SCRAM/run_gmake.sh
 index 091180a..e6967a1 100755
 --- a/SCRAM/run_gmake.sh

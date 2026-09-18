@@ -20,6 +20,12 @@ MAKE_ARGS=(
 LIBS="-L${PREFIX}/lib -lexpat -lssl -lcrypto -lz ${LDFLAGS}"
 if [[ "${target_platform}" == linux-* ]]; then
   LIBS="${LIBS} -ldl -lrt"
+else
+  # The Makefile decides between .so and .dylib with `[ -f /usr/lib/libc.dylib ]`. Since Big Sur
+  # the system dylibs only exist inside the dyld shared cache, so that test is false on every
+  # supported macOS and the build takes the Linux path: it links with -shared and -soname and
+  # fails with "ld: unknown option: -soname".
+  MAKE_ARGS+=(DYLIBTYPE=dylib)
 fi
 
 # the Makefile is not parallel safe: libfrontier_client.so depends on http/.libs,

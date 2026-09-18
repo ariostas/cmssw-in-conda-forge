@@ -1,0 +1,51 @@
+# Local copy of conda-forge/cpu_features-feedstock (meta.yaml there), used to build an osx-arm64
+# package. The feedstock has `skip: true  # [osx]`, but upstream cpu_features has supported
+# macOS/aarch64 through sysctlbyname since 0.8.0, so the skip looks like it just predates that.
+# Upstream change needed: drop the osx skip in the feedstock.
+#
+# CMSSW needs this on every platform: FWCore/Services/plugins/CPU.cc includes
+# cpu_features/cpu_features_macros.h unconditionally, so cmssw-framework cannot be built without it.
+context:
+  name: cpu_features
+  version: "0.11.0"
+
+package:
+  name: ${{ name }}
+  version: ${{ version }}
+
+source:
+  url: https://github.com/google/${{ name }}/archive/v${{ version }}.tar.gz
+  sha256: ab2463f2d38fcaff1ce806be8e4c91333449931f5e02009d543b2569a3fa471a
+
+build:
+  number: 0
+  skip:
+    - win
+  script:
+    file: build.sh
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+    - cmake
+    - make
+
+tests:
+  - script:
+      - list_cpu_features
+      - test -f $PREFIX/include/cpu_features/cpu_features_macros.h
+      - test -f $PREFIX/lib/libcpu_features.a
+      - test -f $PREFIX/lib/cmake/CpuFeatures/CpuFeaturesConfig.cmake
+
+about:
+  homepage: https://github.com/google/cpu_features
+  summary: A cross platform C99 library to get cpu features at runtime
+  license: Apache-2.0
+  license_file: LICENSE
+  repository: https://github.com/google/cpu_features
+
+extra:
+  recipe-maintainers:
+    - ariostas

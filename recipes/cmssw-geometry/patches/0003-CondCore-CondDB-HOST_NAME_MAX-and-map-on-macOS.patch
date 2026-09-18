@@ -1,0 +1,20 @@
+diff --git a/CondCore/CondDB/interface/Utils.h b/CondCore/CondDB/interface/Utils.h
+index 321f80940..a31dd3a5c 100644
+--- a/CondCore/CondDB/interface/Utils.h
++++ b/CondCore/CondDB/interface/Utils.h
+@@ -12,8 +12,15 @@
+ #include <unistd.h>
+ #include <pwd.h>
+ #include <climits>
++#include <map>
+ #include <regex>
+ 
++#ifndef HOST_NAME_MAX
++// macOS does not define HOST_NAME_MAX. POSIX guarantees _POSIX_HOST_NAME_MAX (255), which is
++// the same value glibc uses.
++#define HOST_NAME_MAX _POSIX_HOST_NAME_MAX
++#endif
++
+ namespace cond {
+ 
+   namespace {

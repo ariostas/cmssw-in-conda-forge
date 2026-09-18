@@ -32,13 +32,22 @@ cd "$(dirname "$0")/.."
 OUT=${WORK}/output
 mkdir -p "${OUT}" "${WORK}/logs"
 # use the local output directory as an additional channel
-sed "s|^- conda-forge$|- ${OUT},conda-forge|" ".ci_support/${CONFIG}.yaml" > "${WORK}/${CONFIG}_local.yaml"
+sed -E "s|^( *)- conda-forge$|\1- ${OUT},conda-forge|" ".ci_support/${CONFIG}.yaml" > "${WORK}/${CONFIG}_local.yaml"
 # only one python version for local testing
 printf 'python:\n  - 3.12.* *_cpython\nis_python_min:\n  - false\n' > ${WORK}/local_variants.yaml
 
 # Rebuilding a recipe without bumping its build number reuses the already extracted package
-# from rattler's cache, so drop the cached copies of what we are about to rebuild.
-PKG_CACHE=${RATTLER_CACHE_DIR:-${HOME}/.cache/rattler/cache}/pkgs
+# from rattler's cache, so drop the cached copies of what we are about to rebuild. rattler puts
+# that cache in a different place on macOS, and getting it wrong is silent: the build succeeds
+# and uses the previous contents of the package.
+if [ -n "${RATTLER_CACHE_DIR:-}" ]; then
+  PKG_CACHE=${RATTLER_CACHE_DIR}/pkgs
+elif [ -d "${HOME}/Library/Caches/rattler/cache" ]; then
+  PKG_CACHE=${HOME}/Library/Caches/rattler/cache/pkgs
+else
+  PKG_CACHE=${XDG_CACHE_HOME:-${HOME}/.cache}/rattler/cache/pkgs
+fi
+[ -d "${PKG_CACHE}" ] || echo "warning: no rattler package cache at ${PKG_CACHE}" >&2
 
 for recipe in "${RECIPES[@]}"; do
   name=$(basename "${recipe}")

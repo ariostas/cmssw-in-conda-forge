@@ -13,7 +13,8 @@ first, and add to its progress log (section 6) when something significant is lea
     - `tools/`, `tools-osx/`: SCRAM tool file templates;
     - `cmssw-generate-toolbox`: instantiates them for a conda prefix;
     - `cmssw-build-layer`: builds a set of CMSSW packages against an installed release;
-    - `cmssw-install-layer`: adds the result to that release.
+    - `cmssw-install-layer`: adds the result to that release;
+    - `cmssw-link-python-modules`: macOS `.so` aliases for python extension modules.
   - `alpaka`, `hls-arbitrary-precision-types`: header-only dependencies (noarch).
   - `frontier-client`, `coral`: conditions database access. CORAL is a SCRAM project like
     CMSSW and builds with the same toolbox.
@@ -34,8 +35,9 @@ first, and add to its progress log (section 6) when something significant is lea
   - `analysis/scripts/`: BuildFile.xml dependency graph, build cost and partitioning scripts.
     They read `_work/` and the CVMFS release.
   - `spike/`: scripts for hand-building SCRAM areas outside rattler-build.
-  - `feedstock-changes/`: recipes whose real fix goes to an existing feedstock (e.g. `cms-md5`),
-    not to staged-recipes.
+  - `feedstock-changes/`: recipes whose real fix goes to an existing feedstock, not to
+    staged-recipes: `cms-md5` (needs more platforms) and `cpu_features` (the feedstock skips osx,
+    but it builds there unchanged and `cmssw-framework` cannot be built without it).
   - `build-local.sh`: builds recipes in order into `/work/output` inside a container.
 - `_work/` (git-ignored): clones of cmsdist, cmssw-config, SCRAM and pkgtools, plus analysis outputs.
 
@@ -73,8 +75,9 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
   `build-local.sh` passes the recipe's `variants.yaml` last. Without it, the global pinning's
   multiple `root_base`/`clhep` versions give 9 variants.
 - Rebuilding a recipe without bumping its build number would otherwise reuse the previously
-  extracted package from `~/.cache/rattler/cache/pkgs`; `build-local.sh` deletes those first.
-  A stale `cmssw-toolbox` there is silent and very confusing.
+  extracted package from rattler's package cache; `build-local.sh` deletes those first. A stale
+  `cmssw-toolbox` there is silent and very confusing. The cache is in a different place on macOS
+  (see below).
 - `build-local.sh` takes a lock: two runs share the output directory and the per-recipe logs,
   and the interleaved logs look like impossible build errors.
 - Do not edit any bash script while it is running — `build-local.sh`, a recipe's `build.sh`, a
@@ -91,11 +94,32 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
 - `PATH=$PWD/_work/osx-tools/bin:$PATH WORK=_work/osx-work bash cmssw-notes/build-local.sh osx_arm64 recipes/cmssw-fwlite`
 - conda-forge's ld64 can't read the macOS 26 SDK, so `_work/osx-work/extra_variants.yaml` sets
   `CONDA_BUILD_SYSROOT` to `/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk`.
-- `_work/sdks/MacOSX11.0.sdk` matches conda-forge ROOT 6.36.10's prebuilt modules. It's needed as
-  `SDKROOT` for ROOT's interpreter at runtime (see PLAN.md, osx-arm64 port).
+- macOS builds against **ROOT 6.40, not the 6.36 the release uses**: conda-forge's 6.36 ships
+  prebuilt Darwin modules that only work with the SDK they were built against, so cling fails on
+  `#include <unistd.h>` for any user. `variants.yaml` has the details, and `cmssw-fwlite` has a
+  test for it that drops `SDKROOT`/`CONDA_BUILD_SYSROOT` first, because both build and test
+  environments set them and users do not.
 - The old mamba 1.5 on the host can't solve with the local channel; install local `.conda` files directly with `conda install --offline`.
 - SIP strips `DYLD_*` variables when running `/bin/bash`, `/usr/bin/env` and similar protected
-  binaries. Rely on rpaths and `ROOT_LIBRARY_PATH`, never on `DYLD_*`.
+  binaries. Rely on rpaths and `ROOT_LIBRARY_PATH`, never on `DYLD_*`. A variable exported by an
+  already-running shell does survive into a non-protected child, which is why the `cmssw-geometry`
+  activation script can hand `DYLD_LIBRARY_PATH` to `cmsRun` but not to a wrapper shell script.
+- rattler's package cache is at `~/Library/Caches/rattler/cache/pkgs` on macOS, not
+  `~/.cache/rattler`. `build-local.sh` deletes the extracted copies of what it is about to
+  rebuild; when it looked in the wrong place the build silently reused the *previous* contents of
+  a package with the same build string, which reads as "my fix had no effect".
+- conda-forge's Linux gcc is configured with the conda prefix in its default library search path;
+  its macOS clang is not, and only gets there through `LDFLAGS`. SCRAM builds its own link line,
+  so the macOS compiler tool files add `-L$PREFIX/lib -Wl,-rpath,$PREFIX/lib`. Without it only
+  the layer builds work (they pass the same thing as `USER_LDFLAGS`) and a user's developer area
+  dies with `ld: library not found for -lTree`.
+- python only recognises `.so` as an extension suffix, on macOS too, but SCRAM builds `.dylib`.
+  `cmssw-link-python-modules` adds a `.so` symlink for every library exporting
+  `PyInit_<its own name>`; `libFWCorePythonParameterSet` is the one `cmsRun` needs to read a
+  configuration. Each layer only aliases the libraries it built, so no two packages claim a file.
+- `c-compiler`/`cxx-compiler` resolve to conda-forge's current default, which on osx-arm64 lags
+  the version the variants pin. `cmssw-devel` therefore uses `${{ compiler('c') }}` and friends
+  in its **run** requirements, so a developer gets the toolchain the release was built with.
 
 ## CMSSW/SCRAM gotchas learned so far
 

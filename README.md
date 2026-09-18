@@ -56,16 +56,22 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 | `alpaka` | [recipes/alpaka](recipes/alpaka) | ✅ | ✅ | ✅ |
 | `hls-arbitrary-precision-types` | [recipes/hls-arbitrary-precision-types](recipes/hls-arbitrary-precision-types) | ✅ | ✅ | ✅ |
 | `cms-md5` (existing feedstock needs new platforms) | [cmssw-notes/feedstock-changes/cms-md5](cmssw-notes/feedstock-changes/cms-md5) | ✅ | ✅ | ✅ |
-| `frontier-client` | [recipes/frontier-client](recipes/frontier-client) | ✅ | ✅ | — |
-| `coral` | [recipes/coral](recipes/coral) | ✅ | ✅ | — |
-| `cmssw-fwlite` | [recipes/cmssw-fwlite](recipes/cmssw-fwlite) | ✅ | ✅ | ⚠️ builds, runtime blocked |
-| `cmssw-framework` (`cmsRun`) | [recipes/cmssw-framework](recipes/cmssw-framework) | ✅ | ✅ | — |
-| `cmssw-conditions` | [recipes/cmssw-conditions](recipes/cmssw-conditions) | ✅ | ✅ | — |
-| `cmssw-geometry` (DD4hep detector description) | [recipes/cmssw-geometry](recipes/cmssw-geometry) | ✅ | — | — |
-| `cmssw-devel` (build your own packages) | [recipes/cmssw-devel](recipes/cmssw-devel) | ✅ | ✅ | — |
+| `cpu_features` (existing feedstock skips macOS) | [cmssw-notes/feedstock-changes/cpu_features](cmssw-notes/feedstock-changes/cpu_features) | — | — | ✅ |
+| `frontier-client` | [recipes/frontier-client](recipes/frontier-client) | ✅ | ✅ | ✅ |
+| `coral` | [recipes/coral](recipes/coral) | ✅ | ✅ | ✅ |
+| `cmssw-fwlite` | [recipes/cmssw-fwlite](recipes/cmssw-fwlite) | ✅ | ✅ | ✅ |
+| `cmssw-framework` (`cmsRun`) | [recipes/cmssw-framework](recipes/cmssw-framework) | ✅ | ✅ | ✅ |
+| `cmssw-conditions` | [recipes/cmssw-conditions](recipes/cmssw-conditions) | ✅ | ✅ | ✅ |
+| `cmssw-geometry` (DD4hep detector description) | [recipes/cmssw-geometry](recipes/cmssw-geometry) | ✅ | — | ✅ |
+| `cmssw-devel` (build your own packages) | [recipes/cmssw-devel](recipes/cmssw-devel) | ✅ | ✅ | ✅ |
 
-✅ = builds locally with rattler-build (in Docker) and passes the recipe tests.
-— = not tried yet.
+✅ = builds locally with rattler-build (in Docker for Linux, natively for macOS) and passes the
+recipe tests. — = not tried yet.
+
+The linux-64 column is the one that lags: those packages were built before the boost 1.90
+migration and before the macOS portability patches, so they are due a rebuild rather than
+being in doubt. macOS builds against a **newer ROOT than the release uses** (6.40 instead of
+6.36) because conda-forge's 6.36 is unusable there; see [PLAN.md](PLAN.md).
 
 **What works**
 
@@ -107,6 +113,10 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
   %MSG-s DataGetter: EventSetupRecordDataGetter:get@beginRun Run: 325175
   got data of type "BeamSpotObjects" with name "" in record BeamSpotObjectsRcd
   ```
+- **All of the above also works on macOS (osx-arm64), natively.** The same seven packages build
+  and pass their tests on an M1 Max in about 40 minutes: `cmsRun`, the conditions layer, the
+  DD4hep geometry and the developer loop. It needs a newer ROOT than the release uses, and about
+  a dozen small portability patches, all of which are meant to go upstream.
 - **The normal CMSSW development loop works.** `cmssw-devel` adds the compilers and headers, and
   then a conda environment behaves like a `cmsrel` area on top of a CVMFS release:
 

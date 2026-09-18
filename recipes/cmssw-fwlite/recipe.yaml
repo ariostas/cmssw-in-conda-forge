@@ -17,8 +17,7 @@ source:
       - patches/0002-CondFormats-support-unpatched-boost-serialization.patch
       - patches/0003-SimDataFormats-support-upstream-HepMC2-WeightContainer.patch
       - patches/0004-FWCore-PluginManager-per-package-caches-and-CMSSW_PLUGIN_PATH.patch
-      - patches/0005-FWCore-ParameterSet-libc++-lacks-floating-point-from_chars.patch
-      - patches/0006-Support-clang-and-libc++-on-macOS.patch
+      - patches/0005-Support-clang-and-libc++-on-macOS.patch
   - url: https://github.com/cms-sw/cmssw-config/archive/refs/tags/${{ cmssw_config_tag }}.tar.gz
     sha256: 3326a15f8ba28ab984259d98a1798c1558d5f89664d01911441adefe802928ad
     target_directory: config
@@ -26,7 +25,7 @@ source:
       - cmssw-config-patches/0001-conda-build-environment-fixes.patch
 
 build:
-  number: 3
+  number: 6
   skip:
     - win
     - osx and x86_64
@@ -68,6 +67,8 @@ requirements:
     - python
     - numpy
     - root_base
+    # root_base comes in cxx20 and cxx23 builds; CMSSW 20_1 is C++20
+    - root_cxx_standard
     - libboost-devel
     - tbb-devel
     - clhep
@@ -122,6 +123,13 @@ tests:
       # the interpreter must be able to parse the CMSSW headers and their external includes
       - python -c "import ROOT; assert ROOT.gInterpreter.Declare('#include \"DataFormats/Common/interface/DataFrameContainer.h\"')"
       - python -c "import ROOT; assert ROOT.gInterpreter.Declare('#include \"DataFormats/PatCandidates/interface/Muon.h\"')"
+      # ...and to build the C library's own modules with whatever SDK the user happens to have.
+      # SDKROOT and CONDA_BUILD_SYSROOT are dropped first because the build and test environments
+      # set them and users do not: conda-forge's ROOT 6.36 ships prebuilt Darwin modules that only
+      # work with the SDK they were built against, which is why macOS pins a newer ROOT than the
+      # release uses (see variants.yaml). CMSSW's own headers do not reach those modules, so the
+      # checks above pass even when nothing else does.
+      - python -c "import os; [os.environ.pop(v, None) for v in ('SDKROOT', 'CONDA_BUILD_SYSROOT')]; import ROOT; assert ROOT.gInterpreter.Declare('#include <unistd.h>')"
 
 about:
   homepage: https://cms-sw.github.io

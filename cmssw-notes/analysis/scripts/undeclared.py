@@ -56,7 +56,9 @@ def main():
             # src-only packages, so what any of them include does not matter
             if os.sep + "test" in root:
                 continue
-            if pkg in src_only and (os.sep + "plugins" in root or os.sep + "bin" in root):
+            if pkg in src_only and (
+                os.sep + "plugins" in root or os.sep + "bin" in root
+            ):
                 continue
             for name in files:
                 if not name.endswith(SOURCE_SUFFIXES):
@@ -65,13 +67,19 @@ def main():
                     text = open(os.path.join(root, name), errors="ignore").read()
                 except OSError:
                     continue
-                for inc in re.findall(r'#\s*include\s+"([A-Z][A-Za-z0-9]+/[A-Za-z0-9]+)/interface/', text):
-                    if inc not in have and os.path.isdir(os.path.join(RELEASE, "src", inc)):
+                for inc in re.findall(
+                    r'#\s*include\s+"([A-Z][A-Za-z0-9]+/[A-Za-z0-9]+)/interface/', text
+                ):
+                    if inc not in have and os.path.isdir(
+                        os.path.join(RELEASE, "src", inc)
+                    ):
                         missing.setdefault(inc, set()).add(pkg)
 
     for pkg in sorted(missing):
         print(f"  {pkg:45s} included by {', '.join(sorted(missing[pkg]))}")
-    print(f"{len(missing)} packages included by {os.path.basename(layer_dir)} but not installed")
+    print(
+        f"{len(missing)} packages included by {os.path.basename(layer_dir)} but not installed"
+    )
     return 1 if missing else 0
 
 

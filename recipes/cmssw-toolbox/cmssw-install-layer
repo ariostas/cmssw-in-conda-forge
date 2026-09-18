@@ -12,6 +12,7 @@ import argparse
 import filecmp
 import os
 import shutil
+import subprocess
 import sys
 
 # Directories of the area that hold installable products, relative to its top; @ is the SCRAM
@@ -98,6 +99,14 @@ def main():
         copied, skipped, bad = install(src, os.path.join(args.dst, sub), policy)
         print("%-40s %5d new, %5d unchanged" % (sub, copied, skipped))
         clashes += [os.path.join(sub, c) for c in bad]
+
+    # macOS: python cannot import a .dylib, and a few CMSSW libraries are extension modules
+    if args.arch.startswith("osx"):
+        subprocess.check_call([
+            "cmssw-link-python-modules",
+            "--from", os.path.join(args.src, "lib", args.arch),
+            "--to", os.path.join(args.dst, "lib", args.arch),
+        ])
 
     if clashes:
         print("\nERROR: these files already exist in the release with different content:",

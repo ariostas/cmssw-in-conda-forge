@@ -13,7 +13,7 @@ source:
     file_name: LICENSE
 
 build:
-  number: 1
+  number: 3
   skip:
     - win
     - osx and x86_64
@@ -27,6 +27,12 @@ requirements:
     - cmssw-conditions ==${{ version }}
     # The compiler. The release's gcc-cxxcompiler.xml records $PREFIX/bin/<triplet>-c++, which
     # is what these metapackages install, so SCRAM finds it with no further configuration.
+    # These are conda-forge's current defaults rather than the exact versions the layers were
+    # built with, which on osx-arm64 means a few clang releases older. Pinning them is not
+    # possible today: `${{ compiler('cxx') }}` would ask for clangxx_osx-arm64 21, whose
+    # libcxx-devel 21 cannot be installed next to the libcxx-devel 20 that conda-forge's
+    # root_base 6.40 requires. It only matters for the developer's own compilations, and a build
+    # and its host environment are separate, so the layers themselves are unaffected.
     - c-compiler
     - cxx-compiler
     - fortran-compiler
@@ -39,6 +45,8 @@ requirements:
     - python
     - numpy
     - root_base
+    # root_base comes in cxx20 and cxx23 builds; CMSSW 20_1 is C++20
+    - root_cxx_standard
     - libboost-devel
     - libboost-python-devel
     - tbb-devel

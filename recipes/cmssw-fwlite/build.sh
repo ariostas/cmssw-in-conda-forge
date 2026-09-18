@@ -97,6 +97,13 @@ fi
 rm -rf tmp logs objs external test/${SCRAM_ARCH}
 find . -name "__pycache__" -type d -prune -exec rm -rf {} +
 
+# macOS: python cannot import a .dylib, and FWCore/PythonParameterSet is an extension module
+# (cmsRun reads its configuration through it). The release is built in place here, so the
+# libraries this layer built and the release's are the same directory.
+if [ "${target_platform}" = "osx-arm64" ]; then
+  cmssw-link-python-modules --from "lib/${SCRAM_ARCH}" --to "lib/${SCRAM_ARCH}"
+fi
+
 # one plugin cache file per package (see patch 0004)
 LIBDIR=lib/${SCRAM_ARCH}
 if [ -f "${LIBDIR}/.edmplugincache" ]; then

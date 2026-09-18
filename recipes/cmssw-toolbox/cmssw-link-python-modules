@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+"""On macOS, give every CMSSW python extension module a .so alias.
+
+A few CMSSW libraries are python extension modules (PYBIND11_MODULE) that are imported by name:
+FWCore/PythonFramework does `import libFWCorePythonParameterSet`, which is how cmsRun reads its
+configuration, and CondCore/Utilities imports libCondDBPyBind11Interface. CPython only recognises
+.so as an extension suffix, on macOS as well as on Linux, but SCRAM builds shared libraries as
+.dylib there, so the import fails with ModuleNotFoundError. dyld does not care about the file
+extension, so a .so symlink next to the .dylib is enough.
+
+A library is a module when it exports PyInit_<its own name>, which is what PYBIND11_MODULE
+generates; looking for that string in the file avoids needing nm.
+
+--from is the directory holding the libraries this layer built and --to the release's lib
+directory (the same directory when the release is built in place). Only the libraries named by
+--from get an alias, so that two conda packages never claim the same file.
+"""
+
+import argparse
+import os
+import sys
+
+
+def link_python_modules(src_libdir, dst_libdir):
+    made = []
+    for name in sorted(os.listdir(src_libdir)):
+        if not name.startswith("lib") or not name.endswith(".dylib"):
+            continue
+        base = name[: -len(".dylib")]
+        alias = os.path.join(dst_libdir, base + ".so")
+        if os.path.lexists(alias):
+            continue
+        with open(os.path.join(src_libdir, name), "rb") as ref:
+            if ("PyInit_" + base).encode() not in ref.read():
+                continue
+        os.symlink(name, alias)
+        made.append(base + ".so")
+    return made
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--from", dest="src", required=True)
+    parser.add_argument("--to", dest="dst", required=True)
+    args = parser.parse_args()
+    if not os.path.isdir(args.src) or not os.path.isdir(args.dst):
+        return 0
+    for name in link_python_modules(args.src, args.dst):
+        print("python module alias %s" % name)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
