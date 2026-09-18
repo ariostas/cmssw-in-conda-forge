@@ -1057,7 +1057,11 @@ build, but 6.40 comes in cxx20 and cxx23, and nothing else would have chosen bet
   without including `<map>`.
 - *DetectorDescription and Geometry*: four includes of libstdc++ internals
   (`<ext/alloc_traits.h>`, `<ext/pool_allocator.h>`) that nothing uses, and two missing standard
-  includes (`<utility>`, `<sstream>`).
+  includes (`<utility>`, `<sstream>`). This is the one macOS change that is not `#ifdef`-guarded
+  and could have broken Linux — not through the symbols, which none of the four files reference,
+  but through whatever those headers drag in transitively, which differs between libstdc++ and
+  libc++. Checked rather than assumed: `cmssw-geometry` rebuilt on linux-aarch64 with the patch
+  (580 s) and its test still prints the same detector tree.
 - *python extension modules.* `cmsRun` reads its configuration through
   `import libFWCorePythonParameterSet`, and CPython only recognises `.so` as an extension suffix,
   on macOS as well as on Linux — but SCRAM builds `.dylib` there. dyld does not care about the
