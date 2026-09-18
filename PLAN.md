@@ -839,3 +839,31 @@ mixing them.
 
 Net effect: of the three things blocking geometry, one is an ordinary migration, one was never
 real, and the third is an experiment rather than a decision.
+
+### 2026-09-18: what a geometry layer would contain
+
+Sketched the next layer now that DD4hep looks reachable, so the work is ready when the boost
+migration is taken.
+
+`closure.py Geometry/TrackerGeometryBuilder Geometry/CaloTopology Geometry/Records
+DetectorDescription/DDCMS Geometry/CaloEventSetup Geometry/MuonNumbering` gives **23 new
+packages, about 1,005 source files** — the same size as `cmssw-conditions` (58 packages, 1,072
+TUs), so one ordinary layer. It is `DetectorDescription/{Core,DDCMS,Parser}`,
+`Geometry/{CaloEventSetup,CaloTopology,EcalAlgo,EcalCommonData,HGCal*,Hcal*,MuonNumbering,
+Tracker*}`, `CondFormats/GeometryObjects`, `MagneticField/{Engine,Records}` and four
+`TrackingTools/*` packages.
+
+Two things the dependency graph does not show, both of which have bitten this project before:
+
+- **XML-only packages are invisible.** `Geometry/CMSCommonData` is 8 MB of detector XML in
+  CMSSW's own `src/` with no `src/` or `plugins/` directory, so nothing links against it and
+  `closure.py` never mentions it — but nothing loads a detector without it. There are 16 such
+  packages under `Geometry/` (about 17 MB); reconstruction needs at least `CMSCommonData` and
+  `TrackerRecoData`. They belong in the layer's `src-only.txt`. This is the same failure mode as
+  the runtime-only `TFileAdaptor` plugin in `cmssw-framework`.
+- **`cms-data` is nearly irrelevant here.** Only `MagneticField/Engine` (70 MB) plus three small
+  `Geometry/*` repos, about 90 MB in total. The geometry itself ships with CMSSW's source.
+
+So the layer is small, its data is small, and the blocker in front of it is a migration plus a
+numerical check. The check itself is easy once the layer builds: compare the numbers a
+`DDCompactView`/`TrackerGeometry` produces against the same query on the CVMFS release.
