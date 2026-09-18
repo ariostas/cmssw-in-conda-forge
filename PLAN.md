@@ -864,6 +864,17 @@ Two things the dependency graph does not show, both of which have bitten this pr
 - **`cms-data` is nearly irrelevant here.** Only `MagneticField/Engine` (70 MB) plus three small
   `Geometry/*` repos, about 90 MB in total. The geometry itself ships with CMSSW's source.
 
+**It needs exactly two new externals.** Everything else the 23 packages use is already in the
+toolbox. The new ones are `dd4hep` (12 uses, across `DetectorDescription/DDCMS` and the
+`Geometry/*CommonData` packages) and `geant4core` — the latter from a single package,
+`Geometry/HGCalCommonData`. `cuda` shows up once and only in `Geometry/TrackerGeometryBuilder`'s
+`test/`, which layer builds delete, so it is not a dependency at all.
+
+Both new externals are on conda-forge and both have now been checked for configuration
+compatibility rather than assumed broken (see the two entries above). If `geant4` turns out to be
+a problem after all, dropping `Geometry/HGCalCommonData` and the three HGCal packages that follow
+it would isolate it, at the cost of the Phase-2 calorimeter geometry.
+
 So the layer is small, its data is small, and the blocker in front of it is a migration plus a
 numerical check. The check itself is easy once the layer builds: compare the numbers a
 `DDCompactView`/`TrackerGeometry` produces against the same query on the CVMFS release.
