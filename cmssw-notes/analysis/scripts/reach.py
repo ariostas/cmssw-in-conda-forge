@@ -154,7 +154,9 @@ def solve(pkgs, names, blocked):
     plugins = set()
     for p in libs:
         uses = pkgs[p]["uses"].get("plugins", []) + pkgs[p]["uses"].get("bin", [])
-        if all((resolve(u) in libs) if resolve(u) else (u not in blocked) for u in uses):
+        if all(
+            (resolve(u) in libs) if resolve(u) else (u not in blocked) for u in uses
+        ):
             plugins.add(p)
     return libs, plugins
 
@@ -175,7 +177,9 @@ def ladder(pkgs, names, tus, total):
         libs, plugins = solve(pkgs, names, set(BLOCKED) - unblocked)
         n = count_tus(tus, libs, plugins)
         prefix = "today" if label == "today" else "+ " + label
-        print(f"{prefix:46s} {len(libs):5d} {len(plugins):8d} {n:7d} {100 * n / total:6.0f}%")
+        print(
+            f"{prefix:46s} {len(libs):5d} {len(plugins):8d} {n:7d} {100 * n / total:6.0f}%"
+        )
 
 
 def components(graph):
@@ -242,7 +246,11 @@ def partition(pkgs, names, tus, blocked, budget):
     for p in libs:
         uses = pkgs[p]["uses"].get("lib", [])
         if p in plugins:
-            uses = uses + pkgs[p]["uses"].get("plugins", []) + pkgs[p]["uses"].get("bin", [])
+            uses = (
+                uses
+                + pkgs[p]["uses"].get("plugins", [])
+                + pkgs[p]["uses"].get("bin", [])
+            )
         out = set()
         for use in uses:
             q = use if use in pkgs else names.get(use.lower())
@@ -255,8 +263,16 @@ def partition(pkgs, names, tus, blocked, budget):
     if cycles:
         biggest = max(len(g) for g in groups)
         print(f"  ({cycles} package cycles condensed, largest {biggest} packages)")
-    cost = {g: sum(tus[(p, "lib")] + (tus[(p, "plugins")] if p in plugins else 0) for p in g) for g in groups}
-    deps = {g: {h for h in groups if h is not g and any(graph[p] & h for p in g)} for g in groups}
+    cost = {
+        g: sum(
+            tus[(p, "lib")] + (tus[(p, "plugins")] if p in plugins else 0) for p in g
+        )
+        for g in groups
+    }
+    deps = {
+        g: {h for h in groups if h is not g and any(graph[p] & h for p in g)}
+        for g in groups
+    }
 
     placed = {g: 0 for g in groups if g <= shipped}
     todo = [g for g in groups if g not in placed]
@@ -291,8 +307,12 @@ def partition(pkgs, names, tus, blocked, budget):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--layers", type=int, metavar="TU_BUDGET", help="also propose a layer partition")
-    ap.add_argument("--scenario", default="today", help="'today', 'full', or a reason from BLOCKED")
+    ap.add_argument(
+        "--layers", type=int, metavar="TU_BUDGET", help="also propose a layer partition"
+    )
+    ap.add_argument(
+        "--scenario", default="today", help="'today', 'full', or a reason from BLOCKED"
+    )
     args = ap.parse_args()
 
     pkgs, names, tus = load()
@@ -305,7 +325,9 @@ def main():
         if args.scenario == "full":
             blocked = set()
         elif args.scenario != "today":
-            keep = {e for e, reason in BLOCKED.items() if reason in args.scenario.split(",")}
+            keep = {
+                e for e, reason in BLOCKED.items() if reason in args.scenario.split(",")
+            }
             blocked -= keep
         print(f"\nlayers of at most {args.layers} TU, scenario '{args.scenario}':")
         partition(pkgs, names, tus, blocked, args.layers)

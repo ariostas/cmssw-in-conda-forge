@@ -633,6 +633,8 @@ cannot be used with this stack:
   against boost 1.90, while conda-forge's global pinning is still 1.88, so it cannot be installed
   next to anything built against the pinning. Moving the whole CMSSW stack to boost 1.90 would
   work but is exactly the migration churn that killed the previous FWLite feedstock.
+  **(Revised 2026-09-18: this is an in-flight conda-forge migration, `libboost190.yaml`, that
+  every feedstock has to join anyway, and the target state solves. See the progress log.)**
 
 The conditions layer therefore leaves out the five payload registrations that need geometry
 (`CondCore/{Alignment,Hcal,SiPhase2Tracker,L1T,RPC}Plugins`); they belong to a later geometry
@@ -787,3 +789,40 @@ A `cms-git-tools` conda package would be a thin noarch recipe (its only real dep
 git, curl and openssh). The open question is whether to point it at a patched branch: the release
 carries six patches touching nine packages, and a developer who checks one of those out gets the
 unpatched upstream version. Upstreaming the patches removes the problem entirely.
+
+### 2026-09-18: the DD4hep blocker is mostly a migration, not a wall
+
+Looked at what it would actually take to unblock geometry, since it is worth 14 percentage
+points of the release on its own and gates everything downstream. The picture is better than
+the 2026-09-17 entry assumed; the three obstacles are not equally hard.
+
+**boost: an in-flight migration, not a conflict.** Every one of the 12 `dd4hep` 1.37 builds on
+conda-forge requires `libboost >=1.90`, while the global pinning (checked against
+`conda-forge-pinning-2026.09.18`) still says 1.88 — so `mamba create cmssw-fwlite dd4hep` fails
+outright. But the pinning ships `migrations/libboost190.yaml`, an active version migration
+(`migrator_ts` = 2026-04-24), and dd4hep has simply been migrated already. Nothing except our
+own build holds us at 1.88: ROOT does not depend on boost at all. And the target state solves
+today:
+
+```sh
+mamba create --dry-run -c conda-forge dd4hep=1.37 root_base=6.36.10 root_cxx_standard=20 \
+    libboost-devel=1.90 clhep=2.4.7.2      # resolves
+```
+
+So this is not "moving the whole stack to boost 1.90 and taking on migration churn". It is
+joining a migration every feedstock has to join anyway, which a feedstock does by taking the
+migration's pin into its variant config. Worth doing before there are many layers, not after.
+
+**The C++ standard is a non-issue.** dd4hep publishes both `root_cxx_standard ==20` and `==23`
+variants, and the `==20` one exists for exactly our `root_base 6.36.10`. The earlier `cxx23`
+conflict in a failed solve was just the solver reporting the other variant.
+
+**Units are the real question, and it is empirical.** The feedstock's cmake line sets
+`DD4HEP_USE_GEANT4=ON` but not `DD4HEP_USE_GEANT4_UNITS`, so conda-forge's DD4hep uses TGeo
+units where CMS uses Geant4 units. A conda-forge *variant* for this is awkward: the two builds
+would differ in the meaning of the numbers rather than in any ABI signature, so nothing stops
+a solver mixing them. The open question is whether CMSSW works when both sides consistently
+use TGeo units — our tool file already leaves the define out, which is self consistent. That
+cannot be answered by reading: it needs a geometry layer built against this DD4hep and its
+numbers compared against the CVMFS release. That comparison is the next real experiment, and
+it is now the only thing between here and reconstruction that is not a licensing question.
