@@ -3,7 +3,7 @@
 # field. Computed with analysis/scripts/closure.py from the targets
 #   Geometry/TrackerGeometryBuilder Geometry/CaloTopology Geometry/Records
 #   DetectorDescription/DDCMS Geometry/CaloEventSetup Geometry/MuonNumbering
-# Geometry/Records is one of the targets but belongs to cmssw-fwlite: a layer must not contain
+# Geometry/Records is one of the targets but belongs to cmssw-conditions: a layer must not contain
 # a directory for a package a lower layer owns, or the release's library drops out of the link.
 CondFormats/GeometryObjects
 DetectorDescription/Core
