@@ -60,8 +60,8 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 | `coral` | [recipes/coral](recipes/coral) | ✅ | ✅ | — |
 | `cmssw-fwlite` | [recipes/cmssw-fwlite](recipes/cmssw-fwlite) | ✅ | ✅ | ⚠️ builds, runtime blocked |
 | `cmssw-framework` (`cmsRun`) | [recipes/cmssw-framework](recipes/cmssw-framework) | ✅ | ✅ | — |
-| `cmssw-conditions` | [recipes/cmssw-conditions](recipes/cmssw-conditions) | ✅ | — | — |
-| `cmssw-devel` (build your own packages) | [recipes/cmssw-devel](recipes/cmssw-devel) | ✅ | — | — |
+| `cmssw-conditions` | [recipes/cmssw-conditions](recipes/cmssw-conditions) | ✅ | ✅ | — |
+| `cmssw-devel` (build your own packages) | [recipes/cmssw-devel](recipes/cmssw-devel) | ✅ | ✅ | — |
 
 ✅ = builds locally with rattler-build (in Docker) and passes the recipe tests.
 — = not tried yet.

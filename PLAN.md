@@ -913,3 +913,9 @@ So the ladder's largest remaining rung (+18 points, 72% to 90%) may not need a c
 all. This is a reading of two build scripts, not a test, so the classification in `reach.py`
 stays as it is until something is actually built against it — but it means simulation should be
 attempted with conda-forge's geant4 before anyone considers packaging a CMS-configured one.
+
+**linux-64 parity (2026-09-18).** The whole chain was rebuilt on linux-64 after the plugin path
+fix: `cmssw-toolbox` 8 s, `cmssw-fwlite` 2,188 s, `cmssw-framework` 569 s, `cmssw-conditions`
+1,292 s (its first build on this platform) and `cmssw-devel` 105 s, all passing their tests under
+Rosetta emulation — including the developer loop, which rebuilds a package in a work area and
+checks that `cmsRun` loads it in preference to the release's copy.
