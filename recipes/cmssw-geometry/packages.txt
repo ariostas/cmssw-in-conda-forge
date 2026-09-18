@@ -12,6 +12,12 @@ DetectorDescription/Parser
 DetectorDescription/RegressionTest
 Geometry/CaloEventSetup
 Geometry/CaloTopology
+# Geometry/CaloEventSetup's plugins include the Castor and Zdc geometry headers without
+# declaring them in their BuildFile. That works in a full checkout, where every package's
+# interface/ is on the include path whether or not it is a <use>, but not in a layer that
+# installs only what the dependency graph names. VeryForwardGeometryBuilder follows it.
+Geometry/ForwardGeometry
+Geometry/VeryForwardGeometryBuilder
 Geometry/EcalAlgo
 Geometry/EcalCommonData
 Geometry/HGCalCommonData

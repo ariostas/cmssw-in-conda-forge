@@ -114,9 +114,10 @@ tests:
       # the detector description sources must be registered
       - edmPluginDump | grep -q DDDetectorESProducer
       - edmPluginDump | grep -q TrackerDigiGeometryESModule
-      # the XML-only packages carry no code, so nothing else would notice if they went missing
-      - python -c "import os, sys; src = os.path.join(os.environ['CMSSW_BASE'], 'src'); missing = [p for p in ['DetectorDescription/DDCMS/data/cms-test-tree-navigation.xml', 'Geometry/CMSCommonData/data/materials/2021/v3/materials.xml'] if not os.path.exists(os.path.join(src, p))]; sys.exit('missing geometry data: %s' % missing) if missing else print('geometry data installed')"
-      # actually build a detector from the XML with DD4hep
+      # Build a detector from the CMS XML with DD4hep. This is also what checks that the
+      # XML-only packages were installed: they carry no code, so nothing else would notice if
+      # they went missing, and FileInPath fails outright when the geometry or the materials
+      # it includes are not there.
       - cmsRun test/geometry.py
     files:
       recipe:

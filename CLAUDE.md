@@ -19,7 +19,8 @@ first, and add to its progress log (section 6) when something significant is lea
     CMSSW and builds with the same toolbox.
   - The CMSSW layers, each built on the previous one and all installed into **one** release
     directory: `cmssw-fwlite` (the base release) → `cmssw-framework` (`cmsRun`, IOPool,
-    services, storage) → `cmssw-conditions` (CondCore/CondFormats). A layer contains:
+    services, storage) → `cmssw-conditions` (CondCore/CondFormats) → `cmssw-geometry`
+    (DD4hep detector description, geometry records, magnetic field). A layer contains:
     - `packages.txt`: CMSSW packages to build; `src-only.txt`: those of which only `src/` is;
     - `patches/`, `cmssw-config-patches/`: source patches;
     - `variants.yaml`: ROOT/CLHEP pins for this CMSSW version;
@@ -120,6 +121,17 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
 - Packages installed by separate conda packages must not share files. Use per-package plugin caches
   (`lib/<arch>/.edmplugincache.d/<pkg>`, which needs the PluginManager patch) and per-directory
   `.SCRAM/<arch>/MakeData/DirCache/*.mk` fragments (which need the cmssw-config `updateToolMK.py` patch).
+- Before building a new layer, run `analysis/scripts/undeclared.py recipes/<layer>`. CMSSW is
+  built as one area where every package's `interface/` is on the include path whether or not a
+  BuildFile declares a `<use>`, so packages include headers they never declare and a layer that
+  installs only what the graph names fails to compile minutes in.
+- A missing tool file is only a `****WARNING: Invalid tool <name>` at configure time; the build
+  then dies much later with undefined references, because the tool's libraries were silently
+  dropped from the link line. Grep a layer's log for `Invalid tool` even when it succeeds.
+- DD4hep loads the CMS detector description through its **own** plugin registry, not CMSSW's:
+  `DetectorDescription/DDCMS` builds `dd4hep/*.cc` with `DD4HEP_PLUGIN="1"`. It finds those
+  libraries only on `LD_LIBRARY_PATH` (`DD4HEP_LIBRARY_PATH` does not work with conda-forge's
+  build), so `cmssw-geometry` ships an activation script that adds the release's `lib/`.
 - **A layer must not contain a directory for a package that a lower layer owns.** SCRAM treats
   `src/<Sub>/<Pkg>` in a developer area as the local definition of that package, so the release's
   library drops out of every link line (`****WARNING: Invalid tool <Sub>/<Pkg>`). This is why

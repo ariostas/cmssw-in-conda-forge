@@ -13,3 +13,9 @@ cmssw-build-layer \
   --source "${SRC_DIR}/cmssw" \
   --packages "${RECIPE_DIR}/packages.txt" \
   --src-only "${RECIPE_DIR}/src-only.txt"
+
+for action in activate deactivate; do
+  mkdir -p "${PREFIX}/etc/conda/${action}.d"
+  sed -e "s|@SCRAM_ARCH@|${SCRAM_ARCH}|g" -e "s|@CMSSW_VERSION@|${CMSSW_TAG}|g" \
+    "${RECIPE_DIR}/${action}.sh" > "${PREFIX}/etc/conda/${action}.d/${PKG_NAME}_${action}.sh"
+done

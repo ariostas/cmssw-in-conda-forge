@@ -61,6 +61,7 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 | `cmssw-fwlite` | [recipes/cmssw-fwlite](recipes/cmssw-fwlite) | ✅ | ✅ | ⚠️ builds, runtime blocked |
 | `cmssw-framework` (`cmsRun`) | [recipes/cmssw-framework](recipes/cmssw-framework) | ✅ | ✅ | — |
 | `cmssw-conditions` | [recipes/cmssw-conditions](recipes/cmssw-conditions) | ✅ | ✅ | — |
+| `cmssw-geometry` (DD4hep detector description) | [recipes/cmssw-geometry](recipes/cmssw-geometry) | ✅ | — | — |
 | `cmssw-devel` (build your own packages) | [recipes/cmssw-devel](recipes/cmssw-devel) | ✅ | ✅ | — |
 
 ✅ = builds locally with rattler-build (in Docker) and passes the recipe tests.
@@ -121,6 +122,17 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
   The rebuilt package shadows the one in the release, for linking and for `cmsRun`'s plugins.
   `git cms-init` works unchanged; without CVMFS its first run clones `cms-sw/cmssw` (1.6 GB,
   about 4 minutes), after which it takes 13 s and `git cms-addpkg` is instant.
+- **The CMS detector geometry builds with conda-forge's DD4hep.** `cmssw-geometry` adds the
+  detector description, the tracker and calorimeter geometry records, the magnetic field engine
+  and the track propagators, and its test builds a detector from the CMS XML:
+
+  ```
+  Iterate over the detectors:
+  ..done!
+  ```
+
+  This needed taking conda-forge's in-flight boost 1.90 migration, which the whole stack is now
+  built against.
 - Only 6 small CMSSW patches are needed (4 of them only for macOS), all meant for upstream.
 
 ## Where this stands

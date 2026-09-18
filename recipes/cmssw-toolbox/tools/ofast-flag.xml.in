@@ -1,0 +1,12 @@
+<tool name="ofast-flag" version="1.0" path="@PREFIX@" revision="2">
+  <!--
+    Used by the track propagators (TrackingTools/AnalyticalJacobians and TrajectoryState).
+    -mrecip=none only exists on the architectures CMS lists; SCRAM's ifarch match is a regular
+    expression against the architecture name.
+  -->
+  <flags CXXFLAGS="-Ofast -fno-reciprocal-math"/>
+  <ifarch match="ppc64le|amd64|x86_64">
+    <flags CXXFLAGS="-mrecip=none"/>
+  </ifarch>
+  <flags NO_RECURSIVE_EXPORT="1"/>
+</tool>

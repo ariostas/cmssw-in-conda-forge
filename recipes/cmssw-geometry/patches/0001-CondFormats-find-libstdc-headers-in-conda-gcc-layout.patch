@@ -1,0 +1,14 @@
+diff --git a/CondFormats/Serialization/python/condformats_serialization_generate.py b/CondFormats/Serialization/python/condformats_serialization_generate.py
+index 3d8cec1d6..aae90b056 100755
+--- a/CondFormats/Serialization/python/condformats_serialization_generate.py
++++ b/CondFormats/Serialization/python/condformats_serialization_generate.py
+@@ -398,7 +398,8 @@ def get_default_gcc_search_paths(gcc = 'g++', language = 'c++'):
+             # Intrinsics not handled by clang
+             # Note that /lib/gcc is found in other paths if not normalized,
+             # so has to go after normpath()
+-            if '/lib/gcc/' in path:
++            # (conda-forge installs the libstdc++ headers below lib/gcc/<target>/<version>/include/c++)
++            if '/lib/gcc/' in path and '/include/c++' not in path:
+                 continue
+ 
+             paths.append('-isystem%s' % path)

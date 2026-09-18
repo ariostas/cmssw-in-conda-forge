@@ -1,5 +1,8 @@
 # Packages that only contribute their source: detector XML, python configuration and
 # headers. They have nothing to compile.
+# only its library is needed; its plugins reach further into the forward detectors
+Geometry/VeryForwardGeometryBuilder
+
 Geometry/CMSCommonData
 Geometry/TrackerRecoData
 Geometry/GeometryAligner
