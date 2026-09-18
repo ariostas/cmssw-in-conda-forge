@@ -25,6 +25,9 @@ first, and add to its progress log (section 6) when something significant is lea
     - `variants.yaml`: ROOT/CLHEP pins for this CMSSW version;
     - `build.sh`: a few lines around `cmssw-build-layer`;
     - activation scripts (`cmssw-fwlite` only; there is one release directory).
+  - `cmssw-devel`: a metapackage that turns a CMSSW environment into one where `scram b` works
+    (compilers, `make`, and the `-devel` splits of the externals the layers were built against).
+    Its test runs the whole developer loop, so it is the regression test for that workflow.
 - `cmssw-notes/`
   - `research/`: background reports (SCRAM internals, conda-forge dependency survey, prior art).
   - `analysis/scripts/`: BuildFile.xml dependency graph, build cost and partitioning scripts.
@@ -73,8 +76,9 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
   A stale `cmssw-toolbox` there is silent and very confusing.
 - `build-local.sh` takes a lock: two runs share the output directory and the per-recipe logs,
   and the interleaved logs look like impossible build errors.
-- Do not edit `build-local.sh` while it is running. bash reads a script as it goes, so an edit
-  makes the running copy fail with a syntax error somewhere unrelated.
+- Do not edit any bash script while it is running — `build-local.sh`, a recipe's `build.sh`, a
+  test script. bash reads a script as it goes, so an edit makes the running copy fail with a
+  syntax error somewhere unrelated to the change. Copy it elsewhere first, or wait.
 
 ### macOS (native)
 
@@ -104,7 +108,10 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
   compiler lives in `BUILD_PREFIX` and does not search `$PREFIX/include`.
 - SCRAM checks that a tool's `INCLUDE`/`LIBDIR`/`BINDIR` exist when it sets the tool up, so a
   toolbox cannot describe packages that are not installed. `cmssw-generate-toolbox` leaves those
-  tool files out, and each layer adds the ones for its own externals with `scram setup`.
+  tool files out, and each layer adds the ones for its own externals with `scram setup`. That
+  check is not enough on its own: most tools default to `$TOOL_BASE/{lib,include}`, i.e. the conda
+  prefix, which always exists. The generator therefore also checks that the `<lib>` entries are
+  present, or a missing external is only noticed as `cannot find -l<lib>` at the end of a build.
 - The build loads freshly built plugins and dictionaries from python, so `$PREFIX/bin` (host python
   with ROOT) must come first in `PATH`, and the tool files must use `PY_VER`.
 - conda-forge ROOT 6.36 has Vc enabled, so dictionaries need `libVc.a`. The generator adds it when
@@ -119,6 +126,11 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
   `cmsRun` is built in `cmssw-fwlite`, even though it is only useful once `cmssw-framework` adds
   input, output and services: its source lives in `FWCore/Framework/bin`, and that package's
   library belongs to the base layer.
+- A user's developer area is the same construction as a layer, so it works out of the box, but
+  only if nothing overrides SCRAM's search order. `CMSSW_PLUGIN_PATH` (set by the activation
+  script for the case where there is no developer area) is therefore **appended** to the plugin
+  search path, not prepended: `scram runtime` already puts the work area first and the release
+  after it, and a locally rebuilt plugin has to win.
 - Layering: a layer is a `scram project` developer area on top of the installed release
   (`RELEASETOP`), whose products are then copied **into that release** by `cmssw-install-layer`.
   There is one release directory, so the activation scripts and a user's own developer area (which

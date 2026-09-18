@@ -8,6 +8,7 @@ $FC (as set by the conda compiler activation scripts), or looked up in PATH.
 """
 
 import argparse
+import glob
 import os
 import re
 import shutil
@@ -28,16 +29,37 @@ def find_program(env, candidates):
 
 
 def missing_paths(text, prefix):
-    """The <client> <environment> defaults of a tool file that do not exist in the prefix.
+    """What a tool file promises but the prefix does not provide.
 
-    SCRAM checks them when the tool is set up, so a tool file may only be written if the
-    package it describes is actually installed.
+    SCRAM checks the <client> <environment> directories when the tool is set up, so a tool
+    file may only be written if the package it describes is actually installed. The libraries
+    it lists are not checked by SCRAM, but a tool whose LIBDIR happens to exist while its
+    libraries do not (every tool that defaults to $TOOL_BASE/lib, i.e. the conda prefix
+    itself) would be set up happily and then fail at link time with "cannot find -l<lib>".
     """
     missing = []
-    for value in re.findall(r'<environment\s+name="(?:INCLUDE|LIBDIR|BINDIR)"\s+default="([^"]+)"', text):
+    libdirs = []
+    for name, value in re.findall(
+        r'<environment\s+name="(INCLUDE|LIBDIR|BINDIR)"\s+default="([^"]+)"', text
+    ):
         path = value.replace("$TOOL_BASE", prefix)
-        if path.startswith("/") and not os.path.exists(path):
+        if not path.startswith("/"):
+            continue
+        if not os.path.exists(path):
             missing.append(path[len(prefix) + 1:] if path.startswith(prefix) else path)
+        elif name == "LIBDIR":
+            libdirs.append(path)
+    # Only tools that say where their libraries are can be checked; the ones that do not
+    # (resolv, sockets, the ROOT libraries, ...) get theirs from the compiler's own search
+    # path. A versioned library counts: conda-forge often splits the unversioned link-time
+    # symlink into a -devel package, and that is a matter for the environment a developer
+    # builds in, not for whether this tool exists at all.
+    if libdirs:
+        for lib in re.findall(r'<lib\s+name="([^"]+)"', text):
+            if not any(
+                glob.glob(os.path.join(d, "lib%s.%s*" % (lib, ext))) for d in libdirs for ext in ("so", "dylib", "a")
+            ):
+                missing.append("lib%s" % lib)
     return missing
 
 

@@ -1,0 +1,106 @@
+context:
+  cmssw_tag: CMSSW_20_1_0_pre2
+  version: "20.1.0pre2"
+
+package:
+  name: cmssw-devel
+  version: ${{ version }}
+
+source:
+  # No CMSSW code is built here; this is only so that the package can ship a license file.
+  - url: https://raw.githubusercontent.com/cms-sw/cmssw/${{ cmssw_tag }}/LICENSE
+    sha256: cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+    file_name: LICENSE
+
+build:
+  number: 0
+  skip:
+    - win
+    - osx and x86_64
+  # Nearly a metapackage: what it pulls in is the point, the only files are the two shell
+  # functions a CMSSW developer expects to have.
+  script:
+    file: build.sh
+
+requirements:
+  run:
+    - cmssw-conditions ==${{ version }}
+    # The compiler. The release's gcc-cxxcompiler.xml records $PREFIX/bin/<triplet>-c++, which
+    # is what these metapackages install, so SCRAM finds it with no further configuration.
+    - c-compiler
+    - cxx-compiler
+    - fortran-compiler
+    - make
+    # Everything the layers were built against. A run dependency of a layer only has to be
+    # enough to load the libraries; compiling against them additionally needs the headers and
+    # the unversioned link-time symlinks, which conda-forge often splits into -devel packages.
+    # liblzma-devel is the one that bites first: ROOT's tool file links -llzma.
+    - liblzma-devel
+    - python
+    - numpy
+    - root_base
+    - libboost-devel
+    - libboost-python-devel
+    - tbb-devel
+    - clhep
+    - fmt
+    - xerces-c
+    - libuuid
+    - eigen
+    - vdt
+    - hepmc2
+    - hepmc3
+    - tinyxml2
+    - pybind11
+    - zlib
+    - xz
+    - zstd
+    - bzip2
+    - pcre2
+    - openssl
+    - libxcrypt
+    - gsl
+    - openblas
+    - alpaka
+    - hls-arbitrary-precision-types
+    - cms-md5
+    - xrootd
+    - cpu_features
+    - coral
+    - frontier-client
+    - sqlite
+    - expat
+    - libcurl
+
+tests:
+  - script:
+      # the whole developer loop: a work area on top of the installed release, a package
+      # checked out into it, rebuilt with a change, and that change visible to cmsRun.
+      - bash test/devloop.sh
+    files:
+      recipe:
+        - test/
+    requirements:
+      run:
+        - bash
+        - coreutils
+        - grep
+
+about:
+  homepage: https://cms-sw.github.io
+  summary: Everything needed to build CMSSW packages against the installed release
+  description: |
+    This package turns a CMSSW conda environment into a development environment. With it
+    installed, `cmsrel CMSSW_<version>` creates a work area on top of the release and `scram b`
+    builds packages checked out into its src/ directory against the libraries the conda packages
+    provide, exactly as a `cmsrel` area on top of a CVMFS release does.
+
+    What it pulls in is the point: the compilers, make, and the headers and link-time symlinks
+    of the externals that the release was compiled against. The only files it installs are the
+    `cmsrel` and `cmsenv` shell functions.
+  license: Apache-2.0
+  license_file: LICENSE
+
+extra:
+  recipe-maintainers:
+    - ariostas

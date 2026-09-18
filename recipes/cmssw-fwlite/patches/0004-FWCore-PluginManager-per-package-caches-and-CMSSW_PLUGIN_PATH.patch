@@ -53,13 +53,16 @@ index 268ebcb7f..d05b480a0 100644
  
  // user include files
  #include "FWCore/PluginManager/interface/standard.h"
-@@ -30,6 +31,10 @@ namespace edmplugin {
+@@ -30,6 +31,13 @@ namespace edmplugin {
          path = "";
  
        std::string spath(path);
-+      // CMSSW_PLUGIN_PATH takes precedence over the library search path
++      // CMSSW_PLUGIN_PATH names the installed release, for the case where nothing set up a
++      // developer area. It is searched last: in a developer area SCRAM_RUNTIME already puts
++      // the local libraries first and the release after them, and a locally rebuilt plugin
++      // has to win over the one shipped with the release.
 +      if (const char* pluginPath = std::getenv("CMSSW_PLUGIN_PATH"); pluginPath and *pluginPath) {
-+        spath = spath.empty() ? std::string(pluginPath) : std::string(pluginPath) + ":" + spath;
++        spath = spath.empty() ? std::string(pluginPath) : spath + ":" + std::string(pluginPath);
 +      }
        std::string::size_type last = 0;
        std::string::size_type i = 0;

@@ -170,6 +170,8 @@ It may also split its own result into outputs (e.g. `-devel` headers, python).
 
 First-pass partition (`cmssw-notes/analysis/scripts/partition2.py`, output `partition2.json`):
 - Each package's `src/` lib and `plugins/`+`bin/` are separate nodes.
+  **(Superseded 2026-09-18: with layers built as developer areas they cannot be separated;
+  see the progress log. Use `analysis/scripts/reach.py`, not `partition2.py`.)**
 - A node goes in its preferred group, or a later group if one of its dependencies requires it.
 - Tests are excluded (1,893 TUs).
 
@@ -648,3 +650,140 @@ blocks, among others, `CondCore/Utilities` (the `conddb` tools), `CondCore/L1TPl
 `DataFormats/RPCDigi`, `EventFilter/L1GlobalTriggerRawToDigi` and the `L1Trigger/*` emulator, so
 **it is on the critical path for reconstruction from RAW and for RPC muon reconstruction**. It
 does not block conditions access itself (`CondCore/CondDB` and `CondCore/ESSources` do not need it).
+
+### 2026-09-18: how far this can go, and the developer setup
+
+Two questions: how much of CMSSW is realistically buildable, and whether the normal
+`cmsrel` / `cmsenv` / `scram b` development loop works against a release installed from conda.
+
+**Build cost is not the wall.** `cmssw-notes/analysis/scripts/reach.py` counts 15,279
+translation units outside `test/`. Measured against the three layers that exist
+(2,510 TUs, 589 s + 181 s + 351 s wall on 10 native aarch64 cores), and against a single
+timed package build (`FWCore/Modules`, 33 TUs, 345 CPU-s), the cost is roughly 3–10 CPU-s per
+translation unit depending on how header-heavy the package is. The whole release is therefore
+of the order of **25 CPU-hours per architecture**, which at ~1,500 TUs per feedstock is about
+2 CPU-hours each: comfortably inside a default conda-forge runner. Size is not a wall either:
+the three layers install 217 MB for 2,510 TUs, so a complete release lands near 1.3 GB
+installed and a few hundred MB of `.conda` files spread over all the layers.
+
+**Externals are the wall.** `reach.py` walks the dependency graph with a set of externals
+marked unavailable and reports what remains buildable:
+
+| scenario | package libs | TUs | share |
+|---|---|---|---|
+| today | 895 | 6,072 | 40% |
+| + dd4hep (geometry) | 1,040 | 8,177 | 54% |
+| + utm (L1 menu) | 1,081 | 9,096 | 60% |
+| + ML runtimes and L1 ML models | 1,142 | 10,523 | 69% |
+| + small unpackaged (clue, fftjet, log4cplus, millepede, ...) | 1,161 | 11,000 | 72% |
+| + geant4 | 1,291 | 13,738 | 90% |
+| + generators | 1,330 | 14,477 | 95% |
+| + GPU and proprietary (cuda, oracle, dip, dCache) | 1,358 | 15,279 | 100% |
+
+So **40% of CMSSW is reachable with what is packaged today**, and the two decisions already
+identified — a DD4hep that CMS's configuration can use, and the `utm` license — are worth
+20 percentage points between them and are what stands between here and reconstruction.
+Everything past that is a long tail of individually small externals. Note the ordering matters:
+geant4 on its own only unlocks 58 TUs, because simulation needs the geometry too.
+
+The table assumes every external not listed as blocked really does work; a few in the "today"
+row have not been compiled against yet (`onnxruntime`, whose conda-forge header layout differs
+from CMS's, plus `classlib` and `davix`). Blocking all three moves the first row from 6,072 to
+5,750 TUs, so the 40% is good to about two points either way.
+
+**The data is smaller than it looked.** Mapping the 109 `cms-data` repositories onto the packages
+that need them (they are named `data-<Sub>-<Pkg>`) gives 1.65 GB for what is buildable today and
+**2.94 GB for reconstruction**, against 8.4 GB for the whole release. The 2.9 GB `SimG4CMS-Calo`
+repository that dominates the total is simulation-only. The largest one reconstruction actually
+needs is `CalibTracker-SiPixelESProducers` at 0.78 GB, which is within what conda-forge hosts.
+So the data is a nuisance rather than a wall, as long as each repository stays its own package and
+layers depend only on what they need.
+
+**Splitting is straightforward, with one constraint.** `reach.py --layers 1500` greedily packs
+the buildable packages into dependency-respecting layers: **5 more layers** reach reconstruction
+and **9 more** cover the entire release, each a feedstock built against the ones below it,
+exactly like the three that exist.
+
+The constraint corrects the first-pass partition in D2, which put a package's `src/` library and
+its `plugins/` in different groups. That is not possible here: a layer is a developer area, and
+`src/<Sub>/<Pkg>` in one is the local definition of the *whole* package, so the release's library
+for it drops out of every link line. A package is therefore one indivisible node. Doing it that
+way makes the graph cyclic — CMSSW has 9 package cycles that run through plugins, harmless when
+everything builds in one area — so the cycles have to be condensed, which just means those
+packages share a layer. The largest is 13 packages (PatAlgos, NanoAOD, SiStripClusterizer, DeDx
+and friends). None of them straddles the three layers already shipped, and the layer count is
+unchanged, so the constraint costs nothing in practice — but a partitioner that ignores it
+produces a partition that cannot be built.
+
+**The cost that grows with the layer count is maintenance, not CPU.** Twelve feedstocks all
+pinned `==` to each other have to be rebuilt in order for every ROOT, boost, python or numpy
+migration, and conda-forge's migration bot cannot drive an ordered chain like that by itself.
+That is the same churn that killed the previous FWLite feedstock (see 1.5), and it argues for
+keeping the number of layers at the low end of what the runners allow. At 3,000 TUs per layer
+(about 4–5 CPU-hours, so roughly 2 h wall on a 2-core runner) only **5 more layers** cover the
+whole release, for 8 feedstocks in total; that is the size to aim at, not 12. It also argues for
+writing the script that rebuilds the chain in order before there are many layers rather than after.
+
+**The developer loop works.** In an environment with `cmssw-devel` installed:
+
+```
+cmsrel CMSSW_20_1_0_pre2
+cd CMSSW_20_1_0_pre2/src
+cmsenv
+git cms-init && git cms-addpkg FWCore/Modules    # or copy it out of $CMSSW_RELEASE_BASE/src
+scram b
+```
+
+`scram runtime` chains correctly by itself: `CMSSW_BASE` becomes the work area,
+`CMSSW_RELEASE_BASE` the conda release, and `PATH` and `LD_LIBRARY_PATH` get the work area
+first and the release after it. The compiler is found with no configuration, because
+`gcc-cxxcompiler.xml` records `$PREFIX/bin/<triplet>-c++` — the path conda's own compiler
+packages install to — and conda rewrites the prefix at install time. The release ships the full
+`src/` of every package it built, so a package can be copied out of it without any network access.
+
+Four things had to be fixed to make that true:
+
+- **A rebuilt plugin was ignored.** `CMSSW_PLUGIN_PATH` (set by the activation script, pointing
+  at the installed release) was *prepended* to the plugin search path, so it beat the work area
+  and `cmsRun` kept loading the release's copy of a plugin the developer had just rebuilt. It is
+  now appended: in a work area SCRAM already orders the path correctly, and in a plain
+  environment `LD_LIBRARY_PATH` is empty so nothing changes.
+- **`cmsrel` and `cmsenv` did not exist.** They are shell functions on a CVMFS installation too
+  (from `cmsset_default.sh`), and they now come from `cmssw-devel`'s activation script, which is
+  the right home: both only make sense once you can build something. `cmsrel` with no argument
+  uses the release the environment provides, since that is the only one it has.
+- **Linking failed on `-llzma`.** A run dependency only has to be enough to *load* a library;
+  compiling against one also needs its headers and its unversioned link-time symlink, which
+  conda-forge often splits into a `-devel` package. The new `cmssw-devel` metapackage pulls in
+  the compilers, `make` and everything the layers were built against, and its test runs the whole
+  loop above: check out a package, change it, `scram b`, and confirm `cmsRun` sees the change.
+  Note that conda's compiler activation exports `CFLAGS`, `CXXFLAGS` and `LDFLAGS` into the
+  shell. SCRAM assigns its own in the makefiles, which take precedence over the environment, and
+  the builds come out correct — but this is the first place to look if one ever behaves oddly.
+- **Two tool files described externals that are not installed.** `dd4hep-core.xml` and `utm.xml`
+  were written into the release because `cmssw-generate-toolbox` only checked that a tool's
+  `INCLUDE`/`LIBDIR` directories exist — and they default to `$TOOL_BASE/lib` and
+  `$TOOL_BASE/include`, i.e. the conda prefix itself, which always exists. The generator now also
+  checks that the libraries a tool lists are present, so a package that uses one of those tools
+  fails with `Unknown tool` instead of `cannot find -lDDCore` at the end of a long build.
+
+**What a developer cannot do.** Two limits, both of which announce themselves clearly rather
+than failing obscurely:
+- Only packages whose dependencies are in the installed layers can be built. Checking out
+  `RecoTracker/TkTrackingRegions` today gives
+  `****WARNING: Invalid tool TrackingTools/DetLayers` and one line per missing package, which
+  at least names exactly what is absent.
+- A checked-out package's `test/` directory generally does not build: layer builds delete
+  `test/` (`rm -rf ./*/*/test`), so test-only dependencies such as `FWCore/TestProcessor` are
+  not in the release. Unit tests would need either a `cmssw-tests` layer or test-only
+  dependencies added to the existing ones.
+
+**`git cms-init` works too, at a one-off price.** It needs only `CMSSW_BASE` and `CMSSW_VERSION`,
+both set by `scram runtime`, plus `git`, `curl` and — unless `--https` is passed — `ssh`. Without
+CVMFS there is no local mirror, so the first run makes a full bare clone of `cms-sw/cmssw` into
+`~/.cmsgit-cache`: 1.6 GB and about 4 minutes. After that `git cms-init` takes 13 s and
+`git cms-addpkg FWCore/Modules` 0.4 s, i.e. the sparse checkout behaves exactly as on lxplus.
+A `cms-git-tools` conda package would be a thin noarch recipe (its only real dependencies are
+git, curl and openssh). The open question is whether to point it at a patched branch: the release
+carries six patches touching nine packages, and a developer who checks one of those out gets the
+unpatched upstream version. Upstreaming the patches removes the problem entirely.

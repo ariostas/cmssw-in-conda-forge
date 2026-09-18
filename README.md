@@ -61,6 +61,7 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 | `cmssw-fwlite` | [recipes/cmssw-fwlite](recipes/cmssw-fwlite) | ✅ | ✅ | ⚠️ builds, runtime blocked |
 | `cmssw-framework` (`cmsRun`) | [recipes/cmssw-framework](recipes/cmssw-framework) | ✅ | ✅ | — |
 | `cmssw-conditions` | [recipes/cmssw-conditions](recipes/cmssw-conditions) | ✅ | — | — |
+| `cmssw-devel` (build your own packages) | [recipes/cmssw-devel](recipes/cmssw-devel) | ✅ | — | — |
 
 ✅ = builds locally with rattler-build (in Docker) and passes the recipe tests.
 — = not tried yet.
@@ -105,6 +106,21 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
   %MSG-s DataGetter: EventSetupRecordDataGetter:get@beginRun Run: 325175
   got data of type "BeamSpotObjects" with name "" in record BeamSpotObjectsRcd
   ```
+- **The normal CMSSW development loop works.** `cmssw-devel` adds the compilers and headers, and
+  then a conda environment behaves like a `cmsrel` area on top of a CVMFS release:
+
+  ```sh
+  cmsrel CMSSW_20_1_0_pre2
+  cd CMSSW_20_1_0_pre2/src
+  cmsenv
+  git cms-init && git cms-addpkg FWCore/Modules   # or copy it out of $CMSSW_RELEASE_BASE/src
+  # ... edit ...
+  scram b
+  ```
+
+  The rebuilt package shadows the one in the release, for linking and for `cmsRun`'s plugins.
+  `git cms-init` works unchanged; without CVMFS its first run clones `cms-sw/cmssw` (1.6 GB,
+  about 4 minutes), after which it takes 13 s and `git cms-addpkg` is instant.
 - Only 6 small CMSSW patches are needed (4 of them only for macOS), all meant for upstream.
 
 ## Where this stands
