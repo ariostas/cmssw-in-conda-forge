@@ -1,4 +1,4 @@
-<tool name="dd4hep-core" version="1.33" path="@PREFIX@" revision="1">
+<tool name="dd4hep-core" version="1.37" path="@PREFIX@" revision="1">
   <info url="https://github.com/AIDASoft/DD4hep"/>
   <lib name="DDCore"/>
   <lib name="DDParsers"/>
@@ -18,7 +18,7 @@
 
     That is very likely correct and not merely self consistent: CMSSW never assumes what
     dd4hep's base unit is. All 511 references to dd4hep::mm, dd4hep::cm and dd4hep::deg in the
-    release are conversions -- 335 divide by one, 167 multiply by one, and the remaining few
+    release are conversions: 335 divide by one, 167 multiply by one, and the remaining few
     define named scale constants (k_ScaleToDD4hep and friends) that are then used the same way.
     No file mixes them with CLHEP units. Still to be confirmed numerically against the CVMFS
     release once a geometry layer exists. See PLAN.md.

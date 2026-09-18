@@ -1,0 +1,36 @@
+# The detector description and the geometry records, enough to build a TrackerGeometry and
+# the calorimeter topologies from the CMS XML and to propagate a track through the magnetic
+# field. Computed with analysis/scripts/closure.py from the targets
+#   Geometry/TrackerGeometryBuilder Geometry/CaloTopology Geometry/Records
+#   DetectorDescription/DDCMS Geometry/CaloEventSetup Geometry/MuonNumbering
+CondFormats/GeometryObjects
+DetectorDescription/Core
+DetectorDescription/DDCMS
+DetectorDescription/Parser
+DetectorDescription/RegressionTest
+Geometry/CaloEventSetup
+Geometry/CaloTopology
+Geometry/EcalAlgo
+Geometry/EcalCommonData
+Geometry/HGCalCommonData
+Geometry/HGCalGeometry
+Geometry/HGCalTBCommonData
+Geometry/HcalCommonData
+Geometry/HcalTowerAlgo
+Geometry/MuonNumbering
+Geometry/Records
+Geometry/TrackerGeometryBuilder
+Geometry/TrackerNumberingBuilder
+MagneticField/Engine
+MagneticField/Records
+TrackingTools/AnalyticalJacobians
+TrackingTools/GeomPropagators
+TrackingTools/TrajectoryParametrization
+TrackingTools/TrajectoryState
+
+# Detector XML, and the header-only alignment interface. None of these has a src/ or plugins/
+# directory, so nothing links against them and the dependency graph never names them -- but
+# the geometry cannot be loaded without the XML they carry. See PLAN.md 2026-09-18.
+Geometry/CMSCommonData
+Geometry/TrackerRecoData
+Geometry/GeometryAligner

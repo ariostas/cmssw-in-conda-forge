@@ -25,7 +25,7 @@ source:
       - cmssw-config-patches/0001-conda-build-environment-fixes.patch
 
 build:
-  number: 0
+  number: 1
   skip:
     - win
     - osx and x86_64

@@ -3,7 +3,7 @@ context:
   version: "20.1.0pre2"
 
 package:
-  name: cmssw-conditions
+  name: cmssw-geometry
   version: ${{ version }}
 
 source:
@@ -50,7 +50,7 @@ requirements:
     - clangxx
   host:
     - cms-scram
-    - cmssw-framework ==${{ version }}
+    - cmssw-conditions ==${{ version }}
     # the same externals as the layers below, because the release's headers include them
     - python
     - numpy
@@ -89,13 +89,20 @@ requirements:
     # CondCore/CondDB also builds python bindings
     - pybind11
     - libboost-python-devel
+    # the detector description itself
+    - dd4hep
+    # Geometry/HGCalCommonData is the one package here that needs Geant4
+    - geant4
   run:
     - cms-scram
-    - cmssw-framework ==${{ version }}
+    - cmssw-conditions ==${{ version }}
     - python
     - root_base
     - coral
     - frontier-client
+    # ROOT parses the release's headers at runtime, so these are run dependencies too
+    - dd4hep
+    - geant4
   ignore_run_exports:
     from_package:
       - libclang
@@ -104,18 +111,25 @@ requirements:
 tests:
   - script:
       - python -c "import ctypes, glob, os; libs = glob.glob(os.path.join(os.environ['CMSSW_BASE'], 'lib', os.environ['SCRAM_ARCH'], '*.[ds][oy]*')); assert libs; [ctypes.CDLL(lib, mode=ctypes.RTLD_GLOBAL) for lib in sorted(libs)]; print(len(libs), 'libraries loaded')"
-      # the conditions event setup source must be registered
-      - edmPluginDump | grep -q PoolDBESSource
-      - python -c "import CondCore.CondDB.CondDB_cfi"
+      # the detector description sources must be registered
+      - edmPluginDump | grep -q DDDetectorESProducer
+      - edmPluginDump | grep -q TrackerDigiGeometryESModule
+      # the XML-only packages carry no code, so nothing else would notice if they went missing
+      - python -c "import os, sys; src = os.path.join(os.environ['CMSSW_BASE'], 'src'); missing = [p for p in ['DetectorDescription/DDCMS/data/cms-test-tree-navigation.xml', 'Geometry/CMSCommonData/data/materials/2021/v3/materials.xml'] if not os.path.exists(os.path.join(src, p))]; sys.exit('missing geometry data: %s' % missing) if missing else print('geometry data installed')"
+      # actually build a detector from the XML with DD4hep
+      - cmsRun test/geometry.py
+    files:
+      recipe:
+        - test/
 
 about:
   homepage: https://cms-sw.github.io
-  summary: Detector conditions access for CMSSW (CondCore and CondFormats)
+  summary: The CMS detector description and geometry records
   description: |
     CMSSW is the software framework of the CMS experiment at CERN. This package adds the
-    conditions layer on top of cmssw-framework: the condition data formats and the event
-    setup sources that read them from SQLite files or from the CMS conditions database
-    through Frontier.
+    detector description on top of cmssw-conditions: the DD4hep-based geometry builders, the
+    detector XML, the tracker and calorimeter geometry records, the magnetic field engine and
+    the track propagators that use them.
   license: Apache-2.0
   license_file: cmssw/LICENSE
   repository: https://github.com/cms-sw/cmssw

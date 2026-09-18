@@ -17,7 +17,7 @@ if [ ${#RECIPES[@]} -eq 0 ]; then
            recipes/hls-arbitrary-precision-types cmssw-notes/feedstock-changes/cms-md5
            recipes/frontier-client recipes/coral
            recipes/cmssw-fwlite recipes/cmssw-framework recipes/cmssw-conditions
-           recipes/cmssw-devel)
+           recipes/cmssw-geometry recipes/cmssw-devel)
 fi
 
 WORK=$(mkdir -p "${WORK:-/work}" && cd "${WORK:-/work}" && pwd)

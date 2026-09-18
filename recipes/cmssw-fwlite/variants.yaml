@@ -18,3 +18,14 @@ c_stdlib_version:
 MACOSX_DEPLOYMENT_TARGET:
   - if: osx
     then: "13.3"
+
+# conda-forge is migrating boost 1.88 -> 1.90 (migrations/libboost190.yaml in the pinning).
+# DD4hep is already built against 1.90 on every variant, so the geometry layer cannot be
+# installed next to a stack pinned at 1.88; these take the migration early. Drop this block
+# once the global pinning moves and the values come from there.
+libboost_devel:
+  - "1.90"
+libboost_headers:
+  - "1.90"
+libboost_python_devel:
+  - "1.90"

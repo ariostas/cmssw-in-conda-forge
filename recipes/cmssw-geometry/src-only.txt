@@ -1,0 +1,5 @@
+# Packages that only contribute their source: detector XML, python configuration and
+# headers. They have nothing to compile.
+Geometry/CMSCommonData
+Geometry/TrackerRecoData
+Geometry/GeometryAligner

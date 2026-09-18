@@ -1,0 +1,25 @@
+<tool name="geant4_interface" version="11.4.2" path="@PREFIX@" revision="1">
+  <info url="http://geant4.web.cern.ch/geant4/"/>
+  <!--
+    The TLS model has to match the one Geant4 was built with, or a thread local in a plugin
+    loaded with dlopen resolves to the wrong storage. conda-forge's geant4 sets
+    GEANT4_BUILD_TLS_MODEL=global-dynamic, the same as CMS, so this flag is right here too.
+  -->
+  <flags CXXFLAGS="-ftls-model=global-dynamic -pthread"/>
+  <client>
+    <environment name="INCLUDE" default="$TOOL_BASE/include/Geant4"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+  <flags cppdefines="GNU_GCC G4V9"/>
+  <!--
+    CMS's tool file also uses vecgeom, because it builds Geant4 with GEANT4_USE_USOLIDS="all"
+    to get VecGeom's vectorised solids. conda-forge's build does not, and nothing in CMSSW
+    links against VecGeom (the only mentions in the release are ROOT plotting macros), so
+    the dependency is left out rather than packaged. See PLAN.md.
+  -->
+  <use name="clhep"/>
+  <use name="zlib"/>
+  <use name="expat"/>
+  <use name="xerces-c"/>
+  <use name="root_cxxdefaults"/>
+</tool>

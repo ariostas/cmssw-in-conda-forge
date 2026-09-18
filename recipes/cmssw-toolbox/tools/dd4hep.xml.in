@@ -1,4 +1,4 @@
-<tool name="dd4hep" version="1.33" path="@PREFIX@" revision="1">
+<tool name="dd4hep" version="1.37" path="@PREFIX@" revision="1">
   <lib name="DDAlign"/>
   <lib name="DDCond"/>
   <use name="dd4hep-core"/>
