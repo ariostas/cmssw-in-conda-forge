@@ -112,6 +112,10 @@ unusable there; see [PLAN.md](PLAN.md).
   %MSG-s DataGetter: EventSetupRecordDataGetter:get@beginRun Run: 325175
   got data of type "BeamSpotObjects" with name "" in record BeamSpotObjectsRcd
   ```
+- **The geometry agrees with CMS's own build.** conda-forge's DD4hep stores lengths in
+  centimetres where CMS's stores millimetres, but the unit constants move with it, so every
+  quantity CMSSW reads is identical and the node tree matches exactly. Checked against the
+  CVMFS release rather than argued: see [cmssw-notes/geometry-comparison](cmssw-notes/geometry-comparison).
 - **All of the above also works on macOS (osx-arm64), natively.** The same seven packages build
   and pass their tests on an M1 Max in about 40 minutes: `cmsRun`, the conditions layer, the
   DD4hep geometry and the developer loop. It needs a newer ROOT than the release uses, and about

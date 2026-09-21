@@ -32,6 +32,9 @@ first, and add to its progress log (section 6) when something significant is lea
     Its test runs the whole developer loop, so it is the regression test for that workflow.
 - `cmssw-notes/`
   - `research/`: background reports (SCRAM internals, conda-forge dependency survey, prior art).
+  - `geometry-comparison/`: runs the same geometry through CMS's CVMFS build and the conda one
+    and compares the numbers. CVMFS has a native `el9_aarch64_gcc13` build of the release, and
+    `/cvmfs` can be bind-mounted into a container, so this needs no emulation.
   - `analysis/scripts/`: BuildFile.xml dependency graph, build cost and partitioning scripts.
     They read `_work/` and the CVMFS release.
   - `spike/`: scripts for hand-building SCRAM areas outside rattler-build.

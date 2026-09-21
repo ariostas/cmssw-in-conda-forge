@@ -16,12 +16,13 @@
     wherever a value crosses the library boundary. The define is therefore left out, so both
     sides agree on TGeo units.
 
-    That is very likely correct and not merely self consistent: CMSSW never assumes what
-    dd4hep's base unit is. All 511 references to dd4hep::mm, dd4hep::cm and dd4hep::deg in the
-    release are conversions: 335 divide by one, 167 multiply by one, and the remaining few
-    define named scale constants (k_ScaleToDD4hep and friends) that are then used the same way.
-    No file mixes them with CLHEP units. Still to be confirmed numerically against the CVMFS
-    release once a geometry layer exists. See PLAN.md.
+    That is correct and not merely self consistent, and it has been checked against CMS's own
+    build of this release rather than argued: the stored geometry differs by exactly ten in
+    every one of 1250 numeric fields and in nothing else, the dd4hep unit constants differ by
+    ten in the same direction, and every quantity converted the way CMSSW converts it agrees
+    exactly. CMSSW never assumes what dd4hep's base unit is: all 511 references to dd4hep::mm,
+    dd4hep::cm and dd4hep::deg in the release are conversions, and no file mixes them with CLHEP
+    units. See cmssw-notes/geometry-comparison/ for how to reproduce it.
   -->
   <use name="root_cxxdefaults"/>
   <use name="root"/>

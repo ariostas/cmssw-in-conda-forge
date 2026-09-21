@@ -996,6 +996,9 @@ mounted on the arm64 Mac while the release there is `el9_amd64_gcc13`. The cheap
 is probably to compare against published CMS geometry numbers instead, or to run the same
 configuration inside the amd64 container with CVMFS mounted into it.
 
+(**Settled 2026-09-21**, and neither of those turned out to be necessary: CVMFS has a native
+`el9_aarch64_gcc13` build of the same release. See that entry.)
+
 ### 2026-09-18: osx-arm64 catches up with Linux, on a newer ROOT
 
 The whole stack now builds and passes its tests natively on osx-arm64: `frontier-client` 29 s,
@@ -1145,3 +1148,54 @@ miscount. They are still harmless only because the code needing those tools is e
 are still worth cleaning up.
 
 The status table in the README is now ✅ across all three platforms for every package.
+
+### 2026-09-21: the units question, settled against CMS's own build
+
+The `cmssw-geometry` layer was built on an argument: conda-forge's DD4hep is compiled without
+`DD4HEP_USE_GEANT4_UNITS` and CMS's is compiled with it, so the two store lengths in different
+units, but that should not matter because CMSSW never assumes what DD4hep's base unit is. The
+argument was backed by a survey of all 511 uses of `dd4hep::mm`/`cm`/`deg` in the release and by
+nothing measured. It is now measured, and it holds.
+
+**The blocker was imaginary.** The previous entry said the comparison could not be run here,
+because CVMFS is mounted on an arm64 Mac while the release is `el9_amd64_gcc13`. CVMFS also
+carries `el9_aarch64_gcc13` of `CMSSW_20_1_0_pre2`, so CMS's own build runs natively. Two further
+things that were not obvious: Docker can bind-mount `/cvmfs` even though it is a FUSE mount on
+macOS, and an `almalinux:9` container needs `glibc-devel` and `which` before CMS's gcc and scram
+will work.
+
+**What was compared.** `DetectorDescription/DDCMS`'s tree-navigation test geometry, built by both
+stacks from the same XML, written out with the release's own `DDTestDumpFile`, and then compared
+two ways: the stored `TGeoManager`, and what CMSSW code actually reads. The scripts and the
+one-file EDAnalyzer are in `cmssw-notes/geometry-comparison/`.
+
+**The stored geometry differs by exactly ten, and by nothing else.** 736 compared lines, zero
+name mismatches, 725 nodes and 12 volumes on both sides, and of 1250 non-zero numeric fields the
+set of distinct conda→CVMFS ratios is `{10.0: 1250}`. CMS stores millimetres, we store
+centimetres. So the two builds *do* disagree, which is the part the layer's comment was careful
+not to claim otherwise.
+
+**What CMSSW reads is identical.** The unit constants move with the storage, so the conversion
+cancels:
+
+| | CMS (CVMFS) | conda |
+|---|---|---|
+| `dd4hep::mm` | 1 | 0.1 |
+| `dd4hep::cm` | 10 | 1 |
+| world half-length, as stored | 450000 | 45000 |
+| world half-length, `/ dd4hep::cm` | **45000** | **45000** |
+| a node's x, as stored | 50000 | 5000 |
+| a node's x, `/ dd4hep::cm` | **5000** | **5000** |
+
+**A trap.** Reading `dd4hep::mm` from a bare `cling` session reports 0.1 on *both* sides, which
+would have "confirmed" that the two agree. `DD4hepUnits.h` switches on a macro that CMS supplies
+as a compile flag from its `dd4hep-core.xml` tool file, so the constant is only meaningful when
+read from something compiled the way CMSSW is compiled. That is why the probe is an EDAnalyzer
+built in a developer area on each side rather than a script — and it is incidentally a second
+end-to-end exercise of `cmssw-devel`, on both CMS's release and ours.
+
+**What this does and does not establish.** It confirms the mechanism — the constants track the
+build and the conversions cancel — on a geometry whose full node tree matches CMS's exactly. It
+does not re-verify that every one of the 511 call sites converts rather than assuming; that part
+is still the static survey. The two together are what the layer's claim rests on, and the comment
+in `dd4hep-core.xml.in` now says so.
