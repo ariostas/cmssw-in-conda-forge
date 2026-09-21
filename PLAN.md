@@ -327,11 +327,15 @@ outstanding part of this milestone.
 
 ### M5: reconstruction, then L1/HLT and ML — **the next work**
 
-240 of 1358 packages are packaged (3072 TU, 20% of the build). **1040 packages (8177 TU, 54%) are
-reachable with the externals that already work**, so the 806 packages in between need no new
-external at all: this is packaging effort, not dependency effort. At 1500 TU per layer (a little
-above `cmssw-fwlite`) that is four more layers — see the 2026-09-21 progress entry for the
-partition and the per-subsystem breakdown.
+240 of 1358 packages are packaged (3072 TU, 20% of the build). **1123 packages (9579 TU, 63%)
+are reachable with the externals that already work**, so what lies between is packaging effort,
+not dependency effort. The figure was 54% until geant4 was found not to be blocked at all and
+`gbl`/`mille` were packaged; it was briefly recorded as 67% on the mistaken belief that
+conda-forge's `libtensorflow_cc` was usable. See the 2026-09-21 progress entries.
+
+Layers are chosen with `reach.py --target`, from the subsystems a layer is meant to deliver,
+not with the greedy `--layers` partition: asked for the same number of translation units the
+latter returns a slice of 79 subsystems that does not deliver anything in particular.
 
 - [ ] `cmssw-reco`: RecoTracker, RecoVertex, RecoMuon, TrackingTools, RecoLocalTracker,
       CommonTools and the rest of Geometry. The largest single block of reachable work.
@@ -380,7 +384,7 @@ stays visible.
 
 | Risk | Mitigation | Status |
 |---|---|---|
-| Build cost far above estimate, too many layers | measure in M1; request large runners early; disable LTO/multi-arch/tests | **retired.** Measured: the whole reachable 54% is about 8.2k TU, and layers of 1500 TU build well inside a default runner |
+| Build cost far above estimate, too many layers | measure in M1; request large runners early; disable LTO/multi-arch/tests | **retired for CPU, reopened for memory.** The whole reachable 63% is about 9.6k TU. But `RecoTracker/LSTCore`'s alpaka translation units exhausted 23 GB at eight parallel jobs, and a conda-forge runner has less memory per core than that; `cmssw-build-layer` now caps jobs by available memory |
 | Migration churn (ROOT/boost/tbb/python) across 6–20 feedstocks, which killed fwlite-feedstock | fewer, larger layers on large runners; automation (M9); upstream patches instead of carrying them | **open, and the main long-term risk.** The boost 1.88→1.90 migration cost nothing (no source changes), which is encouraging but is one data point |
 | ABI-sensitive CMS patches to externals (HepMC2, geant4, TF fork) conflict with stock conda-forge packages | prefer upstream versions + CMSSW patches; use distinct package names only where unavoidable | **reduced.** HepMC2 solved by patching CMSSW. dd4hep needed no rebuild at all. geant4 and TF still to check |
 | Layering through SCRAM chaining doesn't handle dictionaries/pcm or plugin caches cleanly | spike in M1; fall back to CMake (D1) | **retired.** Four layers work, and a user's own developer area chains on top of them |
@@ -419,9 +423,10 @@ stays visible.
     Defining it while conda-forge's DD4hep library is built without it would be the actually
     dangerous option.
 11. **Order of work (2026-09-21):** finish what needs no new externals before attacking the
-    externals-blocked tiers. 54% of the build is reachable today and only 20% is packaged, so
-    reconstruction comes next. The one exception is probing geant4 early, because it is the
-    largest single step left (72% → 90%) and may already be unblocked, as dd4hep turned out to be.
+    externals-blocked tiers. 63% of the build is reachable today and only 20% is packaged, so
+    reconstruction comes next. The exception was to probe geant4 early; that turned out not to
+    need probing, because `cmssw-geometry` had been building against it all along, and the
+    remaining geant4 rung is worth 2 points rather than 18.
 
 ## 6. Progress log
 
@@ -1309,3 +1314,113 @@ unpackaged externals (72%), geant4 (90%) and the generators (95%). Note that gea
 blocked but is only provisionally so — `Geometry/HGCalCommonData` already links conda-forge's
 geant4 in `cmssw-geometry`. Simulation would exercise far more of it, so the classification is
 deliberately left conservative.
+
+### 2026-09-21: starting M5, and three tools that were lying
+
+Work on `cmssw-reco` turned up more wrong beliefs than build errors. Recording them because
+each was load-bearing for a decision.
+
+**`reach.py`'s layer partition was not reproducible.** It iterated adjacency sets, and Python
+randomises string hashing per process, so the strongly connected components came out in a
+different order on every run and the greedy packing followed: the first layer ranged from 310
+to 358 packages across runs of the same command. A layer's `packages.txt` could not have been
+regenerated and diffed against itself. Neighbours are now visited in sorted order.
+
+**geant4 was in `BLOCKED` while `cmssw-geometry` was already building against it.**
+`Geometry/HGCalCommonData` needs it and the whole `Geometry/CaloTopology` chain hangs off that
+package, so the classification cost 8 points of reachability (54% → 62%) and, worse, made the
+reco layer's central packages look as though they needed a missing external. The conservatism
+recorded on 2026-09-18 was already disproved by the build on 2026-09-18. What is still unproven
+is *full simulation*, which is a build question for M6 rather than a missing-external one. The
+remaining geant4 rung is now worth 2 points, not 18.
+
+**The greedy `--layers` partition is the wrong instrument for choosing a layer.** Asked for
+1500 TU it returns 306 packages spread over 79 subsystems, from Fireworks to TopQuarkAnalysis,
+because it fills a budget with whatever the dependency frontier happens to offer. `--target`
+takes the subsystems a layer is *for* and adds exactly their closure; for reconstruction that
+is 22 subsystems, and the incidental ones are single genuine dependencies.
+
+#### TensorFlow: available, and unusable
+
+conda-forge has `libtensorflow_cc`, and it ships `libtensorflow_cc`, `libtensorflow_framework`
+and `tensorflow/core/public/session.h`. On that basis it was unblocked, the layer was rebuilt
+around it and reachability was recorded as 67%. That was wrong. The headers do not compile:
+`tensorflow/core/framework/allocator.h` includes `"xla/tsl/framework/allocator.h"`, which the
+package does not ship in either 2.18.0 or 2.19.1 — `include/xla/tsl` holds only `protobuf/` —
+so anything that includes `tensor.h` fails, which is everything `PhysicsTools/TensorFlow` does.
+**Listing headers is not evidence that they compile.** A test compile, which is what the `gbl`
+recipe does, would have caught it in a minute rather than four.
+
+It is worth fixing at the feedstock. `RecoTracker`'s `_cff` fragments import the cfi of the
+TensorFlow plugins unconditionally, whether or not a process modifier selects mkFit, so without
+them `RecoTracker_cff` cannot be imported at all. Ten iterative-tracking steps reference
+`mkFitOutputConverter` alone.
+
+#### Two externals packaged
+
+`gbl` and `mille` (General Broken Lines and Mille, both DESY, both LGPL-2.0-or-later) build and
+test on linux-aarch64. They matter out of proportion to their size: `RecoTracker/TrackProducer`'s
+plugins — the track producer and the refitter themselves — reach them through
+`Alignment/ReferenceTrajectories`, so without them a reconstruction layer cannot produce a track.
+Both upstream CMakeLists hard-code `find_program(gcc_loc gcc)` and then override
+`CMAKE_C[XX]_COMPILER` with it, ignoring the conda toolchain, and both clobber `CMAKE_CXX_FLAGS`;
+GBL also still asks for `cmake_minimum_required 3.1`, which CMake 4 refuses outright. The patches
+are upstreamable as ordinary cross-build fixes. Mille's tarball carries no licence file although
+every source header points at a `COPYING.LIB`; `README.md` states the terms, so it is used
+instead. That is worth reporting upstream but is not the coral/utm situation.
+
+#### Closing a layer over undeclared includes needs the include graph
+
+`undeclared.py` says in its own docstring that its output is candidates rather than a gate, and
+acting on it directly is worse than useless: iterating it to a fixed point grew the reco layer by
+58 packages and pulled in egamma, tau and MET. Two separate causes, and the first explanation of
+it was wrong.
+
+  * It scans every file in a package, including headers in `src/` that no translation unit
+    includes, which are never compiled.
+  * **CMSSW's doxygen blocks document classes with example code, and the examples contain
+    `#include` lines.** `PhysicsTools/UtilAlgos/interface/BasicAnalyzer.h` shows how to use
+    itself by including `PhysicsTools/PatExamples`, which is not a dependency at all and which
+    drags PAT in behind it.
+
+`includes.py` walks out of the files SCRAM actually compiles and strips comments first. It also
+has to follow *sibling* includes — files under `src/` include their neighbours by plain name, so
+following only `Sub/Pkg/interface/X.h` misses them, which is how `HeterogeneousCore/AlpakaMath`
+stayed invisible until the build failed on `deltaPhi.h`. With all of that it adds exactly one
+package over the BuildFile graph and leaves the four older layers unchanged.
+
+`preflight.py` checks the three things that otherwise cost an hour each to discover: packages
+whose plugins need a blocked external and are neither src-only nor patched out; externals with
+no tool file (the `Invalid tool` trap); and whether `packages.txt` is closed. Run against the
+older layers it confirmed `cmssw-conditions` had four externals with no tool file, silently
+dropping those libraries from its link lines. All four now have templates, so that open item is
+closed, and `cmssw-conditions` should be rebuilt to pick them up.
+
+#### Memory, which is a CI risk and not only a local one
+
+A few of CMSSW's translation units are very large, and `RecoTracker/LSTCore`'s
+`src/alpaka/LSTEvent.dev.cc` is in a class of its own: the OOM killer took it at ten parallel
+jobs and again at eight, on a VM with 23 GB. Nothing in the four earlier layers is heavy enough
+to have hit this. `cmssw-build-layer` now allows about 2.5 GB per job and takes the smaller of
+that and `CPU_COUNT`. **A conda-forge runner has less memory per core than this VM**, so the
+layer would have been likelier to fail there, and intermittently.
+
+Line Segment Tracking (`RecoTracker/LST`, `LSTCore`, `LSTGeometry`) is left out of the layer
+altogether. It is an alternative GPU-first pattern recognition for the HL-LHC tracker, not part
+of the CKF chain, nothing else in the layer depends on it, and it is present only because
+`--target` takes whole subsystems.
+
+#### Where `cmssw-reco` stands
+
+241 packages, 2538 TU. Closed over its undeclared includes, passing `preflight.py`, and
+**not yet built to completion** — the runs so far have died on the two OOMs and on the
+TensorFlow reversal, having compiled cleanly through CondFormats serialization, AlpakaCore,
+TkDetLayers, CommonTools, TrackingTools, RecoMuon/DetLayers, MkFitCore and RecoLocalTracker.
+No CMSSW source in the layer has failed to compile for any reason other than memory.
+
+Its test does not load `RecoTracker_cff`: that fragment reaches FastSimulation, jets, tau and
+heavy ion through the jet-core seeding step and the era customisations, 18 packages outside the
+layer, with or without TensorFlow. It loads the five fragments checked to stay inside the layer,
+which still cover the transient rechit builders, the measurement tracker, CKF track finding,
+primary vertices and the muon service. `Configuration/Eras` and `Configuration/ProcessModifiers`
+are added as src-only for it: every cfi and cff in the release imports one of them.
