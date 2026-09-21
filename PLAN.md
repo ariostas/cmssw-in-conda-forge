@@ -985,8 +985,9 @@ after adding `Geometry/ForwardGeometry` and `Geometry/VeryForwardGeometryBuilder
 the toolbox, so SCRAM printed `****WARNING: Invalid tool rootgeom` and carried on, and the build
 died several minutes later on `undefined reference to gGeoManager` — `libGeom` had simply been
 dropped from the link line. Both are now in the toolbox. Worth remembering that
-`cmssw-conditions` builds with three such warnings of its own today; they are harmless only
-because the code that needs those tools is excluded.
+`cmssw-conditions` builds with four such warnings of its own today (`boost_iostreams`,
+`cppunit`, `json`, `rootgraphics`); they are harmless only because the code that needs those
+tools is excluded.
 
 **What is still open.** The units question is *not* settled. The geometry builds and iterates,
 which it would do in either unit system, so nothing here distinguishes them. Settling it needs a
@@ -1106,3 +1107,41 @@ the file that was actually used. And an XML comment in a tool file contained `--
 parser rejects; it prints `ERROR: Failed to parse` and then continues with `root = None`, so the
 real message was a `TypeError` twenty lines further down. All ~86 tool templates are now checked
 with an XML parser after editing.
+
+### 2026-09-21: linux-64 rebuilt, and the three platforms finally agree
+
+The linux-64 channel had been stuck before the boost migration: every package at build 0, no
+geometry layer, and nothing rebuilt since the macOS portability work. A clean rebuild of the whole
+chain from an empty output directory, in the conda-forge CI image under Rosetta, passed all twelve
+recipes:
+
+| | s | | s |
+|---|---|---|---|
+| `cms-scram` | 23 | `cmssw-fwlite` | 2486 |
+| `cmssw-toolbox` | 5 | `cmssw-framework` | 603 |
+| `alpaka` | 42 | `cmssw-conditions` | 1566 |
+| `hls-arbitrary-precision-types` | 2 | `cmssw-geometry` | 1284 |
+| `cms-md5` | 6 | `cmssw-devel` | 127 |
+| `frontier-client` | 26 | | |
+| `coral` | 184 | | |
+
+About 1 h 50 min in total, against roughly 40 min natively on aarch64 — in line with the ~2.6x
+emulation factor. `cmssw-geometry` had never been built on linux-64 before; it prints the same
+detector tree as the other two platforms, and `cmssw-devel` ends with `OK: the work area shadows
+the installed release`.
+
+**Nothing had to be changed.** That is the point of the run rather than a disappointment: it is
+what turns "the macOS patches should be no-ops on Linux" into a result. In particular the two
+changes that were not `#ifdef`-guarded are now exercised on libstdc++ — CORAL's
+`__GNUC__`→`__GLIBCXX__` guard (which must still select the libstdc++ branch there, and does), and
+`createSymLinks.sh`'s `#!/usr/bin/env bash`. Dropping the `from_chars` patch is also confirmed
+harmless, as expected, since its body was inside `#if defined(_LIBCPP_VERSION)`.
+
+**Tool warnings, for the record.** `cmssw-geometry` is clean on linux-64: no `Invalid tool` at all.
+`cmssw-fwlite` and `cmssw-framework` emit only `Invalid tool dd4hep-core`, which is correct — they
+do not have dd4hep in their host environments. `cmssw-conditions` emits four
+(`boost_iostreams`, `cppunit`, `json`, `rootgraphics`); an earlier entry said three, which was a
+miscount. They are still harmless only because the code needing those tools is excluded, and they
+are still worth cleaning up.
+
+The status table in the README is now ✅ across all three platforms for every package.

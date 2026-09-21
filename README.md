@@ -62,16 +62,15 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 | `cmssw-fwlite` | [recipes/cmssw-fwlite](recipes/cmssw-fwlite) | ✅ | ✅ | ✅ |
 | `cmssw-framework` (`cmsRun`) | [recipes/cmssw-framework](recipes/cmssw-framework) | ✅ | ✅ | ✅ |
 | `cmssw-conditions` | [recipes/cmssw-conditions](recipes/cmssw-conditions) | ✅ | ✅ | ✅ |
-| `cmssw-geometry` (DD4hep detector description) | [recipes/cmssw-geometry](recipes/cmssw-geometry) | ✅ | — | ✅ |
+| `cmssw-geometry` (DD4hep detector description) | [recipes/cmssw-geometry](recipes/cmssw-geometry) | ✅ | ✅ | ✅ |
 | `cmssw-devel` (build your own packages) | [recipes/cmssw-devel](recipes/cmssw-devel) | ✅ | ✅ | ✅ |
 
 ✅ = builds locally with rattler-build (in Docker for Linux, natively for macOS) and passes the
 recipe tests. — = not tried yet.
 
-The linux-64 column is the one that lags: those packages were built before the boost 1.90
-migration and before the macOS portability patches, so they are due a rebuild rather than
-being in doubt. macOS builds against a **newer ROOT than the release uses** (6.40 instead of
-6.36) because conda-forge's 6.36 is unusable there; see [PLAN.md](PLAN.md).
+Every package now builds on all three platforms from the same sources. macOS builds against a
+**newer ROOT than the release uses** (6.40 instead of 6.36) because conda-forge's 6.36 is
+unusable there; see [PLAN.md](PLAN.md).
 
 **What works**
 
