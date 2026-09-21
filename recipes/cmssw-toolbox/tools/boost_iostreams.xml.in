@@ -1,0 +1,5 @@
+<tool name="boost_iostreams" version="1.90.0" path="@PREFIX@" revision="1">
+  <info url="http://www.boost.org"/>
+  <lib name="boost_iostreams"/>
+  <use name="boost"/>
+</tool>

@@ -33,9 +33,11 @@ TrackingTools/Configuration
 # library; that is only acceptable where the package's own library is empty or the loss is
 # small and clearly bounded.
 
-# No library at all (0 translation units in src/): the layer wants its headers and python,
-# and its plugins are nanoAOD table producers that belong to a later, analysis-facing layer.
+# No library at all (0 translation units in src/): the layer wants their headers and python.
+# NanoAOD's plugins are table producers that belong to a later, analysis-facing layer;
+# DisplacedRegionalTracking's seeding producer runs a TensorFlow model.
 PhysicsTools/NanoAOD
+RecoTracker/DisplacedRegionalTracking
 
 # 2 source files, 4 plugin ones. Its plugins use HLTrigger/HLTcore, which needs L1Trigger and
 # so `utm`, whose licence is unresolved. The dE/dx estimators come back with utm.
