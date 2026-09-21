@@ -108,7 +108,9 @@ Geometry/VeryForwardGeometry
 Geometry/VeryForwardProtonTransport
 Geometry/VeryForwardRPTopology
 HeterogeneousCore/AlpakaCore
+HeterogeneousCore/AlpakaServices
 HeterogeneousCore/CUDACore
+HeterogeneousCore/CUDAServices
 IOMC/RandomEngine
 MagneticField/GeomBuilder
 MagneticField/Interpolation

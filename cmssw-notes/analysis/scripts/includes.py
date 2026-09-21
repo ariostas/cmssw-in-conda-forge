@@ -33,8 +33,19 @@ INC = re.compile(
     r'#\s*include\s+"([A-Za-z][A-Za-z0-9]*/[A-Za-z0-9]+/(?:interface|src)/[^"]+)"'
 )
 # Files a layer's patches take out of the build, so what they include does not matter.
-# Keep in step with the patches/ directory of the layers that have them.
-PATCHED_OUT = ("GeometryValidate.cc", "/alpaka/")
+# Keep in step with the patches/ directory of the layers that have them, and keep the
+# entries specific: "/alpaka/" was used here at first to skip one package's alpaka plugins
+# and silently skipped every alpaka directory in the release, which hid
+# HeterogeneousCore/AlpakaCore's need for HeterogeneousCore/AlpakaServices until the build
+# failed on it.
+PATCHED_OUT = (
+    "Geometry/CSCGeometryBuilder/plugins/CSCGeometryValidate.cc",
+    "Geometry/DTGeometryBuilder/plugins/DTGeometryValidate.cc",
+    "Geometry/GEMGeometryBuilder/plugins/GEMGeometryValidate.cc",
+    "Geometry/GEMGeometryBuilder/plugins/ME0GeometryValidate.cc",
+    "Geometry/RPCGeometryBuilder/plugins/RPCGeometryValidate.cc",
+    "RecoTracker/FinalTrackSelectors/plugins/alpaka/",
+)
 
 
 def main():
@@ -137,7 +148,9 @@ def main():
         + (tus[(p, "plugins")] if p in plugins and p not in src_only else 0)
         for p in layer
     )
-    print(f"\n{len(layer)} packages, {tu} TU ({len(added)} added over the BuildFile graph)")
+    print(
+        f"\n{len(layer)} packages, {tu} TU ({len(added)} added over the BuildFile graph)"
+    )
 
     if args.write:
         header = [ln for ln in open(listing) if ln.startswith("#")]

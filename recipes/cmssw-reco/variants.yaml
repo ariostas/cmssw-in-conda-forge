@@ -38,3 +38,9 @@ libboost_headers:
   - "1.90"
 libboost_python_devel:
   - "1.90"
+
+# The global pinning still says libtensorflow_cc 2.16, but conda-forge only has 2.18.0 and
+# 2.19.1 built, so the pinned version does not solve at all. CMS builds 2.17.0, and CMSSW
+# only uses the stable core of the TensorFlow C++ API, so take the newest.
+libtensorflow_cc:
+  - "2.19"

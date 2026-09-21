@@ -46,6 +46,8 @@ requirements:
     - gawk
     - which
     - rsync
+    # the CondFormats serialization code is generated with libclang
+    - clangxx
   host:
     - cms-scram
     - cmssw-geometry ==${{ version }}
@@ -85,6 +87,9 @@ requirements:
     - libcurl
     - pybind11
     - libboost-python-devel
+    # this layer brings in more CondFormats packages, whose serialization is generated
+    - python-clang
+    - libclang
     - dd4hep
     - geant4
     # new in this layer
@@ -122,6 +127,10 @@ requirements:
     - heppdt
     - lwtnn
     - libtensorflow_cc
+  ignore_run_exports:
+    from_package:
+      - libclang
+      - python-clang
 
 tests:
   - script:
