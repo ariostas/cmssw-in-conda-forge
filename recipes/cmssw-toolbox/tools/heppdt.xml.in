@@ -1,0 +1,16 @@
+<tool name="heppdt" version="2.06.01" path="@PREFIX@" revision="1">
+  <!--
+    CMS builds HepPDT 3.04.01; conda-forge has 2.06.01. The headers CMSSW uses
+    (HepPDT/ParticleID.hh and the ParticleDataTable) are the same in both, and CMSSW only
+    ever asks a ParticleID for its quark content and charge.
+  -->
+  <lib name="HepPDT"/>
+  <lib name="HepPID"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="HEPPDT_PARAM_PATH" value="$TOOL_BASE"/>
+  <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+  <use name="root_cxxdefaults"/>
+</tool>

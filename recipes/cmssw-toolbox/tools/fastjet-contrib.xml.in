@@ -1,0 +1,12 @@
+<tool name="fastjet-contrib" version="1.104" path="@PREFIX@" revision="1">
+  <info url="http://fastjet.hepforge.org/contrib/"/>
+  <!--
+    CMS links the "fragile" shared build of the contribs, which bundles every contrib into
+    one library. conda-forge's fastjet-contrib ships the same library under the same name.
+  -->
+  <lib name="fastjetcontribfragile"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+</tool>

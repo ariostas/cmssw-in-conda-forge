@@ -1,0 +1,8 @@
+<tool name="tensorflow" version="2.19.1" path="@PREFIX@" revision="1">
+  <info url="https://www.tensorflow.org/"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+</tool>

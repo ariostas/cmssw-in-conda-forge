@@ -1,0 +1,122 @@
+diff --git a/Geometry/CSCGeometryBuilder/plugins/BuildFile.xml b/Geometry/CSCGeometryBuilder/plugins/BuildFile.xml
+index a73fe526e..b4e286e1e 100644
+--- a/Geometry/CSCGeometryBuilder/plugins/BuildFile.xml
++++ b/Geometry/CSCGeometryBuilder/plugins/BuildFile.xml
+@@ -1,3 +1,11 @@
++<!--
++  The *GeometryValidate plugins compare the geometry against a reference through
++  Fireworks/Core, the event display. Fireworks needs OpenGL and the ROOT GUI and Eve
++  libraries, none of which this layer has any other reason to carry, and the plugins are a
++  debugging tool rather than part of reconstruction. They are left out here; every other
++  plugin in these packages, including the ESModules that actually build the muon geometry,
++  is unaffected.
++-->
+ <use name="CondFormats/Alignment"/>
+ <use name="CondFormats/GeometryObjects"/>
+ <use name="FWCore/Framework"/>
+@@ -13,9 +21,3 @@
+   <flags EDM_PLUGIN="1"/>
+ </library>
+ 
+-<library name="CSCGeometryValidationPlugins" file="CSCGeometryValidate.cc">
+-  <use name="Fireworks/Core"/>
+-  <use name="Geometry/CSCGeometry"/>
+-  <use name="rootgeom"/>
+-  <flags EDM_PLUGIN="1"/>
+-</library>
+diff --git a/Geometry/DTGeometryBuilder/plugins/BuildFile.xml b/Geometry/DTGeometryBuilder/plugins/BuildFile.xml
+index 8d54476bc..4dbf61963 100644
+--- a/Geometry/DTGeometryBuilder/plugins/BuildFile.xml
++++ b/Geometry/DTGeometryBuilder/plugins/BuildFile.xml
+@@ -1,3 +1,11 @@
++<!--
++  The *GeometryValidate plugins compare the geometry against a reference through
++  Fireworks/Core, the event display. Fireworks needs OpenGL and the ROOT GUI and Eve
++  libraries, none of which this layer has any other reason to carry, and the plugins are a
++  debugging tool rather than part of reconstruction. They are left out here; every other
++  plugin in these packages, including the ESModules that actually build the muon geometry,
++  is unaffected.
++-->
+ <use name="CondFormats/AlignmentRecord"/>
+ <use name="CondFormats/Alignment"/>
+ <use name="CondFormats/GeometryObjects"/>
+@@ -14,13 +22,6 @@
+   <flags EDM_PLUGIN="1"/>
+ </library>
+ 
+-<library name="DTGeometryValidationPlugins" file="DTGeometryValidate.cc">
+-  <use name="Fireworks/Core"/>
+-  <use name="Geometry/DTGeometry"/>
+-  <use name="rootgeom"/>
+-  <flags EDM_PLUGIN="1"/>
+-</library>
+-
+ <library name="DD4hep_DTGeometryPlugins" file="dd4hep/*.cc">
+   <use name="DetectorDescription/DDCMS"/>
+   <use name="Geometry/DTGeometry"/>
+diff --git a/Geometry/GEMGeometryBuilder/plugins/BuildFile.xml b/Geometry/GEMGeometryBuilder/plugins/BuildFile.xml
+index a6ad0b2dc..9effbfa74 100644
+--- a/Geometry/GEMGeometryBuilder/plugins/BuildFile.xml
++++ b/Geometry/GEMGeometryBuilder/plugins/BuildFile.xml
+@@ -1,3 +1,11 @@
++<!--
++  The *GeometryValidate plugins compare the geometry against a reference through
++  Fireworks/Core, the event display. Fireworks needs OpenGL and the ROOT GUI and Eve
++  libraries, none of which this layer has any other reason to carry, and the plugins are a
++  debugging tool rather than part of reconstruction. They are left out here; every other
++  plugin in these packages, including the ESModules that actually build the muon geometry,
++  is unaffected.
++-->
+ <use name="CondFormats/AlignmentRecord"/>
+ <use name="CondFormats/Alignment"/>
+ <use name="CondFormats/GeometryObjects"/>
+@@ -15,13 +23,6 @@
+   <flags EDM_PLUGIN="1"/>
+ </library>
+ 
+-<library name="GEMGeometryValidationPlugins" file="GEMGeometryValidate.cc">
+-  <use name="Fireworks/Core"/>
+-  <use name="Geometry/GEMGeometry"/>
+-  <use name="rootgeom"/>
+-  <flags EDM_PLUGIN="1"/>
+-</library>
+-
+ <library name="ME0GeometryPlugins" file="ME0GeometryESModule.cc">
+   <use name="DetectorDescription/Core"/>
+   <use name="DetectorDescription/DDCMS"/>
+@@ -32,9 +33,3 @@
+   <flags EDM_PLUGIN="1"/>
+ </library>
+ 
+-<library name="ME0GeometryValidationPlugins" file="ME0GeometryValidate.cc">
+-  <use name="Fireworks/Core"/>
+-  <use name="Geometry/GEMGeometry"/>
+-  <use name="rootgeom"/>
+-  <flags EDM_PLUGIN="1"/>
+-</library>
+diff --git a/Geometry/RPCGeometryBuilder/plugins/BuildFile.xml b/Geometry/RPCGeometryBuilder/plugins/BuildFile.xml
+index a9551358b..89f6bddc1 100644
+--- a/Geometry/RPCGeometryBuilder/plugins/BuildFile.xml
++++ b/Geometry/RPCGeometryBuilder/plugins/BuildFile.xml
+@@ -1,3 +1,11 @@
++<!--
++  The *GeometryValidate plugins compare the geometry against a reference through
++  Fireworks/Core, the event display. Fireworks needs OpenGL and the ROOT GUI and Eve
++  libraries, none of which this layer has any other reason to carry, and the plugins are a
++  debugging tool rather than part of reconstruction. They are left out here; every other
++  plugin in these packages, including the ESModules that actually build the muon geometry,
++  is unaffected.
++-->
+ <use name="CondFormats/GeometryObjects"/>
+ <use name="FWCore/Framework"/>
+ <use name="FWCore/ParameterSet"/>
+@@ -13,9 +21,3 @@
+   <flags EDM_PLUGIN="1"/>
+ </library>
+ 
+-<library name="RPCGeometryValidationPlugins" file="RPCGeometryValidate.cc">
+-  <use name="Fireworks/Core"/>
+-  <use name="Geometry/RPCGeometry"/>
+-  <use name="rootgeom"/>
+-  <flags EDM_PLUGIN="1"/>
+-</library>

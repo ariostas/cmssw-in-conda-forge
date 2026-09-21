@@ -1,0 +1,12 @@
+<tool name="geant4vis" version="11.4.2" path="@PREFIX@" revision="1">
+  <info url="http://geant4.web.cern.ch/geant4/"/>
+  <!-- conda-forge's geant4 ships all seven visualisation drivers CMS's tool file lists. -->
+  <lib name="G4FR"/>
+  <lib name="G4modeling"/>
+  <lib name="G4RayTracer"/>
+  <lib name="G4Tree"/>
+  <lib name="G4vis_management"/>
+  <lib name="G4VRML"/>
+  <lib name="G4GMocren"/>
+  <use name="geant4core"/>
+</tool>

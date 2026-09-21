@@ -1,0 +1,9 @@
+<tool name="tensorflow-framework" version="2.19.1" path="@PREFIX@" revision="1">
+  <!--
+    CMS's tool file also names giflib, libjpeg-turbo, protobuf and zlib, because its own
+    build of TensorFlow links them dynamically. conda-forge's libtensorflow_cc has them
+    resolved already, so only the two TensorFlow libraries go on the link line.
+  -->
+  <lib name="tensorflow_framework"/>
+  <use name="tensorflow"/>
+</tool>

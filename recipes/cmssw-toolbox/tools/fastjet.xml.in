@@ -1,0 +1,14 @@
+<tool name="fastjet" version="3.5.1" path="@PREFIX@" revision="1">
+  <info url="http://fastjet.fr"/>
+  <lib name="fastjetplugins"/>
+  <lib name="fastjettools"/>
+  <lib name="siscone"/>
+  <lib name="siscone_spherical"/>
+  <lib name="fastjet"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+  <use name="root_cxxdefaults"/>
+</tool>

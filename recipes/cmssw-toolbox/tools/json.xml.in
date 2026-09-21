@@ -1,0 +1,6 @@
+<tool name="json" version="3.12.0" path="@PREFIX@" revision="1">
+  <!-- nlohmann/json, a header-only library; conda-forge calls the package nlohmann_json. -->
+  <client>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+</tool>

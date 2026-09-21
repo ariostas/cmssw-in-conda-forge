@@ -1,0 +1,164 @@
+context:
+  cmssw_tag: CMSSW_20_1_0_pre2
+  version: "20.1.0pre2"
+
+package:
+  name: cmssw-reco
+  version: ${{ version }}
+
+source:
+  - url: https://github.com/cms-sw/cmssw/archive/refs/tags/${{ cmssw_tag }}.tar.gz
+    sha256: 39afc8deff3e31952cc43699324b25bbc10e619abe616b0eb6c3c20b4746312e
+    target_directory: cmssw
+    patches:
+      - patches/0001-Geometry-leave-out-the-Fireworks-based-validation-plugins.patch
+      - patches/0002-RecoTracker-leave-out-the-PyTorch-alpaka-plugins.patch
+
+build:
+  number: 0
+  skip:
+    - win
+    - osx and x86_64
+  script:
+    env:
+      CMSSW_TAG: ${{ cmssw_tag }}
+    file: build.sh
+  dynamic_linking:
+    rpath_allowlist:
+      - share/cmssw/**
+  prefix_detection:
+    ignore_binary_files: true
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ compiler('fortran') }}
+    - ${{ stdlib('c') }}
+    - cms-scram
+    - cmssw-toolbox ==${{ version }}
+    - make
+    - bash
+    - sed
+    - coreutils
+    - findutils
+    - grep
+    - gawk
+    - which
+    - rsync
+  host:
+    - cms-scram
+    - cmssw-geometry ==${{ version }}
+    # the same externals as the layers below, because the release's headers include them
+    - python
+    - numpy
+    - root_base
+    # root_base comes in cxx20 and cxx23 builds; CMSSW 20_1 is C++20
+    - root_cxx_standard
+    - libboost-devel
+    - tbb-devel
+    - clhep
+    - fmt
+    - xerces-c
+    - libuuid
+    - eigen
+    - vdt
+    - hepmc2
+    - hepmc3
+    - tinyxml2
+    - zlib
+    - xz
+    - zstd
+    - bzip2
+    - pcre2
+    - openssl
+    - libxcrypt
+    - gsl
+    - openblas
+    - alpaka
+    - hls-arbitrary-precision-types
+    - cms-md5
+    - coral
+    - frontier-client
+    - sqlite
+    - expat
+    - libcurl
+    - pybind11
+    - libboost-python-devel
+    - dd4hep
+    - geant4
+    # new in this layer
+    # track refitting for alignment: RecoTracker/TrackProducer's plugins reach these
+    # through Alignment/ReferenceTrajectories
+    - gbl
+    - mille
+    # jet clustering, used by CommonTools/PileupAlgos and the muon rechit clusterer
+    - fastjet
+    - fastjet-contrib
+    # particle properties, for SimGeneral/HepPDTRecord
+    - heppdt
+    # nlohmann/json, header only; RecoTracker/MkFitCore reads its configuration with it
+    - nlohmann_json
+    # the neural-net evaluator RecoTracker/FinalTrackSelectors uses for track quality
+    - lwtnn
+    # PhysicsTools/TensorFlow. RecoTracker's _cff fragments import the cfi of the
+    # TensorFlow plugins unconditionally, so this is needed to configure tracking at all,
+    # not only to run the track-quality DNN.
+    - libtensorflow_cc
+  run:
+    - cms-scram
+    - cmssw-geometry ==${{ version }}
+    - python
+    - root_base
+    - coral
+    - frontier-client
+    # ROOT parses the release's headers at runtime, so these are run dependencies too
+    - dd4hep
+    - geant4
+    - gbl
+    - mille
+    - fastjet
+    - fastjet-contrib
+    - heppdt
+    - lwtnn
+    - libtensorflow_cc
+
+tests:
+  - script:
+      - python -c "import ctypes, glob, os; libs = glob.glob(os.path.join(os.environ['CMSSW_BASE'], 'lib', os.environ['SCRAM_ARCH'], '*.[ds][oy]*')); assert libs; [ctypes.CDLL(lib, mode=ctypes.RTLD_GLOBAL) for lib in sorted(libs)]; print(len(libs), 'libraries loaded')"
+      # the reconstruction plugins this layer exists for must be registered
+      - edmPluginDump | grep -q TrackProducer
+      - edmPluginDump | grep -q CkfTrackCandidateMaker
+      - edmPluginDump | grep -q PrimaryVertexProducer
+      - edmPluginDump | grep -q MuonIdProducer
+      # the muon geometry ESModules, whose Fireworks validation plugins patch 0001 removes
+      - edmPluginDump | grep -q DTGeometryESModule
+      - edmPluginDump | grep -q CSCGeometryESModule
+      # the TensorFlow plugins, which is what makes the tracking configuration importable
+      - edmPluginDump | grep -q TrackTfClassifier
+      - edmPluginDump | grep -q MkFitOutputConverter
+      - cmsRun test/tracking.py
+    files:
+      recipe:
+        - test/
+
+about:
+  homepage: https://cms-sw.github.io
+  summary: CMS reconstruction - tracking, vertexing and muons
+  description: |
+    CMSSW is the software framework of the CMS experiment at CERN. This package adds
+    reconstruction on top of cmssw-geometry: local reconstruction in the tracker, the
+    Kalman-filter track finding and fitting chain, primary and secondary vertex
+    reconstruction, muon reconstruction and identification, and the rest of the detector
+    geometry that those need.
+
+    Two things are left out because what they need is not packaged: the alpaka plugins of
+    RecoTracker/FinalTrackSelectors, which run a PyTorch model, and the dE/dx estimators,
+    which reach the L1 trigger menu through HLTrigger/HLTcore and so the unlicensed `utm`.
+  license: Apache-2.0
+  license_file: cmssw/LICENSE
+  repository: https://github.com/cms-sw/cmssw
+
+extra:
+  recipe-maintainers:
+    - ariostas

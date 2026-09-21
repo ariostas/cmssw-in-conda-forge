@@ -43,8 +43,16 @@ BLOCKED = {
     "g4hepemcore": "simulation (geant4)",
     "g4hepemstatic": "simulation (geant4)",
     "adept": "simulation (geant4)",
-    "tensorflow": "ML runtimes",
-    "tensorflow-cc": "ML runtimes",
+    # tensorflow and tensorflow-cc are NOT blocked: conda-forge's libtensorflow_cc 2.19.1
+    # ships libtensorflow_cc, libtensorflow_framework and tensorflow/core/public/session.h,
+    # which is everything PhysicsTools/TensorFlow uses. CMS builds 2.17.0, but CMSSW only
+    # touches the stable core of the C++ API. This matters more than its four translation
+    # units suggest: RecoTracker's _cff fragments import mkFitOutputConverter_cfi and
+    # friends unconditionally, so without the TensorFlow plugins the generated cfi is
+    # missing and RecoTracker_cff cannot even be imported, let alone run.
+    #
+    # The XLA ahead-of-time runtime and the tfaot models stay blocked: they come from CMS's
+    # own TensorFlow build, not from the stock package.
     "tensorflow-runtime": "ML runtimes",
     "tensorflow-xla-runtime": "ML runtimes",
     "tensorflow-xla_compiled_cpu_function": "ML runtimes",

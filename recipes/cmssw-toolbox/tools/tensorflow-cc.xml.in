@@ -1,0 +1,10 @@
+<tool name="tensorflow-cc" version="2.19.1" path="@PREFIX@" revision="1">
+  <!--
+    conda-forge's libtensorflow_cc, which is 2.19.1 where CMS builds 2.17.0. CMSSW only uses
+    the stable core of the C++ API (tensorflow::Session, Tensor, NamedTensor and
+    tensorflow::run), which has not changed across those releases.
+  -->
+  <lib name="tensorflow_cc"/>
+  <use name="tensorflow-framework"/>
+  <use name="eigen"/>
+</tool>

@@ -1,0 +1,7 @@
+<tool name="boost_system" version="1.90.0" path="@PREFIX@" revision="1">
+  <!--
+    Boost.System has been header-only since 1.69, so there is no library to link; the tool
+    exists because CMSSW and lwtnn still name it in their BuildFiles.
+  -->
+  <use name="boost_header"/>
+</tool>

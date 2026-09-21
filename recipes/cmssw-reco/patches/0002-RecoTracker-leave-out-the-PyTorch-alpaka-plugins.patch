@@ -1,0 +1,33 @@
+diff --git a/RecoTracker/FinalTrackSelectors/plugins/BuildFile.xml b/RecoTracker/FinalTrackSelectors/plugins/BuildFile.xml
+index 2235acdc2..69e37a307 100644
+--- a/RecoTracker/FinalTrackSelectors/plugins/BuildFile.xml
++++ b/RecoTracker/FinalTrackSelectors/plugins/BuildFile.xml
+@@ -1,3 +1,9 @@
++<!--
++  The alpaka plugins here run a PyTorch model through PhysicsTools/PyTorchAlpaka, and also
++  want `xtd` and, on the cuda backend, pytorch-cuda. None of those are packaged, so this one
++  build product is left out. Everything else in the package, including the TensorFlow track
++  classifier, still builds: conda-forge's libtensorflow_cc covers PhysicsTools/TensorFlow.
++-->
+ <use name="ofast-flag"/>
+ <use name="CommonTools/Statistics"/>
+ <use name="CommonTools/Utils"/>
+@@ -39,18 +45,3 @@
+   <flags EDM_PLUGIN="1"/>
+ </library>
+ 
+-<library file="alpaka/*.cc" name="RecoTrackerFinalTrackSelectorsAlpakaPlugins">
+-  <use name="alpaka"/>
+-  <use name="xtd"/> 
+-  <use name="DataFormats/BeamSpot"/>
+-  <use name="DataFormats/Portable"/>
+-  <use name="DataFormats/SoATemplate"/>
+-  <use name="HeterogeneousCore/AlpakaCore"/>
+-  <use name="HeterogeneousCore/AlpakaInterface"/>
+-  <use name="PhysicsTools/PyTorch"/>
+-  <use name="PhysicsTools/PyTorchAlpaka"/>
+-  <use name="pytorch-cuda" for="alpaka/cuda"/>
+-  <flags ALPAKA_BACKENDS="1"/>
+-  <flags EDM_PLUGIN="1"/>
+-  <flags remove="1">ofast-flag</flags>
+-</library>
