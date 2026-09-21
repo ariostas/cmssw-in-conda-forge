@@ -78,8 +78,11 @@ BLOCKED = {
     "ktjet": "generators",
     "hector": "generators",
     "millepede": "small unpackaged",
-    "mille": "small unpackaged",
-    "gbl": "small unpackaged",
+    # gbl and mille are packaged (recipes/gbl, recipes/mille) and build on linux-aarch64.
+    # They matter out of proportion to their size: RecoTracker/TrackProducer's plugins --
+    # the track producer and refitter themselves -- use them through
+    # Alignment/ReferenceTrajectories, so without them a reconstruction layer has no way to
+    # produce a track.
     "log4cplus": "small unpackaged",
     "clue": "small unpackaged",
     "fftjet": "small unpackaged",
@@ -237,6 +240,63 @@ def components(graph):
     return out
 
 
+def target_layer(pkgs, names, tus, blocked, subsystems):
+    """The dependency closure of whole subsystems, minus what the shipped layers already own.
+
+    `--layers` packs the buildable frontier greedily, which fills its budget with whatever
+    happens to be ready: asking it for 1500 TU gives a slice of 79 subsystems, from Fireworks
+    to TopQuarkAnalysis, that is not about anything. A layer is easier to justify, to test and
+    to name when it is chosen by what it is *for*, so this takes the subsystems a layer is
+    meant to deliver and adds exactly what they need.
+
+    Prints the package list, then the packages that have nothing to compile (they only carry
+    XML, python or headers) for src-only.txt, then the ones whose plugins need something
+    blocked -- those are the layer's real decisions, because `--src-only` drops a package's
+    whole plugins/ directory and cannot keep some of its plugin libraries and not others.
+    """
+    libs, plugins = solve(pkgs, names, blocked)
+    shipped = set()
+    for recipe in SHIPPED:
+        shipped |= set(read_list(f"recipes/{recipe}/packages.txt"))
+
+    def deps_of(p):
+        uses = pkgs[p]["uses"].get("lib", [])
+        if p in plugins:
+            uses += pkgs[p]["uses"].get("plugins", []) + pkgs[p]["uses"].get("bin", [])
+        out = set()
+        for use in uses:
+            q = use if use in pkgs else names.get(use.lower())
+            if q and q in libs:
+                out.add(q)
+        return out
+
+    seen = {p for p in libs if p.split("/")[0] in subsystems}
+    stack = list(seen)
+    while stack:
+        for q in deps_of(stack.pop()):
+            if q not in seen:
+                seen.add(q)
+                stack.append(q)
+
+    new = sorted(seen - shipped)
+    src_only, blocked_plugins = [], []
+    for p in new:
+        if tus[(p, "lib")] == 0 and tus[(p, "plugins")] == 0:
+            src_only.append(p)
+        elif tus[(p, "plugins")] and p not in plugins:
+            blocked_plugins.append(p)
+    tu = sum(
+        tus[(p, "lib")] + (tus[(p, "plugins")] if p in plugins else 0) for p in new
+    )
+    print(f"# {len(new)} packages, {tu} TU, closure of {' '.join(sorted(subsystems))}")
+    print("\n".join(new))
+    print(f"\n# nothing to compile ({len(src_only)}), for src-only.txt:")
+    print("\n".join("  " + p for p in src_only))
+    print(f"\n# plugins need a blocked external ({len(blocked_plugins)}):")
+    for p in blocked_plugins:
+        print(f"  {p} ({tus[(p, 'plugins')]} plugin TU)")
+
+
 def partition(pkgs, names, tus, blocked, budget, dump=None):
     """Greedily pack the buildable packages into layers of at most `budget` TUs.
 
@@ -334,6 +394,11 @@ def main():
         metavar="N",
         help="print the package list of layer N, one per line, for packages.txt",
     )
+    ap.add_argument(
+        "--target",
+        metavar="SUB,SUB",
+        help="print the layer that delivers these subsystems and their dependencies",
+    )
     args = ap.parse_args()
 
     pkgs, names, tus = load()
@@ -341,17 +406,22 @@ def main():
     print(f"{len(pkgs)} packages, {total} translation units excluding test/\n")
     ladder(pkgs, names, tus, total)
 
+    blocked = set(BLOCKED)
+    if args.scenario == "full":
+        blocked = set()
+    elif args.scenario != "today":
+        keep = {
+            e for e, reason in BLOCKED.items() if reason in args.scenario.split(",")
+        }
+        blocked -= keep
+
     if args.layers:
-        blocked = set(BLOCKED)
-        if args.scenario == "full":
-            blocked = set()
-        elif args.scenario != "today":
-            keep = {
-                e for e, reason in BLOCKED.items() if reason in args.scenario.split(",")
-            }
-            blocked -= keep
         print(f"\nlayers of at most {args.layers} TU, scenario '{args.scenario}':")
         partition(pkgs, names, tus, blocked, args.layers, args.dump)
+
+    if args.target:
+        print(f"\nscenario '{args.scenario}':")
+        target_layer(pkgs, names, tus, blocked, set(args.target.split(",")))
 
 
 if __name__ == "__main__":

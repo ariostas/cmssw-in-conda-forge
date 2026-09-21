@@ -1,0 +1,71 @@
+context:
+  version: "1.0.0"
+  # the upstream tag is V01-00-00; the archive name carries the commit it points at
+  tag: V01-00-00
+  commit: 8c2c304e3f30d3839b2c412c4d7295bc8df225aa
+
+package:
+  name: mille
+  version: ${{ version }}
+
+source:
+  url: https://gitlab.desy.de/millepede/Mille/-/archive/${{ tag }}/Mille-${{ tag }}.tar.gz
+  sha256: 852665e1c8026be8838213074128e1f9e76ed3c2897a2fbdfb8c41a938828ba9
+  patches:
+    - patches/0001-Respect-the-callers-compilers-and-CXX-flags.patch
+
+build:
+  number: 0
+  skip:
+    - win
+  script: build.sh
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ compiler('fortran') }}
+    - ${{ stdlib('c') }}
+    - cmake
+    - make
+  host:
+    - zlib
+    - root_base
+    # root_base comes in cxx20 and cxx23 builds; CMSSW 20_1 is C++20
+    - root_cxx_standard
+  run:
+    - python
+
+tests:
+  - package_contents:
+      lib:
+        - Mille2
+        - MilleC
+      include:
+        - Mille/MilleRecord.h
+      bin:
+        - inspectMilleBinary
+        - convertMilleFormats
+  - script:
+      - inspectMilleBinary --help || true
+      - test -f "${PREFIX}/modules/millef.mod"
+
+about:
+  homepage: https://millepede.pages.desy.de/mille/
+  summary: Mille, the I/O component of Millepede-II and General Broken Lines
+  description: |
+    Mille stores the equations that define a linear(ised) least-squares problem into binary
+    files, which Millepede-II then processes. It is the common I/O component of the
+    Millepede-II and GeneralBrokenLines track-fitting and alignment packages, and CMSSW uses
+    it through General Broken Lines in the tracker alignment and track refitting code.
+  # The tarball ships no license file, although every source header points at a COPYING.LIB
+  # and README.md states the terms outright ("provided by DESY under the terms of the LGPLv2
+  # license"). README.md is used as the license file until upstream adds one; this has been
+  # reported to the Mille maintainers.
+  license: LGPL-2.0-or-later
+  license_file: README.md
+  repository: https://gitlab.desy.de/millepede/Mille
+
+extra:
+  recipe-maintainers:
+    - ariostas

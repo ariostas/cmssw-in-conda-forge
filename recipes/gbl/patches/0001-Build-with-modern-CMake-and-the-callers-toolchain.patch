@@ -1,0 +1,32 @@
+diff --git a/cpp/CMakeLists.txt b/cpp/CMakeLists.txt
+index 6022a71..1dafde8 100644
+--- a/cpp/CMakeLists.txt
++++ b/cpp/CMakeLists.txt
+@@ -1,12 +1,11 @@
+ # #require a certain version
+-CMAKE_MINIMUM_REQUIRED( VERSION 3.1 )
++# CMake 4 removed compatibility with a minimum below 3.5, so this no longer configures at
++# all as it stood. 3.14 is what upstream's later CMakeLists asks for.
++CMAKE_MINIMUM_REQUIRED( VERSION 3.14 )
+ 
+-# discover the compilers from PATH (when system install is overridden)
+-find_program(gcc_loc gcc)
+-find_program(gpp_loc g++)
+-
+-set(CMAKE_C_COMPILER ${gcc_loc})
+-set(CMAKE_CXX_COMPILER ${gpp_loc})
++# Let CMake find the compilers the usual way: from CMAKE_<LANG>_COMPILER, the CC/CXX
++# environment variables or a toolchain file. Hard-coding the first gcc/g++ on PATH breaks
++# cross builds and any toolchain whose compiler is not called plain "gcc".
+ 
+ # declare the project name
+ PROJECT(GBL)
+@@ -43,7 +42,7 @@ endif()
+ IF( NOT ${CMAKE_VERSION} VERSION_LESS "3.1.0" )
+   IF( SUPPORT_ROOT )
+     SET( CMAKE_CXX_STANDARD ${ROOT_CXX_STANDARD} )
+-  ELSE()
++  ELSEIF( NOT CMAKE_CXX_STANDARD )
+     SET( CMAKE_CXX_STANDARD 17 )
+   ENDIF()
+ ELSE()

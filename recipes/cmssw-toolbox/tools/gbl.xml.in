@@ -1,0 +1,10 @@
+<tool name="gbl" version="4.0.0" path="@PREFIX@" revision="1">
+  <info url="https://www.wiki.terascale.de/index.php/GeneralBrokenLines"/>
+  <lib name="GBL"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <use name="eigen"/>
+  <use name="mille"/>
+</tool>

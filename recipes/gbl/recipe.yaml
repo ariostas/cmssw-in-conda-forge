@@ -1,0 +1,69 @@
+context:
+  version: "4.0.0"
+  # the commit CMSSW_20_1_0_pre2 builds (cmsdist gbl.spec, V04-00-00)
+  commit: 6e60cdf1f1a296ce0a4e08833ebbfa58e9ad2787
+
+package:
+  name: gbl
+  version: ${{ version }}
+
+source:
+  url: https://gitlab.desy.de/millepede/general-broken-lines/-/archive/${{ commit }}/general-broken-lines-${{ commit }}.tar.gz
+  sha256: a7f446b57e6bbf3cff6c07761809084d9b5626d7f9d49fd0b43992fff53f3563
+  patches:
+    - patches/0001-Build-with-modern-CMake-and-the-callers-toolchain.patch
+
+build:
+  number: 1
+  skip:
+    - win
+  script: build.sh
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+    - cmake
+    - make
+  host:
+    - eigen
+    - mille
+  run:
+    - mille
+
+tests:
+  - package_contents:
+      lib:
+        - GBL
+      include:
+        - GblTrajectory.h
+        - GblPoint.h
+  - script:
+      # the headers must be usable on their own, which is how CMSSW consumes them
+      - ${CXX} ${CXXFLAGS} -std=c++20 -I"${PREFIX}/include" -I"${PREFIX}/include/eigen3" -c test/use_gbl.cc -o /dev/null
+    files:
+      recipe:
+        - test/
+    requirements:
+      run:
+        - ${{ compiler('cxx') }}
+        - ${{ stdlib('c') }}
+        - eigen
+
+about:
+  homepage: https://www.wiki.terascale.de/index.php/GeneralBrokenLines
+  summary: General Broken Lines, a track refitting library
+  description: |
+    General Broken Lines (GBL) refits a particle trajectory that has already been fitted,
+    describing it as a broken line with kinks at each scatterer. It gives the full covariance
+    matrix at every measurement in a single pass, which makes it the fit of choice for
+    detector alignment, and it writes its derivatives through Mille for Millepede-II. CMSSW
+    uses it in the tracker alignment and in the track refitters that feed it.
+  license: LGPL-2.0-or-later
+  license_file: cpp/COPYING.LIB
+  repository: https://gitlab.desy.de/millepede/general-broken-lines
+
+extra:
+  recipe-maintainers:
+    - ariostas

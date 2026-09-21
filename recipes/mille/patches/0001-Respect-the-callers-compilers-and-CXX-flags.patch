@@ -1,0 +1,35 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 5557284..f4325b3 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,12 +1,10 @@
+ CMAKE_MINIMUM_REQUIRED(VERSION 3.26.5)
+ 
+-# discover the compilers from PATH (when system install is overridden)
+-find_program(gcc_loc gcc)
+-find_program(gpp_loc g++)
+-
+-set(CMAKE_C_COMPILER ${gcc_loc})
+-set(CMAKE_CXX_COMPILER ${gpp_loc})
+-set(CMAKE_Fortran_COMPILER ${gf_loc})
++# Let CMake find the compilers the usual way: from CMAKE_<LANG>_COMPILER, the CC/CXX/FC
++# environment variables or a toolchain file. Hard-coding the first gcc/g++ on PATH broke
++# every cross build and every toolchain whose compiler is not called plain "gcc", and
++# gf_loc was never set by anything, so the Fortran compiler was unset here rather than
++# discovered.
+ 
+ PROJECT(Mille LANGUAGES Fortran CXX)
+ set(Mille_VERSION 01.00.00)
+@@ -50,10 +48,10 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules)
+ 
+ if (DEBUG)
+     message("Setting flags for debug build")    
+-    set(CMAKE_CXX_FLAGS "-Wall -Wno-unused-function -O3 -g ")  
++    string(APPEND CMAKE_CXX_FLAGS " -Wall -Wno-unused-function -O3 -g")
+ 
+ else()
+-    set(CMAKE_CXX_FLAGS "-Wall -Wno-unused-function -O3")
++    string(APPEND CMAKE_CXX_FLAGS " -Wall -Wno-unused-function -O3")
+ endif()
+ 
+ # add our main targets 
