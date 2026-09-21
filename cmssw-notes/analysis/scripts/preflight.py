@@ -35,7 +35,9 @@ def main():
     # what the layer's patches take out of the build, read from the patches themselves
     patched = set()
     for p in glob.glob(os.path.join(layer_dir, "patches", "*.patch")):
-        for m in re.finditer(r"^--- a/([A-Za-z0-9]+/[A-Za-z0-9]+)/", open(p).read(), re.M):
+        for m in re.finditer(
+            r"^--- a/([A-Za-z0-9]+/[A-Za-z0-9]+)/", open(p).read(), re.M
+        ):
             patched.add(m.group(1))
 
     bad = []
@@ -65,7 +67,9 @@ def main():
 
     print(f"{len(layer)} packages, {len(src_only)} src-only, {len(patched)} patched")
     if bad:
-        print(f"\n{len(bad)} packages whose plugins cannot build and are not src-only or patched:")
+        print(
+            f"\n{len(bad)} packages whose plugins cannot build and are not src-only or patched:"
+        )
         for p, n in bad:
             print(f"  {p}  ({n} plugin TU)")
     if missing_tools:

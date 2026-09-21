@@ -87,14 +87,34 @@ USER_LDFLAGS="-Wl,-rpath,${RELEASE}/${LIBDIR} -Wl,-rpath,${PREFIX}/lib -L${PREFI
 if [[ "${target_platform}" == linux-* ]]; then
   USER_LDFLAGS="${USER_LDFLAGS} -Wl,-rpath-link,${PREFIX}/lib"
 fi
+# Cap the job count by available memory as well as by cores. A few of CMSSW's translation
+# units are very large -- the alpaka ones in RecoTracker/LSTCore above all -- and ten of
+# those at once exhausted 23 GB, which the compiler reports as "Killed signal terminated
+# program cc1plus" and the assembler sometimes as garbage in a truncated temporary. Allow
+# about 2.5 GB per job, which is comfortably above what the heaviest ones use.
+JOBS=${CPU_COUNT:-1}
+if [ -r /proc/meminfo ]; then
+  MEM_MB=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
+elif command -v sysctl >/dev/null; then
+  MEM_MB=$(( $(sysctl -n hw.memsize) / 1024 / 1024 ))
+fi
+if [ -n "${MEM_MB:-}" ]; then
+  MEM_JOBS=$(( MEM_MB / 2500 ))
+  [ "${MEM_JOBS}" -lt 1 ] && MEM_JOBS=1
+  if [ "${MEM_JOBS}" -lt "${JOBS}" ]; then
+    echo "limiting to ${MEM_JOBS} jobs (${MEM_MB} MB available, ${JOBS} cores)"
+    JOBS=${MEM_JOBS}
+  fi
+fi
+
 if [[ "${target_platform}" == osx-* ]]; then
   # The EDM class version checks compare ROOT checksums computed on Linux, which differ on
   # macOS for classes with (u)int64_t members. The SDK is passed to the compiler explicitly by
   # the toolbox; ROOT's interpreter, which runs during the build, must not see it.
   export SCRAM_NOEDM_CHECKS=1
-  env -u SDKROOT -u CONDA_BUILD_SYSROOT scram b -k -j "${CPU_COUNT:-1}" USER_LDFLAGS="${USER_LDFLAGS}" </dev/null
+  env -u SDKROOT -u CONDA_BUILD_SYSROOT scram b -k -j "${JOBS}" USER_LDFLAGS="${USER_LDFLAGS}" </dev/null
 else
-  scram b -k -j "${CPU_COUNT:-1}" USER_LDFLAGS="${USER_LDFLAGS}" </dev/null
+  scram b -k -j "${JOBS}" USER_LDFLAGS="${USER_LDFLAGS}" </dev/null
 fi
 
 # 5. install into the release tree
