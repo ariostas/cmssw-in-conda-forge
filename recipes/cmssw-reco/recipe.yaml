@@ -12,7 +12,7 @@ source:
     target_directory: cmssw
     patches:
       - patches/0001-Geometry-leave-out-the-Fireworks-based-validation-plugins.patch
-      - patches/0002-RecoTracker-leave-out-the-PyTorch-alpaka-plugins.patch
+      - patches/0002-RecoTracker-leave-out-the-TensorFlow-and-PyTorch-plugins.patch
 
 build:
   number: 0
@@ -106,10 +106,6 @@ requirements:
     - nlohmann_json
     # the neural-net evaluator RecoTracker/FinalTrackSelectors uses for track quality
     - lwtnn
-    # PhysicsTools/TensorFlow. RecoTracker's _cff fragments import the cfi of the
-    # TensorFlow plugins unconditionally, so this is needed to configure tracking at all,
-    # not only to run the track-quality DNN.
-    - libtensorflow_cc
   run:
     - cms-scram
     - cmssw-geometry ==${{ version }}
@@ -126,7 +122,6 @@ requirements:
     - fastjet-contrib
     - heppdt
     - lwtnn
-    - libtensorflow_cc
   ignore_run_exports:
     from_package:
       - libclang
@@ -143,9 +138,10 @@ tests:
       # the muon geometry ESModules, whose Fireworks validation plugins patch 0001 removes
       - edmPluginDump | grep -q DTGeometryESModule
       - edmPluginDump | grep -q CSCGeometryESModule
-      # the TensorFlow plugins, which is what makes the tracking configuration importable
-      - edmPluginDump | grep -q TrackTfClassifier
-      - edmPluginDump | grep -q MkFitOutputConverter
+      # a plugin from each package patch 0002 touches, to catch a SKIP_FILES that removed
+      # more than the one file it names
+      - edmPluginDump | grep -q TrackCollectionMerger
+      - edmPluginDump | grep -q MkFitProducer
       - cmsRun test/tracking.py
     files:
       recipe:
@@ -161,9 +157,10 @@ about:
     reconstruction, muon reconstruction and identification, and the rest of the detector
     geometry that those need.
 
-    Two things are left out because what they need is not packaged: the alpaka plugins of
-    RecoTracker/FinalTrackSelectors, which run a PyTorch model, and the dE/dx estimators,
-    which reach the L1 trigger menu through HLTrigger/HLTcore and so the unlicensed `utm`.
+    Some plugins are left out because what they need is not packaged: the ones that run a
+    TensorFlow or PyTorch inference, and the dE/dx estimators, which reach the L1 trigger
+    menu through HLTrigger/HLTcore and so the unlicensed `utm`. conda-forge does have a
+    libtensorflow_cc, but its C++ headers are incomplete and do not compile.
   license: Apache-2.0
   license_file: cmssw/LICENSE
   repository: https://github.com/cms-sw/cmssw

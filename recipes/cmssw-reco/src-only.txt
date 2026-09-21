@@ -1,6 +1,12 @@
 # Packages that only contribute their source: detector XML, python configuration and headers.
 # `cmssw-build-layer --src-only` deletes their plugins/ and bin/ before building.
 
+# Pure python. Every cfi and cff in the release imports one of these two for the era and
+# process modifiers it is customised by, so nothing in the tracking configuration can be
+# imported without them.
+Configuration/Eras
+Configuration/ProcessModifiers
+
 Geometry/EcalSimData
 Geometry/FP420CommonData
 Geometry/FP420SimData
@@ -34,3 +40,7 @@ PhysicsTools/NanoAOD
 # 2 source files, 4 plugin ones. Its plugins use HLTrigger/HLTcore, which needs L1Trigger and
 # so `utm`, whose licence is unresolved. The dE/dx estimators come back with utm.
 RecoTracker/DeDx
+
+# 1 source file, 4 plugin ones. Its library is what HeterogeneousCore/AlpakaCore includes;
+# its plugins are the CUDA service and monitoring, which need cuda and cupti.
+HeterogeneousCore/CUDAServices

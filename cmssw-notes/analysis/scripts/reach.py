@@ -43,16 +43,18 @@ BLOCKED = {
     "g4hepemcore": "simulation (geant4)",
     "g4hepemstatic": "simulation (geant4)",
     "adept": "simulation (geant4)",
-    # tensorflow and tensorflow-cc are NOT blocked: conda-forge's libtensorflow_cc 2.19.1
-    # ships libtensorflow_cc, libtensorflow_framework and tensorflow/core/public/session.h,
-    # which is everything PhysicsTools/TensorFlow uses. CMS builds 2.17.0, but CMSSW only
-    # touches the stable core of the C++ API. This matters more than its four translation
-    # units suggest: RecoTracker's _cff fragments import mkFitOutputConverter_cfi and
-    # friends unconditionally, so without the TensorFlow plugins the generated cfi is
-    # missing and RecoTracker_cff cannot even be imported, let alone run.
+    # conda-forge has libtensorflow_cc, but its C++ headers are incomplete and cannot be
+    # compiled against: tensorflow/core/framework/allocator.h includes
+    # "xla/tsl/framework/allocator.h", which the package does not ship in 2.18.0 or 2.19.1
+    # (include/xla/tsl holds only protobuf/). So anything that includes tensor.h, which is
+    # everything PhysicsTools/TensorFlow does, fails. Checking that session.h existed was
+    # not enough; the headers have to be compiled, not listed.
     #
-    # The XLA ahead-of-time runtime and the tfaot models stay blocked: they come from CMS's
-    # own TensorFlow build, not from the stock package.
+    # This is worth fixing at the feedstock rather than working around: it would unblock
+    # RecoTracker's TensorFlow plugins, whose generated cfi the _cff fragments import
+    # unconditionally, and with them the full RecoTracker_cff.
+    "tensorflow": "ML runtimes",
+    "tensorflow-cc": "ML runtimes",
     "tensorflow-runtime": "ML runtimes",
     "tensorflow-xla-runtime": "ML runtimes",
     "tensorflow-xla_compiled_cpu_function": "ML runtimes",

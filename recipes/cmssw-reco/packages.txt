@@ -55,6 +55,8 @@ CondFormats/SiPixelObjects
 CondFormats/SiPixelTransient
 CondFormats/SiStripObjects
 CondTools/Hcal
+Configuration/Eras
+Configuration/ProcessModifiers
 DataFormats/Alignment
 DataFormats/HGCalDigi
 DataFormats/MuonSeed
@@ -126,7 +128,6 @@ PhysicsTools/IsolationUtils
 PhysicsTools/JetMCUtils
 PhysicsTools/MVAComputer
 PhysicsTools/NanoAOD
-PhysicsTools/TensorFlow
 RecoBTag/SecondaryVertex
 RecoBTau/JetTagComputer
 RecoLocalCalo/EcalRecAlgos
