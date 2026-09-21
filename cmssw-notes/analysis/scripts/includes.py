@@ -29,9 +29,18 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import reach  # noqa: E402
 
 R = os.path.join(reach.RELEASE, "src")
-INC = re.compile(
-    r'#\s*include\s+"([A-Za-z][A-Za-z0-9]*/[A-Za-z0-9]+/(?:interface|src)/[^"]+)"'
-)
+# Any quoted include. Two forms matter: the full "Sub/Pkg/interface/X.h" that crosses a
+# package boundary, and the plain "X.h" that a file in src/ uses for its own siblings.
+# Following only the first form means the siblings are never walked and whatever *they*
+# include is never seen -- which is how RecoTracker/LSTCore's src/alpaka/Hit.h, and through
+# it HeterogeneousCore/AlpakaMath, went missing until the build failed on it.
+INC = re.compile(r'#\s*include\s+"([^"]+)"')
+PKG_INCLUDE = re.compile(r"^[A-Za-z][A-Za-z0-9]*/[A-Za-z0-9]+/(?:interface|src)/")
+# Comments have to go first. CMSSW's doxygen blocks show example code, and the examples
+# contain #include lines: PhysicsTools/UtilAlgos/interface/BasicAnalyzer.h documents itself
+# with an include of PhysicsTools/PatExamples, which is not a dependency at all and which
+# drags in MET, Ecal and the rest of PAT behind it.
+COMMENTS = re.compile(r"/\*.*?\*/|//[^\n]*", re.S)
 # Files a layer's patches take out of the build, so what they include does not matter.
 # Keep in step with the patches/ directory of the layers that have them, and keep the
 # entries specific: "/alpaka/" was used here at first to skip one package's alpaka plugins
@@ -74,7 +83,8 @@ def main():
     def includes(path):
         if path not in cache:
             try:
-                cache[path] = INC.findall(open(path, errors="ignore").read())
+                text = COMMENTS.sub("", open(path, errors="ignore").read())
+                cache[path] = INC.findall(text)
             except OSError:
                 cache[path] = []
         return cache[path]
@@ -127,10 +137,14 @@ def main():
                 continue
             seen_files.add(f)
             for rel in includes(f):
-                pkg = "/".join(rel.split("/")[:2])
-                if pkg not in have and pkg in libs:
-                    needed.add(pkg)
-                target = os.path.join(R, rel)
+                if PKG_INCLUDE.match(rel):
+                    pkg = "/".join(rel.split("/")[:2])
+                    if pkg not in have and pkg in libs:
+                        needed.add(pkg)
+                    target = os.path.join(R, rel)
+                else:
+                    # a sibling, relative to the including file
+                    target = os.path.normpath(os.path.join(os.path.dirname(f), rel))
                 if os.path.exists(target):
                     stack.append(target)
         print(

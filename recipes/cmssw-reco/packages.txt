@@ -110,6 +110,7 @@ Geometry/VeryForwardGeometry
 Geometry/VeryForwardProtonTransport
 Geometry/VeryForwardRPTopology
 HeterogeneousCore/AlpakaCore
+HeterogeneousCore/AlpakaMath
 HeterogeneousCore/AlpakaServices
 HeterogeneousCore/CUDACore
 HeterogeneousCore/CUDAServices
