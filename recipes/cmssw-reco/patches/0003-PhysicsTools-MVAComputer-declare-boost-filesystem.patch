@@ -1,0 +1,17 @@
+diff --git a/PhysicsTools/MVAComputer/plugins/BuildFile.xml b/PhysicsTools/MVAComputer/plugins/BuildFile.xml
+index 1061f91f2..a259a61da 100644
+--- a/PhysicsTools/MVAComputer/plugins/BuildFile.xml
++++ b/PhysicsTools/MVAComputer/plugins/BuildFile.xml
+@@ -6,5 +6,12 @@
+ 
+ <library name="PhysicsToolsMVAComputerProcTMVA" file="ProcTMVA.cc">
+   <use name="roottmva"/>
++  <!--
++    ProcTMVA.cc calls boost::filesystem::unique_path, so it needs the Boost.Filesystem
++    library on its link line. It builds at CMS without this because their ROOT pulls
++    libboost_filesystem in transitively; conda-forge's does not, and the plugin then fails
++    to link with an undefined reference to boost::filesystem::detail::unique_path.
++  -->
++  <use name="boost_filesystem"/>
+   <flags EDM_PLUGIN="1"/>
+ </library>

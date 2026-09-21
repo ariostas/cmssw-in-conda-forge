@@ -13,6 +13,7 @@ source:
     patches:
       - patches/0001-Geometry-leave-out-the-Fireworks-based-validation-plugins.patch
       - patches/0002-RecoTracker-leave-out-the-TensorFlow-and-PyTorch-plugins.patch
+      - patches/0003-PhysicsTools-MVAComputer-declare-boost-filesystem.patch
 
 build:
   number: 0
