@@ -19,14 +19,15 @@ import json
 import re
 
 RELEASE = "/cvmfs/cms.cern.ch/el9_amd64_gcc13/cms/cmssw/CMSSW_20_1_0_pre2"
-SHIPPED = ["cmssw-fwlite", "cmssw-framework", "cmssw-conditions"]
+SHIPPED = ["cmssw-fwlite", "cmssw-framework", "cmssw-conditions", "cmssw-geometry"]
 
 # Externals that are blocked, and why. The reason doubles as the group name in the ladder:
 # unblocking is nearly always an all-or-nothing decision about one upstream problem.
 BLOCKED = {
-    "dd4hep": "geometry (dd4hep)",
-    "dd4hep-core": "geometry (dd4hep)",
-    "dd4hep-geant4": "geometry (dd4hep)",
+    # dd4hep and dd4hep-core are NOT blocked any more: cmssw-geometry builds against
+    # conda-forge's dd4hep, runs, and matches CMS's own build (see cmssw-notes/geometry-
+    # comparison). dd4hep-geant4 still is, because it needs geant4.
+    "dd4hep-geant4": "simulation (geant4)",
     "utm": "L1 menu (unlicensed utm)",
     # Provisional: conda-forge's geant4 11.4.2 matches CMS's configuration except for
     # GEANT4_USE_USOLIDS (VecGeom), which CMSSW never links against. See PLAN.md 2026-09-18.
@@ -97,7 +98,6 @@ BLOCKED = {
 
 # The order the ladder unblocks them in: cheapest and most valuable first.
 LADDER = [
-    "geometry (dd4hep)",
     "L1 menu (unlicensed utm)",
     "ML runtimes",
     "L1 ML models",

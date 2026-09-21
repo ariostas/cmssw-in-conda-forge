@@ -1199,3 +1199,42 @@ build and the conversions cancel — on a geometry whose full node tree matches 
 does not re-verify that every one of the 511 call sites converts rather than assuming; that part
 is still the static survey. The two together are what the layer's claim rests on, and the comment
 in `dd4hep-core.xml.in` now says so.
+
+### 2026-09-21: where the packaging actually stands
+
+`reach.py` was stale: it still listed dd4hep as a blocked external and did not know about
+`cmssw-geometry`. With both corrected, the picture is:
+
+| | packages | TU | share of build |
+|---|---|---|---|
+| packaged today (4 layers) | 240 | 3072 | 20% |
+| reachable with the externals already working | 1040 | 8177 | 54% |
+| reachable but not yet packaged | 806 | 6695 | 34% |
+
+Per layer: `cmssw-fwlite` 138 pkgs / 1260 TU, `cmssw-framework` 16 / 178, `cmssw-conditions`
+58 / 1146, `cmssw-geometry` 28 / 488.
+
+**The binding constraint has moved.** It used to be missing externals; proving dd4hep took the
+reachable share from 40% to 54% on its own. What is left in that 54% needs *no new externals at
+all* — it is packaging work. Partitioned at 1500 TU per layer (a bit above `cmssw-fwlite`, which
+builds in about 10 min natively on aarch64 and 41 min emulated) it is four more layers:
+
+```
+layer 1:  320 packages  1500 TU   Geometry TrackingTools DataFormats RecoTracker Configuration
+layer 2:  180 packages  1500 TU   EventFilter Validation Geometry RecoTracker DataFormats
+layer 3:  199 packages  1500 TU   DQM L1Trigger RecoBTag Validation PhysicsTools
+layer 4:  107 packages   830 TU   DQM Validation FWCore EventFilter FastSimulation
+```
+
+The biggest unpackaged subsystems by translation unit are RecoTracker (33 pkgs, 430 TU), DQM
+(42, 393), PhysicsTools (28, 359), Alignment (16, 309), Validation (39, 247), EventFilter
+(27, 242), CondTools (17, 239), CommonTools (13, 238) and the rest of Geometry (34, 207). So the
+natural next layer is reconstruction: RecoTracker, RecoVertex, RecoMuon, TrackingTools,
+RecoLocalTracker and the CommonTools/Geometry remainder.
+
+Beyond 54% the ladder is unchanged and each step is an upstream problem rather than a packaging
+one: utm's missing licence (60%), ML runtimes (61%), the L1 ML models (69%), a few small
+unpackaged externals (72%), geant4 (90%) and the generators (95%). Note that geant4 is listed as
+blocked but is only provisionally so — `Geometry/HGCalCommonData` already links conda-forge's
+geant4 in `cmssw-geometry`. Simulation would exercise far more of it, so the classification is
+deliberately left conservative.
