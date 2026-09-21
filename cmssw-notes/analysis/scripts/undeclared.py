@@ -21,7 +21,7 @@ import re
 import sys
 
 RELEASE = "/cvmfs/cms.cern.ch/el9_amd64_gcc13/cms/cmssw/CMSSW_20_1_0_pre2"
-LOWER = ["cmssw-fwlite", "cmssw-framework", "cmssw-conditions"]
+LOWER = ["cmssw-fwlite", "cmssw-framework", "cmssw-conditions", "cmssw-geometry"]
 SOURCE_SUFFIXES = (".cc", ".h", ".cpp", ".icc", ".hpp")
 
 

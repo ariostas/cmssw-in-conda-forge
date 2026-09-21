@@ -26,14 +26,20 @@ SHIPPED = ["cmssw-fwlite", "cmssw-framework", "cmssw-conditions", "cmssw-geometr
 BLOCKED = {
     # dd4hep and dd4hep-core are NOT blocked any more: cmssw-geometry builds against
     # conda-forge's dd4hep, runs, and matches CMS's own build (see cmssw-notes/geometry-
-    # comparison). dd4hep-geant4 still is, because it needs geant4.
+    # comparison).
+    #
+    # geant4 is not blocked either, as of 2026-09-21. conda-forge ships 11.4.2 and
+    # cmssw-geometry already builds and runs against it: Geometry/HGCalCommonData needs it,
+    # and the whole Geometry/CaloTopology chain hangs off that package. Keeping it in this
+    # list understated reachability by 8 points (54% -> 62%) and, worse, made the reco layer
+    # look as though its central packages needed a missing external. What is still unproven
+    # is *full simulation* (SimG4Core and friends actually producing hits), which is M6's
+    # job; that is a build question like any other, not a missing-external question.
+    #
+    # dd4hep-geant4 (DDG4) stays blocked until conda-forge's dd4hep is confirmed to ship it.
     "dd4hep-geant4": "simulation (geant4)",
     "utm": "L1 menu (unlicensed utm)",
-    # Provisional: conda-forge's geant4 11.4.2 matches CMS's configuration except for
-    # GEANT4_USE_USOLIDS (VecGeom), which CMSSW never links against. See PLAN.md 2026-09-18.
-    "geant4": "simulation (geant4)",
-    "geant4core": "simulation (geant4)",
-    "geant4static": "simulation (geant4)",
+    # g4hepem and adept are genuinely absent from conda-forge.
     "g4hepemcore": "simulation (geant4)",
     "g4hepemstatic": "simulation (geant4)",
     "adept": "simulation (geant4)",
@@ -186,13 +192,18 @@ def ladder(pkgs, names, tus, total):
 
 def components(graph):
     """The strongly connected components of `graph`, in an order where each follows its
-    dependencies (Tarjan, iterative: the recursive form overflows on this graph)."""
+    dependencies (Tarjan, iterative: the recursive form overflows on this graph).
+
+    Neighbours are visited in sorted order. Python randomises string hashing per process, so
+    iterating the adjacency sets directly made the component order -- and through it the whole
+    layer partition -- differ from run to run, by as much as 50 packages in the first layer.
+    """
     index, stack, on_stack, order, out = {}, [], set(), {}, []
     counter = 0
     for root in graph:
         if root in index:
             continue
-        work = [(root, iter(graph[root]))]
+        work = [(root, iter(sorted(graph[root])))]
         index[root] = order[root] = counter
         counter += 1
         stack.append(root)
@@ -205,7 +216,7 @@ def components(graph):
                     counter += 1
                     stack.append(nxt)
                     on_stack.add(nxt)
-                    work.append((nxt, iter(graph[nxt])))
+                    work.append((nxt, iter(sorted(graph[nxt]))))
                     break
                 if nxt in on_stack:
                     order[node] = min(order[node], index[nxt])
@@ -226,7 +237,7 @@ def components(graph):
     return out
 
 
-def partition(pkgs, names, tus, blocked, budget):
+def partition(pkgs, names, tus, blocked, budget, dump=None):
     """Greedily pack the buildable packages into layers of at most `budget` TUs.
 
     A layer may only contain packages whose dependencies are in the same or an earlier layer,
@@ -245,7 +256,7 @@ def partition(pkgs, names, tus, blocked, budget):
         shipped |= set(read_list(f"recipes/{recipe}/packages.txt"))
 
     graph = {}
-    for p in libs:
+    for p in sorted(libs):
         uses = pkgs[p]["uses"].get("lib", [])
         if p in plugins:
             uses = (
@@ -298,12 +309,14 @@ def partition(pkgs, names, tus, blocked, budget):
         for g in batch:
             placed[g] = layer
         todo = [g for g in todo if g not in placed]
-        members = [p for g in batch for p in g]
+        members = sorted(p for g in batch for p in g)
         subs = collections.Counter(p.split("/")[0] for p in members)
         print(
             f"  layer {layer:2d}: {len(members):4d} packages {total:5d} TU   "
             f"{' '.join(s for s, _ in subs.most_common(5))}"
         )
+        if layer == dump:
+            print("\n".join(sorted(members)))
         layer += 1
 
 
@@ -314,6 +327,12 @@ def main():
     )
     ap.add_argument(
         "--scenario", default="today", help="'today', 'full', or a reason from BLOCKED"
+    )
+    ap.add_argument(
+        "--dump",
+        type=int,
+        metavar="N",
+        help="print the package list of layer N, one per line, for packages.txt",
     )
     args = ap.parse_args()
 
@@ -332,7 +351,7 @@ def main():
             }
             blocked -= keep
         print(f"\nlayers of at most {args.layers} TU, scenario '{args.scenario}':")
-        partition(pkgs, names, tus, blocked, args.layers)
+        partition(pkgs, names, tus, blocked, args.layers, args.dump)
 
 
 if __name__ == "__main__":
