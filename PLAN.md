@@ -17,7 +17,9 @@ This document is the result of an initial exploration. Details and evidence:
   `partition2.json` maps every package's lib and plugins to a build group.
 
 Reference release used for the analysis: `CMSSW_20_1_0_pre2` on CVMFS
-(`/cvmfs/cms.cern.ch/el9_amd64_gcc13/cms/cmssw/CMSSW_20_1_0_pre2`).
+(`/cvmfs/cms.cern.ch/el9_amd64_gcc13/cms/cmssw/CMSSW_20_1_0_pre2`; CVMFS also has
+`el9_aarch64_gcc13` of the same release, which is what makes it possible to run CMS's own build
+side by side with ours on this machine).
 The packaging repos (cmsdist, cmssw-config, SCRAM, pkgtools) are cloned in the
 git-ignored `_work/`.
 
@@ -35,7 +37,7 @@ git-ignored `_work/`.
 | Build products | 954 libraries (430 MB), 1,873 edm plugins (1.18 GB), tests (448 MB); CVMFS `lib/` is 3 GB because everything is built for two micro-archs |
 | Generated Python configs | about 10.8k `cfipython` files, produced by running `edmWriteConfigs` on each built plugin |
 | Upstream release build time | 3.2–5.5 h wall time per release on CMS build machines (with LTO, externals prebuilt) |
-| Estimated CPU cost | 10–30 CPU-s per TU gives roughly **50–150 CPU-hours** for one arch without LTO or GPU. This must be measured (M1). |
+| Estimated CPU cost | 10–30 CPU-s per TU gives roughly **50–150 CPU-hours** for one arch without LTO or GPU. **Measured (2026-09-21):** the four layers built so far are 3072 TU in 2349 s wall on 10 native aarch64 cores, i.e. **7.6 CPU-s per TU** including setup, dictionaries, install and tests. Extrapolated, a whole arch is about **32 CPU-hours**, or 3.2 h wall on 10 cores — the low end of the original estimate. Emulated x86-64 on this Mac costs about 2.6x. |
 
 **Dependency structure (key finding).**
 - The **library** graph between packages is a DAG.
@@ -61,19 +63,28 @@ packages. Summary from `deps_conda_forge.md`:
   - `heppdt` 3.x (conda-forge has 2.06, a different series)
   - `alpaka`, `hls` (Xilinx ap_types headers), `xtd` (all header-only)
   - `utm` (L1 menu lib; the name clashes with an unrelated Python package), `g4hepem`, `ktjet`, `fftjet`
-  - `cms-md5`: platforms missing
-  - `cpu_features`: no osx-arm64
+  - `cms-md5`: platforms missing (local recipe in `cmssw-notes/feedstock-changes/`)
+  - `cpu_features`: the feedstock skips osx entirely, although it builds there unchanged
+    (local recipe in `cmssw-notes/feedstock-changes/`). `cmssw-framework` needs it on every
+    platform, because `FWCore/Services/plugins/CPU.cc` includes it unconditionally.
 - **Generator and simulation stack:**
   - Missing: pythia6 (+pydata), tauolapp, herwig7 (staged-recipes PR open),
     thepeg (linux-only), sherpa 2.2 (cf has 3.x), openloops, evtgen built against HepMC2.
-  - geant4 on cf is C++17 without VecGeom; CMS uses C++20 + VecGeom + a patch.
-  - dd4hep needs `DD4HEP_USE_GEANT4_UNITS=ON`.
+  - geant4: conda-forge's 11.4.2 matches CMS's configuration except for `GEANT4_USE_USOLIDS`
+    (VecGeom), which CMSSW never links against. `cmssw-geometry` already links it for
+    `Geometry/HGCalCommonData`, so it is provisionally fine; simulation would exercise far more.
+  - dd4hep does **not** need `DD4HEP_USE_GEANT4_UNITS=ON` (2026-09-21). CMS builds with it and
+    conda-forge without, so the two store lengths in different units, but the dd4hep unit
+    constants move with the storage and everything CMSSW reads is identical. Verified against
+    CMS's own build of the release; see `cmssw-notes/geometry-comparison/`.
 - **ABI-sensitive CMS patches:**
   - CMS's HepMC2 changes `WeightContainer::size_type`.
   - ROOT is a CMS fork (1 commit), which is probably fine.
   - TensorFlow is a CMS fork plus the XLA AOT runtime.
 - **Version skews that need porting CMSSW or new builds:** fmt 10→12, tinyxml2 6.2→11,
-  numpy 1.26→2, xerces-c 3.1→3.3, highfive 2→3, xgboost 1.7→3.
+  numpy 1.26→2 and xerces-c 3.1→3.3 all turned out to need no CMSSW changes at all — the four
+  layers built so far compile against the conda-forge versions. highfive 2→3 and xgboost 1.7→3
+  are not yet exercised.
 - **Co-installability problem:** conda-forge's `libtensorflow_cc` and `libtorch` currently
   require different protobuf and abseil versions.
 - **Data:** `cmsswdata` = 112 `cms-data/*` repositories, **8.6 GB total**. SimG4CMS-Calo alone is
@@ -101,11 +112,16 @@ packages. Summary from `deps_conda_forge.md`:
   - Since conda installs all packages into **one prefix**, one level is enough. Layer N is built as a
     "patch-release-like" area on top of the merged installation of layers 0..N-1.
 - **Files shared between layers:** `lib/<arch>/.edmplugincache`, `python/<Sub>/__init__.py`
-  and `.SCRAM` metadata. They must be regenerated or merged at install time, via
-  per-plugin cache fragments, a post-link/activation step, or a trigger-style rebuild.
+  and `.SCRAM` metadata. *Solved:* per-package plugin caches (`lib/<arch>/.edmplugincache.d/<pkg>`,
+  needs the PluginManager patch) and per-directory `MakeData/DirCache/*.mk` fragments (needs the
+  cmssw-config `updateToolMK.py` patch), so no two conda packages ever own the same file.
 - **Runtime environment:**
   - The PluginManager scans `LD_LIBRARY_PATH` (`DYLD_FALLBACK_LIBRARY_PATH` on macOS, which SIP strips)
-    for `.edmplugincache`, so a patch adding a dedicated plugin-path variable is needed.
+    for `.edmplugincache`. *Solved:* the patch adds `CMSSW_PLUGIN_PATH`, **appended** to the search
+    path so that a developer area's own rebuild still wins.
+  - DD4hep is a separate case: it loads the CMS detector description through its own registry and
+    finds it only on `LD_LIBRARY_PATH`/`DYLD_LIBRARY_PATH`, so `cmssw-geometry` ships an
+    activation script for that.
   - `FileInPath` needs `CMSSW_SEARCH_PATH` and `CMSSW_BASE`/`CMSSW_RELEASE_BASE`/`CMSSW_DATA_PATH`.
   - Python paths should go through a `.pth` file.
   - All of this maps onto a conda activation script.
@@ -116,17 +132,22 @@ packages. Summary from `deps_conda_forge.md`:
 - **C++ code:** only 30 source files use Linux-specific APIs (mallinfo, /proc, dl_iterate_phdr,
   pthread_setname_np, sched_getaffinity, ...), and 11 already have `__APPLE__` guards.
   CMS runs clang builds continuously (`CMSSW_20_1_CLANG_X`), but **only with libstdc++**.
-  libc++ has not been tested. Known issues from earlier attempts include missing transitive includes,
-  `M_PIl`, `constexpr std::pow`, `.so` vs `.dylib` in plugin/rootmap names, and case-insensitive
-  file name clashes.
-- **SCRAM on macOS:**
+  libc++ is now tested here, for the four layers built so far: the fixes needed were missing
+  transitive includes, floating-point `from_chars`, `constexpr std::abs`/`pow`, `uint64_t` being
+  `unsigned long long`, `pipe2`/`execv`/`environ`/`HOST_NAME_MAX`, and libstdc++-internal headers
+  guarded by `__GNUC__` (which clang also defines) rather than `__GLIBCXX__`. Each is a few lines.
+- **SCRAM on macOS** (all fixed in the `cms-scram` and cmssw-config patches):
   - `os.sched_getaffinity` crashes on import (one-line fix).
   - SCRAM calls a missing `cmsos` command.
   - Rules use GNU-only commands like `cp -urpT` and `sed -i` (put conda's GNU tools on PATH).
   - Linux-only link flags: `--as-needed`, `--push-state`, `-z defs`.
+  - `createSymLinks.sh` needs bash 4 but has a `#!/bin/bash` shebang, and macOS ships bash 3.2.
+  - conda-forge's macOS clang does not search the conda prefix by default, the way its Linux gcc
+    does, so the compiler tool files have to add `-L$PREFIX/lib`.
 - **Dependencies:** a few deps lack osx builds (thepeg, cpu_features osx-arm64, tensorflow on osx-64).
 - Plan: treat macOS as a **separate porting track** that starts once linux-64 works. Target
   osx-arm64 first. osx-64 is being wound down across conda-forge (tbb, tensorflow, onnxruntime).
+  **(Done 2026-09-18: osx-arm64 is at parity with Linux for all four layers.)**
 
 ### 1.5 Prior art worth reusing
 
@@ -151,7 +172,7 @@ packages. Summary from `deps_conda_forge.md`:
 |---|---|---|
 | Parity with official releases | exact (same rules for dicts, plugins, cfipython, class versions, serialization, alpaka) | must re-implement all of those |
 | Code to write and maintain | small patches to SCRAM + cmssw-config, tool XML generation | a generator plus CMake modules, re-validated each release |
-| Layered builds | "patch release on top of prefix" (verified in the code; needs a spike) | natural (`find_package` of earlier layers) |
+| Layered builds | "patch release on top of prefix" (since verified: four layers) | natural (`find_package` of earlier layers) |
 | Users' `cmsrel`/`scram b` developer workflow | works almost unchanged | lost, unless SCRAM is packaged anyway |
 | macOS | needs GNU tools + cmssw-config osx fixes | more control over flags |
 | conda-forge friendliness | unusual but acceptable (it is just a build tool) | idiomatic |
@@ -161,7 +182,17 @@ and keeps the developer workflow. Keep (B) as a fallback if layering or macOS wi
 proves unworkable. For (B), reuse SCRAM's parsed `.SCRAM/*.json` data and align with Stitched
 instead of starting from scratch. We decide at the end of M2.
 
+**Settled: (A).** Four layers build with SCRAM on all three platforms, layering works, macOS works,
+and `cmsrel`/`cmsenv`/`scram b` work unchanged for users. (B) is no longer a fallback anybody
+needs to hold open.
+
 ### D2. How to split
+
+**(Updated 2026-09-21.)** The table below is the original first-pass partition and is kept for
+its list of which externals each tier first needs. The layers that actually exist are
+`cmssw-fwlite` → `cmssw-framework` → `cmssw-conditions` → `cmssw-geometry`, and the current
+partitioning tool is `analysis/scripts/reach.py`; see the roadmap in M5 and the 2026-09-21
+progress entry.
 
 **Layered separate recipes/feedstocks** (not one multi-output recipe). All outputs of a recipe
 build in one CI job, so a multi-output recipe does not reduce build time. Each layer is a
@@ -199,10 +230,14 @@ Notes:
   between releases, and plugins that move to later groups are fine.
 - **Aligned user-facing tiers:**
   - `cmssw-fwlite`: the cmsdist FWLite set, for reading AOD/MiniAOD/NanoAOD in python and ROOT.
-    This is the MVP.
+    This is the MVP. **(Done.)**
   - `cmssw-reco`: can run RECO/HLT from RAW with conditions from Frontier.
   - `cmssw-sim`: GEN-SIM.
   - `cmssw`: a metapackage with everything.
+
+  In between, the layers that exist are `cmssw-framework` (`cmsRun`, I/O, services),
+  `cmssw-conditions` (CondCore/CondFormats) and `cmssw-geometry` (DD4hep detector description),
+  plus `cmssw-devel`, which turns an installation into one where `scram b` works.
 
 ### D3. Versions, pinning and release cadence
 
@@ -211,12 +246,16 @@ Notes:
   `20.1.0` and keep all layers pinned `==` to each other (same version + build number),
   enforced with `run_exports`/`pin_subpackage` or exact pins between feedstocks.
 - CMS pins externals exactly. We use conda-forge's global pinnings wherever CMSSW compiles
-  (tbb, boost, fmt, numpy 2, ...) and upstream the needed CMSSW patches (fmt 12, tinyxml2 11,
-  xerces 3.3, highfive 3, libc++/macOS fixes) to cms-sw/cmssw, so we don't carry them forever.
+  (tbb, boost, fmt, numpy 2, ...) and upstream the needed CMSSW patches to cms-sw/cmssw, so we
+  don't carry them forever. In practice fmt 12, tinyxml2 11, xerces 3.3 and numpy 2 needed no
+  patches at all; what is carried today is the CondFormats/boost-serialization pair, the HepMC2
+  weight container, the PluginManager plugin path, and the libc++/macOS fixes.
 - The compiler is conda-forge's GCC (currently 15) on linux; CMS has gcc14 and gcc15 IB
   branches (`el10_amd64_gcc14`, `IB/CMSSW_20_1_X/g15`), so this should be manageable.
 - **Open question:** how to handle conda-forge migrations (ROOT, boost, tbb, python). Every migration
-  forces a rebuild of all layers in order, so we need a bot or script to drive that.
+  forces a rebuild of all layers in order, so we need a bot or script to drive that. One data
+  point so far: taking the boost 1.88→1.90 migration needed no source changes anywhere, and
+  rebuilding the chain in order was the whole of the work.
 
 ### D4. Data
 
@@ -232,66 +271,85 @@ Notes:
 
 ## 3. Milestones
 
+M0–M4 and M8 are done; M5 is the next work. A checked box means it was built and its tests pass
+on all three platforms, not that it is submitted to conda-forge — nothing has been submitted yet.
+
 ### M0: tooling and a local build loop (small)
-- [ ] Local build env: `pixi`/`rattler-build` in this repo, recipes under `recipes/`.
-      Linux builds via Docker (`build-locally.py`) on this Mac, or a remote linux box.
+- [x] Local build env: `rattler-build` in this repo, recipes under `recipes/`. Linux builds via
+      Docker on this Mac (`cmssw-notes/build-local.sh`), macOS natively.
 - [ ] Script to regenerate the analysis (`cmssw-notes/analysis/scripts`) for any release
-      tag, using a sparse git checkout of cms-sw/cmssw instead of CVMFS.
-- [ ] Choose the target release (see D3). Proposal: follow `CMSSW_20_1_X` until 20_1_0 is out.
+      tag, using a sparse git checkout of cms-sw/cmssw instead of CVMFS. Still reads CVMFS.
+- [x] Choose the target release (see D3): `CMSSW_20_1_0_pre2`.
 
 ### M1: build system packages + cost measurement (linux-64)
-- [ ] Recipe `cms-scram` (noarch python). Patches: python from PREFIX, no `cmsos`,
-      `sched_getaffinity` fallback, no `/cvmfs` assumptions.
-- [ ] Recipe `cmssw-config` (noarch). Patches: disable biglib, multi-microarch, LTO,
-      CUDA/ROCm alpaka backends, and tests by default; conda compiler and flags from env.
-- [ ] Recipe or script `cmssw-tool-conf`: generate SCRAM tool XMLs pointing at `$PREFIX`
-      (port `cmsdist/scram-tools.file/tools/*`, dropping CVMFS paths). This also
-      documents exactly which conda packages map to which tool.
-- [ ] **Spike:** build FWCore + DataFormats/Common locally with SCRAM against conda-forge
-      ROOT/boost/tbb/clhep. **Record CPU time per TU** and extrapolate the full release cost
-      to pick the number of layers (D2).
-- [ ] **Spike:** verify layered building. Build group 1 as a patch-release-style area
-      on top of an installed group 0 in the same prefix, including dictionaries (`.pcm` from
-      the earlier layer), plugin cache and `cfipython`.
+- [x] Recipe `cms-scram` (noarch python).
+- [x] cmssw-config: **not** a separate recipe in the end. Its patches are applied to the
+      cmssw-config tarball inside `cmssw-fwlite` and `coral`, because a layer needs the patched
+      config in the release it builds against, not in the environment.
+- [x] `cmssw-toolbox` (was "cmssw-tool-conf"): tool XML templates plus `cmssw-generate-toolbox`,
+      `cmssw-build-layer`, `cmssw-install-layer` and `cmssw-link-python-modules`.
+- [x] **Spike:** build with SCRAM against conda-forge ROOT/boost/tbb/clhep, and measure.
+      `cmssw-fwlite` is 1260 TU and about 10 min on 10 native aarch64 cores, 41 min emulated.
+- [x] **Spike:** layered building, including dictionaries, plugin cache and `cfipython`.
 
 ### M2: missing dependencies for the FWLite tier
-Submit to staged-recipes (each is its own small PR):
-- [ ] header-only: `alpaka`, `xtd`, `hls` (ap_types)
-- [ ] `classlib`, `cms-md5` platforms, `cpu_features` osx-arm64 (feedstock PR)
-- [ ] `utm` (name it e.g. `cms-utm`), `heppdt` 3.x (new name or major-version output)
-- [ ] `tinyxml2` 6.2.0 (e.g. `tinyxml2-6`), **or** a CMSSW patch for tinyxml2 11
-- [ ] decide HepMC2: a CMS-ABI `hepmc2` build vs patching CMSSW
-- [ ] **Decision point D1:** confirm SCRAM route or switch to CMake.
+Built locally; **none has been submitted to staged-recipes or to a feedstock yet**, which is the
+outstanding part of this milestone.
+- [x] header-only: `alpaka`, `hls` (ap_types). `xtd` turned out not to be needed.
+- [x] `cms-md5` platforms, `cpu_features` osx-arm64 — local recipes in
+      `cmssw-notes/feedstock-changes/`, both need a PR to the existing feedstock.
+      `classlib` turned out not to be needed by the layers built so far.
+- [ ] `utm`: blocked on its missing licence, not on packaging. `heppdt` 3.x not needed yet.
+- [x] `tinyxml2`: no action needed, CMSSW compiles against conda-forge's 11.
+- [x] HepMC2: patch CMSSW (`SimDataFormats` weight container), not a CMS-ABI rebuild.
+- [x] **Decision point D1:** SCRAM route confirmed.
 
-### M3: `cmssw-fwlite` on linux-64
-- [ ] Recipe(s) for the FWLite set (about 2.3k TUs), using the cmsdist `fwlite_build_set.file`.
-- [ ] Activation scripts: `CMSSW_*` variables, plugin path, `CMSSW_SEARCH_PATH`,
+### M3: `cmssw-fwlite` (all three platforms, not just linux-64)
+- [x] Recipe for the FWLite set: 138 packages, 1260 TU.
+- [x] Activation scripts: `CMSSW_*` variables, plugin path, `CMSSW_SEARCH_PATH`,
       `ROOT_INCLUDE_PATH`, python `.pth`.
-- [ ] PluginManager patch: dedicated plugin search path; per-layer cache fragments merged
-      at activation or post-link.
-- [ ] Tests: `import DataFormats.FWLite`, read a MiniAOD/NanoAOD test file,
-      `edmDumpEventContent`, `edmPluginDump`.
-- [ ] Upstream CMSSW patches that are generally useful.
+- [x] PluginManager patch: `CMSSW_PLUGIN_PATH` plus per-package cache fragments.
+- [x] Tests, including reading CMS Open Data MiniAOD over XRootD.
+- [ ] Upstream the CMSSW patches. Not started; they are all written to be upstreamable.
 
 ### M4: full framework (`cmsRun` works)
-- [ ] Missing deps for conditions: `coral` (without Oracle), `frontier_client`.
-- [ ] Layers for groups 0–3; `cmsRun` a simple config with conditions from Frontier.
-- [ ] Merge mechanism for shared files across layers (`.edmplugincache`,
-      `python/<Sub>/__init__.py`, `.SCRAM` metadata for developer areas).
-- [ ] Developer workflow: `scram project` / `cmsrel` on top of the conda prefix, check out a
-      package, `scram b`, and run it. This is critical for real users (e.g. LST development:
-      the `RecoTracker/LST` closure is 337 packages, about 6.1k TUs).
+- [x] Missing deps for conditions: `coral` (without Oracle), `frontier-client`.
+- [x] `cmssw-framework` and `cmssw-conditions`; `cmsRun` reads a real payload from
+      `frontier://FrontierProd/CMS_CONDITIONS`.
+- [x] Merge mechanism for shared files across layers.
+- [x] Developer workflow: `cmsrel`/`cmsenv`/`scram b` on top of the conda prefix, with
+      `cmssw-devel` providing the toolchain. Its test is the regression test for the workflow.
 
-### M5: reco, L1/HLT, ML (groups 4–5)
-- [ ] ML stack: resolve TF/libtorch protobuf/abseil co-installability, TF XLA AOT runtime,
-      onnxruntime, xgboost version, cms-tfaot, cmsml.
-- [ ] L1 externals (hls4mlEmulatorExtras, conifer, model packages).
+### M4b: geometry (added 2026-09-18, not in the original plan)
+- [x] `cmssw-geometry`: the DD4hep detector description, geometry records, magnetic field
+      engine and track propagators. 28 packages, 488 TU.
+- [x] Confirm the DD4hep units question numerically against CMS's own build of the release.
+
+### M5: reconstruction, then L1/HLT and ML — **the next work**
+
+240 of 1358 packages are packaged (3072 TU, 20% of the build). **1040 packages (8177 TU, 54%) are
+reachable with the externals that already work**, so the 806 packages in between need no new
+external at all: this is packaging effort, not dependency effort. At 1500 TU per layer (a little
+above `cmssw-fwlite`) that is four more layers — see the 2026-09-21 progress entry for the
+partition and the per-subsystem breakdown.
+
+- [ ] `cmssw-reco`: RecoTracker, RecoVertex, RecoMuon, TrackingTools, RecoLocalTracker,
+      CommonTools and the rest of Geometry. The largest single block of reachable work.
+- [ ] The three layers after it (EventFilter/Validation, DQM/L1Trigger/PhysicsTools, and the
+      remainder). Re-run `reach.py --layers` before each, since the partition shifts as layers land.
 - [ ] Data packages needed by reco (`cmssw-data-*`).
+- [ ] Probe geant4 early, out of order: it is the single largest step left on the ladder
+      (72% → 90%) and `cmssw-geometry` already links conda-forge's build, so it may be much
+      closer than its "blocked" classification suggests. dd4hep looked equally blocked and was not.
+- [ ] Then the externals-blocked steps: ML runtimes and L1 ML models (→69%), a few small
+      unpackaged externals (→72%). `utm` (→60%) is blocked on its licence, not on us.
 - [ ] Target: run a standard RECO step from RAW (e.g. a relval workflow `runTheMatrix.py -l ...`).
 
 ### M6: simulation and generators (group 6)
-- [ ] geant4 with VecGeom + C++20 (a feedstock variant, or a CMS-flavored output), vecgeom 2.1,
-      dd4hep with Geant4 units, g4hepem.
+- [ ] geant4: conda-forge's 11.4.2 may be enough as it is — it differs from CMS's only by
+      `GEANT4_USE_USOLIDS` (VecGeom), which CMSSW never links against. To be established by
+      building something that uses it properly, not by inspection. `dd4hep` needs no change
+      (the units question is settled); `g4hepem` is still missing.
 - [ ] Generators: pythia6, tauolapp, photospp, evtgen (HepMC2), herwig7/thepeg, sherpa 2.2,
       openloops... Many are optional and can be marked as such.
 
@@ -317,16 +375,19 @@ Submit to staged-recipes (each is its own small PR):
 
 ## 4. Risks
 
-| Risk | Mitigation |
-|---|---|
-| Build cost far above estimate, too many layers | measure in M1; request large runners early; disable LTO/multi-arch/tests |
-| Migration churn (ROOT/boost/tbb/python) across 6–20 feedstocks, which killed fwlite-feedstock | fewer, larger layers on large runners; automation (M9); upstream patches instead of carrying them |
-| ABI-sensitive CMS patches to externals (HepMC2, geant4, TF fork) conflict with stock conda-forge packages | prefer upstream versions + CMSSW patches; use distinct package names only where unavoidable |
-| Layering through SCRAM chaining doesn't handle dictionaries/pcm or plugin caches cleanly | spike in M1; fall back to CMake (D1) |
-| Package size limits (plugins 1.2 GB, data 8.6 GB) | split outputs; strip debug info; one data package per repo; optional big data |
-| Python-version matrix (PyROOT makes ROOT python-dependent, so every layer builds once per python) | restrict to one python version per CMSSW release if conda-forge policy allows, or `noarch` python parts where possible |
-| libc++/macOS porting effort larger than expected | macOS is a separate track, linux ships first |
-| Conditions access requires Frontier or network at runtime | document; test with local SQLite conditions |
+Status as of 2026-09-21 in the third column; a risk that has been retired is kept so the reasoning
+stays visible.
+
+| Risk | Mitigation | Status |
+|---|---|---|
+| Build cost far above estimate, too many layers | measure in M1; request large runners early; disable LTO/multi-arch/tests | **retired.** Measured: the whole reachable 54% is about 8.2k TU, and layers of 1500 TU build well inside a default runner |
+| Migration churn (ROOT/boost/tbb/python) across 6–20 feedstocks, which killed fwlite-feedstock | fewer, larger layers on large runners; automation (M9); upstream patches instead of carrying them | **open, and the main long-term risk.** The boost 1.88→1.90 migration cost nothing (no source changes), which is encouraging but is one data point |
+| ABI-sensitive CMS patches to externals (HepMC2, geant4, TF fork) conflict with stock conda-forge packages | prefer upstream versions + CMSSW patches; use distinct package names only where unavoidable | **reduced.** HepMC2 solved by patching CMSSW. dd4hep needed no rebuild at all. geant4 and TF still to check |
+| Layering through SCRAM chaining doesn't handle dictionaries/pcm or plugin caches cleanly | spike in M1; fall back to CMake (D1) | **retired.** Four layers work, and a user's own developer area chains on top of them |
+| Package size limits (plugins 1.2 GB, data 8.6 GB) | split outputs; strip debug info; one data package per repo; optional big data | **open for data.** Code is fine so far: the four layers together are well under 1 GB |
+| Python-version matrix (PyROOT makes ROOT python-dependent, so every layer builds once per python) | restrict to one python version per CMSSW release if conda-forge policy allows, or `noarch` python parts where possible | **open.** Local builds pin one python; the policy question has not been raised with conda-forge |
+| libc++/macOS porting effort larger than expected | macOS is a separate track, linux ships first | **retired for the current layers.** About a dozen small patches; macOS is at parity. Later layers will need more of the same |
+| Conditions access requires Frontier or network at runtime | document; test with local SQLite conditions | **open.** Frontier works; the offline SQLite path is not tested |
 
 ## 5. Decisions taken (2026-09-16)
 
@@ -351,6 +412,16 @@ Submit to staged-recipes (each is its own small PR):
    macOS at all. macOS now pins ROOT 6.40 instead, is a full runtime target, and the mismatch with
    the release's 6.36.13 is documented in each `variants.yaml`. Revisit if conda-forge's 6.36.x
    gains the SDK fix.
+
+10. **DD4hep units (2026-09-21):** do **not** define `DD4HEP_USE_GEANT4_UNITS`. CMS does, so the
+    stored geometry differs from CMS's by a factor of ten, but the dd4hep unit constants move with
+    it and everything CMSSW reads is identical — checked against CMS's own build of the release.
+    Defining it while conda-forge's DD4hep library is built without it would be the actually
+    dangerous option.
+11. **Order of work (2026-09-21):** finish what needs no new externals before attacking the
+    externals-blocked tiers. 54% of the build is reachable today and only 20% is packaged, so
+    reconstruction comes next. The one exception is probing geant4 early, because it is the
+    largest single step left (72% → 90%) and may already be unblocked, as dd4hep turned out to be.
 
 ## 6. Progress log
 
