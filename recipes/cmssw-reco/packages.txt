@@ -13,6 +13,14 @@
 # BuildFile, walking the include graph out of the files SCRAM actually compiles
 # (analysis/scripts/includes.py). That adds 26 packages here, mostly Alignment and
 # SimDataFormats ones that the tracking code includes directly.
+#
+# Line Segment Tracking (RecoTracker/LST, LSTCore, LSTGeometry) is deliberately left out,
+# and has to be removed again if this list is regenerated. It is an alternative, GPU-first
+# pattern recognition for the HL-LHC tracker, not part of the CKF chain this layer builds,
+# and nothing else here depends on it -- it is present only because --target takes whole
+# subsystems. Its alpaka translation units are also by far the most expensive in the layer:
+# LSTEvent.dev.cc alone exhausted memory and was killed by the OOM killer twice, at eight
+# and at ten parallel jobs.
 Alignment/CommonAlignment
 Alignment/CommonAlignmentAlgorithm
 Alignment/CommonAlignmentParametrization
@@ -181,9 +189,6 @@ RecoTracker/DisplacedRegionalTracking
 RecoTracker/FinalTrackSelectors
 RecoTracker/GeometryESProducer
 RecoTracker/IterativeTracking
-RecoTracker/LST
-RecoTracker/LSTCore
-RecoTracker/LSTGeometry
 RecoTracker/MeasurementDet
 RecoTracker/MkFit
 RecoTracker/MkFitCMS
