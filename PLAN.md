@@ -339,7 +339,7 @@ latter returns a slice of 79 subsystems that does not deliver anything in partic
 
 - [x] `cmssw-reco`: RecoTracker, RecoVertex, RecoMuon, TrackingTools, RecoLocalTracker,
       CommonTools and the rest of Geometry. 238 packages, 2514 TU; builds and tests pass on
-      linux-aarch64. Not yet built on linux-64 or osx-arm64.
+      linux-aarch64 and linux-64. Not yet built on osx-arm64.
 - [ ] The three layers after it (EventFilter/Validation, DQM/L1Trigger/PhysicsTools, and the
       remainder). Re-run `reach.py --layers` before each, since the partition shifts as layers land.
 - [ ] Data packages needed by reco (`cmssw-data-*`).
@@ -1496,3 +1496,36 @@ from the flags CMS validates against; they are worth revisiting only if a layer 
 cannot fit otherwise. And `RecoLocalTracker/SiPixelClusterizer` has no in-layer dependents
 either, but was kept: **EDM plugins are coupled at runtime, not at link time**, so "nothing
 links it" is not a reason to drop a package that the reconstruction sequence loads.
+
+### 2026-09-22: cmssw-reco on linux-64, and a watcher that lied about being done
+
+`cmssw-toolbox` (build 9), `mille`, `gbl` and `cmssw-reco` now build on **linux-64** as well,
+in the emulated x86-64 container: 184 s, 58 s and **5076 s** respectively. The layer's tests
+pass and report exactly what the aarch64 build reported — 637 libraries loaded, 5 producers
+and 42 ES producers, `reconstruction configuration built` — and the log contains **no
+`Invalid tool` warnings** at all, which is the first time a layer has been clean on that
+check since the 20 new tool files landed.
+
+The memory cap behaved identically across the two architectures: it read 22424 MB available
+against 10 cores and chose **4 jobs**, the same number aarch64 picked. That is the first
+evidence that the budget travels, rather than being tuned to one machine.
+
+`mille` produces **five variant packages** from one invocation, on both platforms. This is
+correct, not a defect: it builds with `-DSUPPORT_ROOT=ON` and so genuinely needs one build
+per ROOT version in the global pinning, exactly like any other ROOT-dependent recipe. The
+layers pin 6.36 in their own `variants.yaml`, which is what makes the solve unambiguous.
+
+Two process notes, both about watching a long build from the host:
+
+- The Docker VM **restarted underneath a running `rm -rf`**, killing both containers (exit
+  143 and 255). It came back with its disk grown from 504 GB to 1 TB, which is what had been
+  making `/work` read 93% full; 207 GB of dead rattler `bld/` and `test/` scratch in the
+  aarch64 volume is still there and still worth removing when nothing is building.
+- A host-side waiter built on `pgrep` reported the build **finished within seconds of
+  starting**. The image has no `ps`/`pkill` — a fact this file already records — so `pgrep`
+  was not found, the check exited non-zero, and `until ! <check>` read that as success. The
+  replacement scans `/proc/*/cmdline` and was verified against the live process before being
+  trusted. The general trap: `until ! cmd` cannot distinguish "condition false" from "cmd
+  could not run", so the check has to be one whose absence is impossible, or verified first.
+  Those waiters were then killed three times by host memory pressure, which is expected and
+  harmless — the build continues in the container, and only the notification is lost.
