@@ -337,8 +337,9 @@ Layers are chosen with `reach.py --target`, from the subsystems a layer is meant
 not with the greedy `--layers` partition: asked for the same number of translation units the
 latter returns a slice of 79 subsystems that does not deliver anything in particular.
 
-- [ ] `cmssw-reco`: RecoTracker, RecoVertex, RecoMuon, TrackingTools, RecoLocalTracker,
-      CommonTools and the rest of Geometry. The largest single block of reachable work.
+- [x] `cmssw-reco`: RecoTracker, RecoVertex, RecoMuon, TrackingTools, RecoLocalTracker,
+      CommonTools and the rest of Geometry. 238 packages, 2514 TU; builds and tests pass on
+      linux-aarch64. Not yet built on linux-64 or osx-arm64.
 - [ ] The three layers after it (EventFilter/Validation, DQM/L1Trigger/PhysicsTools, and the
       remainder). Re-run `reach.py --layers` before each, since the partition shifts as layers land.
 - [ ] Data packages needed by reco (`cmssw-data-*`).
@@ -1424,3 +1425,74 @@ layer, with or without TensorFlow. It loads the five fragments checked to stay i
 which still cover the transient rechit builders, the measurement tracker, CKF track finding,
 primary vertices and the muon service. `Configuration/Eras` and `Configuration/ProcessModifiers`
 are added as src-only for it: every cfi and cff in the release imports one of them.
+
+### 2026-09-22: cmssw-reco builds, and what it costs in memory
+
+`cmssw-reco` builds and its tests pass on linux-aarch64: 238 packages, 2514 translation
+units, about 30 minutes wall clock on ten cores, a 42 MB package. The test loads every
+library, checks the reconstruction plugins are registered and builds the tracking,
+vertexing and muon configuration from its cfi fragments.
+
+Getting there needed three source patches, all of which are upstreamable and none of which
+are conda specific:
+
+  * the `*GeometryValidate` plugins of the four muon geometry builders use `Fireworks/Core`,
+    the event display, and are dropped;
+  * the TensorFlow plugins of three `RecoTracker` packages are dropped with SCRAM's own
+    `SKIP_FILES`, and with them the alpaka product of `FinalTrackSelectors`, which runs a
+    PyTorch model;
+  * `PhysicsTools/MVAComputer`'s TMVA plugin calls `boost::filesystem::unique_path` but its
+    BuildFile names only `roottmva`. **CMS's own built plugin on CVMFS does link
+    libboost_filesystem**, so the dependency is real; it builds there because their ROOT
+    pulls it in transitively and conda-forge's does not.
+
+#### The memory profile, measured rather than guessed
+
+The OOM killer took the build three times before anyone measured anything. Sampling `VmHWM`
+of every `cc1plus` during a full build — the kernel's own high-water mark, so nothing needs
+wrapping — gives the distribution, and it is extremely skewed: of the translation units
+sampled, about 88% peak under 500 MB and twenty-five need more than 2 GB.
+
+| peak RSS | what |
+|---|---|
+| 4269 MB | `RecoTracker/PixelSeeding` alpaka (`RiemannFit.dev.cc`), and five more of its units at 2.7–3.4 GB |
+| 3.2–3.4 GB | `Geometry/HGCalMapping`, six units |
+| 2.1–2.8 GB | `CondFormats/HGCalObjects`, `RecoLocalTracker/SiPixel*` alpaka, `CondFormats/HcalObjects` alpaka |
+| ~2.2 GB | the `DataFormats/HGCalDigi` ROOT dictionary |
+
+**It is alpaka portable code that is expensive, not any one package.** Only the serial
+backend is built, so there is no second backend to switch off.
+
+Eleven of the twenty-five were the HGCal electronics mapping — `Geometry/HGCalMapping`,
+`CondFormats/HGCalObjects` and `DataFormats/HGCalDigi`, which depend only on each other and
+which nothing in a tracking and muon layer reads. They are left out, along with Line Segment
+Tracking for the same reason. What remains at the top is `RecoTracker/PixelSeeding`, which is
+pixel track seeding and cannot go.
+
+A caveat on the method: the sampler polls every two seconds, so short compiles are
+undersampled. That biases against the cheap units, which is the right direction — the heavy
+tail is what constrains the build and it is captured well.
+
+#### What that means for conda-forge's runners
+
+conda-forge's Azure agents for public projects are **2 vCPU and 7 GB, with a six-hour job
+limit**. With a 4.3 GB peak, two jobs cannot fit at all, so this layer has to build **single
+threaded** there — and a single job leaves under 3 GB of headroom, which is worth knowing
+before something else on the runner claims it. That is affordable: measured cost is **3.2 CPU-seconds per
+translation unit** (not the 7.6 in the older estimate, which came from the emulated x86
+build), so 2514 units is about 2.2 hours against a six-hour limit.
+
+`cmssw-build-layer` therefore budgets 4.5 GB per job and takes the smaller of that and
+`CPU_COUNT`, which yields one job on a stock runner and four on the 23 GB development VM.
+2.5 GB and then 4 GB were tried first; 2.5 GB still lost a translation unit to the OOM
+killer, and 4 GB turned out to be below the worst unit's own peak, which only a second
+measurement run revealed — the first had sampled it at 3.4 GB. `MemAvailable`
+is only as honest as the kernel reporting it: in a VM it describes the guest, and a guest
+backed by a host that is itself swapping reports far more memory than can be provided.
+
+Two things were deliberately **not** done. Tuning GCC's garbage collector, or dropping the
+heavy packages to `-O2`, would both lower the peaks, but they slow the build and diverge
+from the flags CMS validates against; they are worth revisiting only if a layer appears that
+cannot fit otherwise. And `RecoLocalTracker/SiPixelClusterizer` has no in-layer dependents
+either, but was kept: **EDM plugins are coupled at runtime, not at link time**, so "nothing
+links it" is not a reason to drop a package that the reconstruction sequence loads.

@@ -16,7 +16,7 @@ source:
       - patches/0003-PhysicsTools-MVAComputer-declare-boost-filesystem.patch
 
 build:
-  number: 0
+  number: 2
   skip:
     - win
     - osx and x86_64

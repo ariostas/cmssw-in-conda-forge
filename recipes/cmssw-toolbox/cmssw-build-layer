@@ -90,9 +90,12 @@ fi
 # Cap the job count by available memory as well as by cores. A few of CMSSW's translation
 # units are very large -- the alpaka ones above all -- and ten of those at once exhausted
 # 23 GB, which the compiler reports as "Killed signal terminated program cc1plus" and the
-# assembler sometimes as garbage in a truncated temporary. CMS themselves budget about 4 GB
-# per core for a CMSSW build, so that is what is allowed here; 2.5 GB was tried first and
-# still lost a translation unit to the OOM killer.
+# assembler sometimes as garbage in a truncated temporary. Sampling VmHWM through a whole
+# build of cmssw-reco puts the worst single unit,
+# RecoTracker/PixelSeeding/plugins/.../alpaka/RiemannFit.dev.cc, at 4.3 GB, with five more
+# of its neighbours between 2.7 and 3.4 GB; about 88% of units peak under 500 MB. 4.5 GB per
+# job covers the worst one with a little room. 2.5 GB and then 4 GB were tried first, and
+# 2.5 GB still lost a unit to the OOM killer.
 #
 # MemAvailable is only as honest as the kernel reporting it. In a VM it describes the guest,
 # which may be backed by a host that is itself swapping, and then the guest reports far more
@@ -104,7 +107,7 @@ elif command -v sysctl >/dev/null; then
   MEM_MB=$(( $(sysctl -n hw.memsize) / 1024 / 1024 ))
 fi
 if [ -n "${MEM_MB:-}" ]; then
-  MEM_JOBS=$(( MEM_MB / 4000 ))
+  MEM_JOBS=$(( MEM_MB / 4500 ))
   [ "${MEM_JOBS}" -lt 1 ] && MEM_JOBS=1
   if [ "${MEM_JOBS}" -lt "${JOBS}" ]; then
     echo "limiting to ${MEM_JOBS} jobs (${MEM_MB} MB available, ${JOBS} cores)"

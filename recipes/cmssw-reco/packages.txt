@@ -21,6 +21,14 @@
 # subsystems. Its alpaka translation units are also by far the most expensive in the layer:
 # LSTEvent.dev.cc alone exhausted memory and was killed by the OOM killer twice, at eight
 # and at ten parallel jobs.
+#
+# The HGCal electronics mapping (Geometry/HGCalMapping, CondFormats/HGCalObjects,
+# DataFormats/HGCalDigi) is left out for the same reason, and also has to be removed again if
+# this list is regenerated. It describes the HL-LHC high-granularity calorimeter, nothing in
+# a tracking and muon layer reads it, and the three depend only on each other. They are also
+# expensive out of proportion to their usefulness here: their alpaka translation units peak
+# at 3.2-3.4 GB each and were eleven of the twenty-five units in the layer that need more
+# than 2 GB to compile.
 Alignment/CommonAlignment
 Alignment/CommonAlignmentAlgorithm
 Alignment/CommonAlignmentParametrization
@@ -55,7 +63,6 @@ CommonTools/RecoUtils
 CommonTools/TrackerMap
 CommonTools/UtilAlgos
 CondCore/DBCommon
-CondFormats/HGCalObjects
 CondFormats/HcalObjects
 CondFormats/MFObjects
 CondFormats/SiPhase2TrackerObjects
@@ -66,7 +73,6 @@ CondTools/Hcal
 Configuration/Eras
 Configuration/ProcessModifiers
 DataFormats/Alignment
-DataFormats/HGCalDigi
 DataFormats/MuonSeed
 DataFormats/NanoAOD
 DataFormats/OnlineMetaData
@@ -95,7 +101,6 @@ Geometry/ForwardCommonData
 Geometry/ForwardSimData
 Geometry/GEMGeometryBuilder
 Geometry/GlobalTrackingGeometryBuilder
-Geometry/HGCalMapping
 Geometry/HGCalSimData
 Geometry/HcalAlgo
 Geometry/HcalEventSetup
