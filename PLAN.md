@@ -339,7 +339,8 @@ latter returns a slice of 79 subsystems that does not deliver anything in partic
 
 - [x] `cmssw-reco`: RecoTracker, RecoVertex, RecoMuon, TrackingTools, RecoLocalTracker,
       CommonTools and the rest of Geometry. 238 packages, 2514 TU; builds and tests pass on
-      linux-aarch64 and linux-64. Not yet built on osx-arm64.
+      all three platforms. The Linux packages predate build 3 (the libc++ patch and the
+      fastjet pin), so they need a rebuild to match the recipe.
 - [ ] The three layers after it (EventFilter/Validation, DQM/L1Trigger/PhysicsTools, and the
       remainder). Re-run `reach.py --layers` before each, since the partition shifts as layers land.
 - [ ] Data packages needed by reco (`cmssw-data-*`).
@@ -1529,3 +1530,71 @@ Two process notes, both about watching a long build from the host:
   could not run", so the check has to be one whose absence is impossible, or verified first.
   Those waiters were then killed three times by host memory pressure, which is expected and
   harmless — the build continues in the container, and only the notification is lost.
+
+### 2026-09-23: cmssw-reco on osx-arm64, and five things that were only true on Linux
+
+`cmssw-reco` builds and passes its tests natively on **osx-arm64** (`ok (3046 s)` at two jobs):
+42 ES producers as on Linux, and 639 libraries loaded against Linux's 637. The difference is
+exactly the two macOS-only `.so` aliases for python extension modules,
+`libFWCorePythonParameterSet.so` (fwlite) and `libCondDBPyBind11Interface.so` (conditions). It
+took four attempts; each problem below was invisible on Linux.
+
+**Code that only compiles against libstdc++** (`cmssw-reco` patch 0004, nine files): unused
+`<ext/pool_allocator.h>`, `<ext/functional>` and `<ext/algorithm>` includes;
+`__gnu_cxx::is_sorted`; a `std::vector` iterator built from a raw pointer; `%jx` given a
+`uint64_t`, which is `unsigned long long` on macOS; and TrackerMap's `std::map<const int, T>`
+walked with `std::map<int, T>::iterator`. That last one is the instructive one: in libstdc++
+both spell the same `_Rb_tree_iterator<pair<const int, T>>`, while libc++ makes the key type
+part of the iterator. The MTD include did the most damage. `GeometricTimingDet.h` sits under
+`RecoMTD/DetLayers` and `TrackingTools/RecoGeometry`, so one unused include left almost all of
+RecoTracker unlinkable, and the first failed build reported 28 link failures for 3 root causes.
+Every fix was checked by compiling the patched file with the build's own clang and flags *and*
+the unpatched one, which must fail with the error the build hit.
+
+**The CondFormats serialization generator saw two SDKs** (`cmssw-fwlite` patch 0006). It asks
+`clang++ -v` for the default include paths and passes them to libclang next to the build's
+flags. The layer builds unset `SDKROOT` so that ROOT's interpreter does not see it, so the probe
+reported the default Xcode SDK (macOS 26) while the flags carried `-isysroot` for 15.4.
+libclang then had both SDKs' `usr/include`, and `CondFormats/HcalObjects`, the first package
+whose headers reach `<complex>`, failed with `INFINITY` and `NAN` undeclared. The lower layers
+had the same mismatch and were lucky. The fix probes with the flags' own sysroot and is a no-op
+on Linux. It was verified by running SCRAM's exact generator command (captured with
+`scram b -n`) with the installed script (the same 13 errors) and the patched one (a 667-line
+`Serialization.cc`). The generator is owned by `cmssw-fwlite` and is always run from the
+installed release, so the fix had to go there. The upper layers pin fwlite by version, not
+build number, so fwlite build 7 installs under the existing framework/conditions/geometry
+packages without rebuilding them. `cmssw-conditions` and `cmssw-geometry` still carry
+identical copies of fwlite's generator patch 0001; since neither layer ships the generator,
+those look like dead copies.
+
+**fastjet moved its headers under us.** The feedstock published build 6 of `fastjet-cxx` on
+2026-09-22 at 19:28 UTC, between the Linux builds and the osx one. It moved the headers into a
+new `fastjet-cxx-devel`, which requires `cgal-cpp`, and every current `cgal-cpp` requires
+`eigen-abi` 5.0.1 while `lwtnn` requires 3.4.0. The solver then falls back to `cgal-cpp` 5.x and
+the long-gone `boost-cpp`, and gives up with an error that names Boost rather than eigen.
+`cmssw-reco` now pins `fastjet-cxx ==3.5.1 *_5` in host, the last build that ships headers,
+until lwtnn or cgal-cpp is rebuilt against a matching eigen. The recipe had also asked for
+`fastjet`, which is the *python* bindings; it now asks for `fastjet-cxx`. Linux will hit the
+same break on its next solve.
+
+**Unpinned externals pick incidental variants.** `mille` builds against ROOT, so without a pin
+the global pinning made five variants, including one for ROOT 6.36.10. That variant cannot be
+installed on osx-arm64 at all, because it needs a `libcxx` build that is no longer in the
+channel, and `gbl` picked it. Both recipes now pin ROOT like the layers do. `gbl`'s
+header-compile test then hit a second conflict: `root_base` 6.40.2 requires `libcxx-devel 20`
+and `clangxx_osx-arm64` 21 requires `libcxx-devel 21`, so a *test* environment, which is a
+single prefix, cannot hold both. A build does not hit this, because the compiler and ROOT
+live in separate prefixes. `gbl` builds and tests with clang 20 on macOS. `cmssw-devel` puts
+compilers and ROOT in one environment by design, so it may hit the same thing on its next
+build.
+
+**The memory cap measured the wrong thing on macOS.** It read `hw.memsize`, the machine's
+total RAM, and called it "available": 32768 MB against 7060 MB actually free with a Docker VM
+running, which would have chosen 7 jobs instead of 1. It now sums the `vm_stat` page classes
+the kernel can hand out without swapping (`cmssw-toolbox` build 10).
+
+Two process notes. One build took 17 hours of wall clock for 78 minutes of work: the Mac
+idle-slept on battery (`pmset -g log`). Long macOS builds now run under `caffeinate -i`, and
+rattler's phase timer, which stops during sleep, is what tells the two apart. And `-k` pays
+for itself: a failing layer build still compiles everything else, so a single two-hour run
+lists every root cause, where fixing one and restarting would have taken four runs.

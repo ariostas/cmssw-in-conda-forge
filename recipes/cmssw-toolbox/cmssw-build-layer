@@ -103,6 +103,18 @@ fi
 JOBS=${CPU_COUNT:-1}
 if [ -r /proc/meminfo ]; then
   MEM_MB=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
+elif command -v vm_stat >/dev/null; then
+  # macOS has no MemAvailable. hw.memsize is the wrong thing to use: it is the machine's total
+  # RAM, and on a developer machine a large part of it is already spoken for -- a running Docker
+  # VM alone can hold two thirds of it. Measured here, hw.memsize said 32768 MB while only
+  # 7060 MB could actually be had, which would have chosen seven jobs instead of one. Add up the
+  # page classes the kernel can hand out without swapping instead.
+  MEM_MB=$(vm_stat | awk '
+    /page size of/ { for (i = 1; i <= NF; i++) if ($i == "of") ps = $(i + 1) }
+    /^Pages free/ || /^Pages inactive/ || /^Pages speculative/ || /^Pages purgeable/ {
+      gsub(/\./, "", $NF); sum += $NF
+    }
+    END { if (ps > 0) printf "%d", sum * ps / 1024 / 1024 }')
 elif command -v sysctl >/dev/null; then
   MEM_MB=$(( $(sysctl -n hw.memsize) / 1024 / 1024 ))
 fi

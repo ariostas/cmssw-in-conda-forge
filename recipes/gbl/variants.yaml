@@ -1,0 +1,28 @@
+# GBL does not use ROOT itself, but it links Mille, and Mille's run export carries the ROOT it
+# was built against. Without a pin the solver is free to pick whichever Mille variant it likes,
+# and on osx-arm64 it picked the one built against root_base 6.36.10 -- which cannot currently
+# be installed there, because it requires a libcxx-devel 18.* whose only build depends on a
+# libcxx ==18.1.8 h3ed4263_5 that no longer exists in the channel.
+#
+# Pin the same ROOT as recipes/mille/variants.yaml and the CMSSW layers, so the solve is
+# determined rather than incidental.
+root_base:
+  - if: osx
+    then: "6.40.2"
+    else: "6.36.10"
+root_cxx_standard:
+  - "20"
+
+# The header-compile test puts a C++ compiler and GBL -- and so, through Mille, ROOT -- into
+# one environment, and on osx-arm64 those cannot currently coexist at conda-forge's defaults:
+# root_base 6.40.2 requires libcxx-devel 20.*, while clangxx_osx-arm64 21.* requires
+# libcxx-devel 21.1.*. A build does not hit this, because the compiler lives in BUILD_PREFIX
+# and ROOT in the host prefix, but a test environment is a single prefix and cannot solve.
+# Build and test with the clang ROOT itself was built against, which is the matching ABI
+# anyway. Drop this once conda-forge's ROOT moves to libcxx-devel 21.
+c_compiler_version:
+  - if: osx
+    then: "20"
+cxx_compiler_version:
+  - if: osx
+    then: "20"

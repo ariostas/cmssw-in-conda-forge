@@ -1,0 +1,19 @@
+# Mille links ROOT -- its CMakeLists enables SUPPORT_ROOT when it finds one, which is what
+# CMS's own build does (cmsdist mille.spec has `Requires: root`). The global pinning therefore
+# builds it once per ROOT version and C++ standard: five variants, of which the CMSSW layers
+# can use exactly one, the one matching the ROOT they pin.
+#
+# Pin the same ROOT the layers pin, so that the one useful variant is the one that gets built.
+# See recipes/cmssw-reco/variants.yaml for the full reasoning, in particular why macOS is on
+# 6.40 rather than the 6.36 this CMSSW release was validated against.
+#
+# This is not only about build time. On osx-arm64 conda-forge's root_base 6.36.10 currently
+# cannot be installed at all: it requires libcxx-devel 18.*, whose only build depends on a
+# libcxx ==18.1.8 h3ed4263_5 that no longer exists in the channel. Leaving mille unpinned
+# produced a 6.36.10 variant that the gbl build then selected and failed to solve.
+root_base:
+  - if: osx
+    then: "6.40.2"
+    else: "6.36.10"
+root_cxx_standard:
+  - "20"

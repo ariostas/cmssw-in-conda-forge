@@ -1,0 +1,43 @@
+diff --git a/CondFormats/Serialization/python/condformats_serialization_generate.py b/CondFormats/Serialization/python/condformats_serialization_generate.py
+index aae90b056..a61e9e68f 100755
+--- a/CondFormats/Serialization/python/condformats_serialization_generate.py
++++ b/CondFormats/Serialization/python/condformats_serialization_generate.py
+@@ -25,6 +25,7 @@ import argparse
+ import logging
+ import os
+ import re
++import shlex
+ import subprocess
+ 
+ import clang.cindex
+@@ -382,8 +383,8 @@ def get_diagnostics(translation_unit):
+     }, translation_unit.diagnostics)
+ 
+ 
+-def get_default_gcc_search_paths(gcc = 'g++', language = 'c++'):
+-    command = 'echo "" | %s -x%s -v -E - 2>&1' % (gcc, language)
++def get_default_gcc_search_paths(gcc = 'g++', language = 'c++', extra_flags = ()):
++    command = 'echo "" | %s -x%s %s -v -E - 2>&1' % (gcc, language, ' '.join(shlex.quote(f) for f in extra_flags))
+     logging.debug('Running: %s', command)
+ 
+     paths = []
+@@ -457,8 +458,17 @@ class SerializationCodeGenerator(object):
+             cpp_flags = self.cleanFlags( scramFlags )
+             cxx_flags = []
+ 
+-        # We are using libClang, thus we have to follow Clang include paths
+-        std_flags = get_default_gcc_search_paths(gcc='clang++')
++        # We are using libClang, thus we have to follow Clang include paths.
++        # Ask for them with the sysroot the build flags use: otherwise, on macOS, clang++
++        # reports the headers of whatever SDK is the default, libclang then sees two SDKs'
++        # usr/include, and e.g. <complex> no longer finds INFINITY and NAN.
++        sysroot_flags = []
++        for i, flag in enumerate(cpp_flags):
++            if flag == '-isysroot' and i + 1 < len(cpp_flags):
++                sysroot_flags = [flag, cpp_flags[i + 1]]
++            elif flag.startswith(('-isysroot', '--sysroot=')) and flag != '-isysroot':
++                sysroot_flags = [flag]
++        std_flags = get_default_gcc_search_paths(gcc='clang++', extra_flags=sysroot_flags)
+         log_flags('cpp_flags', cpp_flags)
+         log_flags('cxx_flags', cxx_flags)
+         log_flags('std_flags', std_flags)

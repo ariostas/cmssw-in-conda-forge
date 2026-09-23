@@ -14,9 +14,20 @@ source:
       - patches/0001-Geometry-leave-out-the-Fireworks-based-validation-plugins.patch
       - patches/0002-RecoTracker-leave-out-the-TensorFlow-and-PyTorch-plugins.patch
       - patches/0003-PhysicsTools-MVAComputer-declare-boost-filesystem.patch
+      # Code that only compiles against libstdc++, which libc++ (macOS) rejects:
+      # - <ext/...> headers: unused ones are dropped, and __gnu_cxx::is_sorted becomes
+      #   std::is_sorted, which is the same algorithm standardised in C++11;
+      # - a std::vector iterator constructed from a raw pointer, which becomes `auto`;
+      # - TrackerMap's std::map<const int, T> assigned to std::map<int, T>::iterator. In
+      #   libstdc++ both are the same iterator type; in libc++ the key type is part of it, so
+      #   the redundant const (map keys are always const) goes;
+      # - `%jx` given a uint64_t, which is unsigned long long on macOS, not uintmax_t.
+      # The MTD one matters most: GeometricTimingDet.h is under RecoMTD/DetLayers and
+      # TrackingTools/RecoGeometry, so without it almost all of RecoTracker fails to link.
+      - patches/0004-Do-not-rely-on-libstdc-extensions-missing-from-libc.patch
 
 build:
-  number: 2
+  number: 3
   skip:
     - win
     - osx and x86_64
@@ -98,8 +109,14 @@ requirements:
     # through Alignment/ReferenceTrajectories
     - gbl
     - mille
-    # jet clustering, used by CommonTools/PileupAlgos and the muon rechit clusterer
-    - fastjet
+    # jet clustering, used by CommonTools/PileupAlgos and the muon rechit clusterer. The C++
+    # library, not `fastjet`, which is the python bindings.
+    # Build 5 is the last one that ships the headers. Build 6 (2026-09-22) moved them to a new
+    # fastjet-cxx-devel, which requires cgal-cpp; every current cgal-cpp requires eigen-abi
+    # 5.0.1, lwtnn requires eigen-abi 3.4.0, and so the solver falls back to cgal-cpp 5.x and
+    # the long-gone boost-cpp and cannot resolve. Take fastjet-cxx-devel once lwtnn (or
+    # cgal-cpp) is built against a matching eigen.
+    - fastjet-cxx ==3.5.1 *_5
     - fastjet-contrib
     # particle properties, for SimGeneral/HepPDTRecord
     - heppdt
@@ -119,7 +136,8 @@ requirements:
     - geant4
     - gbl
     - mille
-    - fastjet
+    # no dictionary here includes a fastjet header, so the libraries are enough at runtime
+    - fastjet-cxx
     - fastjet-contrib
     - heppdt
     - lwtnn

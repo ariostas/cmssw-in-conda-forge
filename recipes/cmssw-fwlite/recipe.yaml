@@ -18,6 +18,13 @@ source:
       - patches/0003-SimDataFormats-support-upstream-HepMC2-WeightContainer.patch
       - patches/0004-FWCore-PluginManager-per-package-caches-and-CMSSW_PLUGIN_PATH.patch
       - patches/0005-Support-clang-and-libc++-on-macOS.patch
+      # The CondFormats serialization generator asks `clang++ -v` for the default include
+      # paths and hands them to libclang next to the build's own flags. On macOS the layer
+      # builds unset SDKROOT (ROOT's interpreter must not see it), so clang++ reported the
+      # default Xcode SDK while the flags carried -isysroot for another: libclang then saw two
+      # SDKs' usr/include, and CondFormats/HcalObjects, whose headers reach <complex>, failed
+      # with INFINITY and NAN undeclared. Probe with the flags' own sysroot instead.
+      - patches/0006-CondFormats-probe-search-paths-with-the-build-sysroot.patch
   - url: https://github.com/cms-sw/cmssw-config/archive/refs/tags/${{ cmssw_config_tag }}.tar.gz
     sha256: 3326a15f8ba28ab984259d98a1798c1558d5f89664d01911441adefe802928ad
     target_directory: config
@@ -25,7 +32,7 @@ source:
       - cmssw-config-patches/0001-conda-build-environment-fixes.patch
 
 build:
-  number: 6
+  number: 7
   skip:
     - win
     - osx and x86_64

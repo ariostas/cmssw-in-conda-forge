@@ -1,0 +1,259 @@
+diff --git a/CalibCalorimetry/HcalAlgos/src/HcalDbASCIIIO.cc b/CalibCalorimetry/HcalAlgos/src/HcalDbASCIIIO.cc
+index e7c9ceffd..c193042d6 100644
+--- a/CalibCalorimetry/HcalAlgos/src/HcalDbASCIIIO.cc
++++ b/CalibCalorimetry/HcalAlgos/src/HcalDbASCIIIO.cc
+@@ -2436,7 +2436,14 @@ bool HcalDbASCIIIO::dumpObject(std::ostream& fOutput, const HcalTPParameters& fO
+   const int auxi1 = fObject.getAuxi1();
+   const int auxi2 = fObject.getAuxi2();
+ 
+-  sprintf(buffer, " %15d %15d  %16jx %15x %15d %15d\n", version, adcCut, tdcMask, tbits, auxi1, auxi2);
++  sprintf(buffer,
++          " %15d %15d  %16jx %15x %15d %15d\n",
++          version,
++          adcCut,
++          static_cast<uintmax_t>(tdcMask),
++          tbits,
++          auxi1,
++          auxi2);
+   fOutput << buffer;
+ 
+   return true;
+diff --git a/CommonTools/TrackerMap/interface/TrackerMap.h b/CommonTools/TrackerMap/interface/TrackerMap.h
+index afc51434d..7300680d2 100644
+--- a/CommonTools/TrackerMap/interface/TrackerMap.h
++++ b/CommonTools/TrackerMap/interface/TrackerMap.h
+@@ -168,22 +168,22 @@ public:
+   std::ifstream* findfile(std::string filename);
+   int getNumMod() { return number_modules; };
+   std::vector<TColor*> vc;
+-  typedef std::map<const int, TmModule*> SmoduleMap;
++  typedef std::map<int, TmModule*> SmoduleMap;
+   SmoduleMap smoduleMap;
+-  typedef std::map<const int, TmModule*> ImoduleMap;
++  typedef std::map<int, TmModule*> ImoduleMap;
+   ImoduleMap imoduleMap;
+-  typedef std::map<const int, TmApvPair*> SvgApvPair;
++  typedef std::map<int, TmApvPair*> SvgApvPair;
+   SvgApvPair apvMap;
+-  typedef std::multimap<const int, TmApvPair*> ModApvPair;
++  typedef std::multimap<int, TmApvPair*> ModApvPair;
+   ModApvPair apvModuleMap;
+-  typedef std::map<const int, int> SvgFed;
++  typedef std::map<int, int> SvgFed;
+   SvgFed fedMap;
+   SvgFed slotMap;
+-  typedef std::map<const int, TmCcu*> MapCcu;
++  typedef std::map<int, TmCcu*> MapCcu;
+   MapCcu ccuMap;
+   typedef std::multimap<TmCcu*, TmModule*> FecModule;
+   FecModule fecModuleMap;
+-  typedef std::map<const int, TmPsu*> MapPsu;
++  typedef std::map<int, TmPsu*> MapPsu;
+   MapPsu psuMap;
+   typedef std::multimap<TmPsu*, TmModule*> PsuModule;
+   PsuModule psuModuleMap;
+diff --git a/CommonTools/TrackerMap/src/TrackerMap.cc b/CommonTools/TrackerMap/src/TrackerMap.cc
+index a6eda7282..97550f96a 100644
+--- a/CommonTools/TrackerMap/src/TrackerMap.cc
++++ b/CommonTools/TrackerMap/src/TrackerMap.cc
+@@ -145,7 +145,7 @@ TrackerMap::TrackerMap(const edm::ParameterSet &tkmapPset,
+ 
+         int idmod = mod->idex;
+         int nchan = 0;
+-        std::multimap<const int, TmApvPair *>::iterator pos;
++        std::multimap<int, TmApvPair *>::iterator pos;
+         for (pos = apvModuleMap.lower_bound(idmod); pos != apvModuleMap.upper_bound(idmod); ++pos) {
+           TmApvPair *apvpair = pos->second;
+           if (apvpair != nullptr) {
+@@ -3238,7 +3238,7 @@ void TrackerMap::fillc_fed_channel(int fedId, int fedCh, int red, int green, int
+ }
+ 
+ void TrackerMap::fill_fed_channel(int idmod, float qty) {
+-  std::multimap<const int, TmApvPair *>::iterator pos;
++  std::multimap<int, TmApvPair *>::iterator pos;
+   for (pos = apvModuleMap.lower_bound(idmod); pos != apvModuleMap.upper_bound(idmod); ++pos) {
+     TmApvPair *apvpair = pos->second;
+     if (apvpair != nullptr) {
+@@ -3407,14 +3407,14 @@ void TrackerMap::fillc(int layer, int ring, int nmod, int red, int green, int bl
+ }
+ 
+ void TrackerMap::fillc_all_blank() {
+-  std::map<const int, TmModule *>::iterator imod;
++  std::map<int, TmModule *>::iterator imod;
+   for (imod = imoduleMap.begin(); imod != imoduleMap.end(); imod++) {
+     fillc(imod->first, 255, 255, 255);
+   }
+ }
+ 
+ void TrackerMap::fill_all_blank() {
+-  std::map<const int, TmModule *>::iterator imod;
++  std::map<int, TmModule *>::iterator imod;
+   for (imod = imoduleMap.begin(); imod != imoduleMap.end(); imod++) {
+     fill_current_val(imod->first, 0);
+   }
+@@ -3700,7 +3700,7 @@ void TrackerMap::printonline() {
+         if (mod != nullptr && !mod->notInUse()) {
+           int idmod = mod->idex;
+           *txtfile << "<a name=" << idmod << "><pre>" << std::endl;
+-          std::multimap<const int, TmApvPair *>::iterator pos;
++          std::multimap<int, TmApvPair *>::iterator pos;
+           for (pos = apvModuleMap.lower_bound(idmod); pos != apvModuleMap.upper_bound(idmod); ++pos) {
+             TmApvPair *apvpair = pos->second;
+             if (apvpair != nullptr) {
+@@ -4072,7 +4072,7 @@ void TrackerMap::printall(bool print_total, float minval1, float maxval1, std::s
+           if (mod != nullptr && !mod->notInUse()) {
+             int idmod = mod->idex;
+             *txtfile << "<a name=" << idmod << "><pre>" << std::endl;
+-            std::multimap<const int, TmApvPair *>::iterator pos;
++            std::multimap<int, TmApvPair *>::iterator pos;
+             for (pos = apvModuleMap.lower_bound(idmod); pos != apvModuleMap.upper_bound(idmod); ++pos) {
+               TmApvPair *apvpair = pos->second;
+               if (apvpair != nullptr) {
+diff --git a/EventFilter/SiStripRawToDigi/plugins/ExcludedFEDListProducer.cc b/EventFilter/SiStripRawToDigi/plugins/ExcludedFEDListProducer.cc
+index 7f85e1cba..954488130 100644
+--- a/EventFilter/SiStripRawToDigi/plugins/ExcludedFEDListProducer.cc
++++ b/EventFilter/SiStripRawToDigi/plugins/ExcludedFEDListProducer.cc
+@@ -13,7 +13,6 @@
+ #include <iostream>
+ #include <sstream>
+ #include <iomanip>
+-#include <ext/algorithm>
+ 
+ namespace sistrip {
+ 
+diff --git a/EventFilter/SiStripRawToDigi/plugins/SiStripRawToDigiUnpacker.cc b/EventFilter/SiStripRawToDigi/plugins/SiStripRawToDigiUnpacker.cc
+index 7b887b20b..b283eb56e 100644
+--- a/EventFilter/SiStripRawToDigi/plugins/SiStripRawToDigiUnpacker.cc
++++ b/EventFilter/SiStripRawToDigi/plugins/SiStripRawToDigiUnpacker.cc
+@@ -1,7 +1,7 @@
+ #include <iostream>
+ #include <sstream>
+ #include <iomanip>
+-#include <ext/algorithm>
++#include <algorithm>
+ 
+ #include <format>
+ 
+@@ -433,7 +433,7 @@ namespace sistrip {
+       }
+ 
+       // check sorting
+-      if (!__gnu_cxx::is_sorted(sorted_and_merged.begin(), sorted_and_merged.end())) {
++      if (!std::is_sorted(sorted_and_merged.begin(), sorted_and_merged.end())) {
+         // this is an error in the code: i DID sort it already!
+         throw cms::Exception("Bug Found")
+             << "Container must be already sorted!\nat " << __FILE__ << ", line " << __LINE__ << "\n";
+@@ -442,7 +442,7 @@ namespace sistrip {
+       std::vector<edm::DetSet<SiStripDigi> >::iterator iii = sorted_and_merged.begin();
+       std::vector<edm::DetSet<SiStripDigi> >::iterator jjj = sorted_and_merged.end();
+       for (; iii != jjj; ++iii) {
+-        if (!__gnu_cxx::is_sorted(iii->begin(), iii->end())) {
++        if (!std::is_sorted(iii->begin(), iii->end())) {
+           // this might be an error in the data, if the raws from one FED are not sorted
+           iii->clear();
+           errorInData = true;
+@@ -515,7 +515,7 @@ namespace sistrip {
+             << "Some modules contained corrupted virgin raw data, and have been skipped in unpacking\n";
+ 
+       // check sorting
+-      if (!__gnu_cxx::is_sorted(sorted_and_merged.begin(), sorted_and_merged.end())) {
++      if (!std::is_sorted(sorted_and_merged.begin(), sorted_and_merged.end())) {
+         // this is an error in the code: i DID sort it already!
+         throw cms::Exception("Bug Found")
+             << "Container must be already sorted!\nat " << __FILE__ << ", line " << __LINE__ << "\n";
+@@ -584,7 +584,7 @@ namespace sistrip {
+             << "Some modules contained corrupted proc raw data, and have been skipped in unpacking\n";
+ 
+       // check sorting
+-      if (!__gnu_cxx::is_sorted(sorted_and_merged.begin(), sorted_and_merged.end())) {
++      if (!std::is_sorted(sorted_and_merged.begin(), sorted_and_merged.end())) {
+         // this is an error in the code: i DID sort it already!
+         throw cms::Exception("Bug Found")
+             << "Container must be already sorted!\nat " << __FILE__ << ", line " << __LINE__ << "\n";
+@@ -624,7 +624,7 @@ namespace sistrip {
+             << "Some fed keys contained corrupted scope mode data, and have been skipped in unpacking\n";
+ 
+       // check sorting
+-      if (!__gnu_cxx::is_sorted(sorted_and_merged.begin(), sorted_and_merged.end())) {
++      if (!std::is_sorted(sorted_and_merged.begin(), sorted_and_merged.end())) {
+         // this is an error in the code: i DID sort it already!
+         throw cms::Exception("Bug Found")
+             << "Container must be already sorted!\nat " << __FILE__ << ", line " << __LINE__ << "\n";
+@@ -693,7 +693,7 @@ namespace sistrip {
+               << "Some modules contained corrupted common mode data, and have been skipped in unpacking\n";
+ 
+         // check sorting
+-        if (!__gnu_cxx::is_sorted(sorted_and_merged.begin(), sorted_and_merged.end())) {
++        if (!std::is_sorted(sorted_and_merged.begin(), sorted_and_merged.end())) {
+           // this is an error in the code: i DID sort it already!
+           throw cms::Exception("Bug Found")
+               << "Container must be already sorted!\nat " << __FILE__ << ", line " << __LINE__ << "\n";
+diff --git a/Geometry/MTDNumberingBuilder/interface/GeometricTimingDet.h b/Geometry/MTDNumberingBuilder/interface/GeometricTimingDet.h
+index f1f76ea3a..e6b6aa80f 100644
+--- a/Geometry/MTDNumberingBuilder/interface/GeometricTimingDet.h
++++ b/Geometry/MTDNumberingBuilder/interface/GeometricTimingDet.h
+@@ -13,7 +13,6 @@
+ #include <memory>
+ #include "FWCore/ParameterSet/interface/types.h"
+ 
+-#include <ext/pool_allocator.h>
+ 
+ class DDFilteredView;
+ 
+diff --git a/PhysicsTools/HepMCCandAlgos/plugins/GenPlusSimParticleProducer.cc b/PhysicsTools/HepMCCandAlgos/plugins/GenPlusSimParticleProducer.cc
+index 1999f6207..416bf7c76 100644
+--- a/PhysicsTools/HepMCCandAlgos/plugins/GenPlusSimParticleProducer.cc
++++ b/PhysicsTools/HepMCCandAlgos/plugins/GenPlusSimParticleProducer.cc
+@@ -35,7 +35,7 @@ process.genParticlePlusGEANT = cms.EDProducer("GenPlusSimParticleProducer",
+ #include "SimGeneral/HepPDTRecord/interface/PdtEntry.h"
+ #include "SimGeneral/HepPDTRecord/interface/ParticleDataTable.h"
+ 
+-#include <ext/algorithm>
++#include <algorithm>
+ #include <memory>
+ 
+ namespace pat {
+@@ -208,7 +208,7 @@ void GenPlusSimParticleProducer::produce(Event &event, const EventSetup &iSetup)
+   // Need to check that SimTrackContainer is sorted; otherwise, copy and sort :-(
+   std::unique_ptr<SimTrackContainer> simtracksTmp;
+   const SimTrackContainer *simtracksSorted = &*simtracks;
+-  if (!__gnu_cxx::is_sorted(simtracks->begin(), simtracks->end(), LessById())) {
++  if (!std::is_sorted(simtracks->begin(), simtracks->end(), LessById())) {
+     simtracksTmp = std::make_unique<SimTrackContainer>(*simtracks);
+     std::sort(simtracksTmp->begin(), simtracksTmp->end(), LessById());
+     simtracksSorted = &*simtracksTmp;
+@@ -244,7 +244,7 @@ void GenPlusSimParticleProducer::produce(Event &event, const EventSetup &iSetup)
+   for (unsigned int i = 0; i < genBarcodes->size(); ++i) {
+     newGenBarcodes->push_back((*genBarcodes)[i]);
+   }
+-  barcodesAreSorted = __gnu_cxx::is_sorted(newGenBarcodes->begin(), newGenBarcodes->end());
++  barcodesAreSorted = std::is_sorted(newGenBarcodes->begin(), newGenBarcodes->end());
+ 
+   for (size_t i = 0; i < cands.size(); ++i) {
+     reco::GenParticle &cand = cands[i];
+diff --git a/RecoBTau/JetTagComputer/src/TagInfoMVACategorySelector.cc b/RecoBTau/JetTagComputer/src/TagInfoMVACategorySelector.cc
+index 7b97b51f0..d37f5041b 100644
+--- a/RecoBTau/JetTagComputer/src/TagInfoMVACategorySelector.cc
++++ b/RecoBTau/JetTagComputer/src/TagInfoMVACategorySelector.cc
+@@ -1,4 +1,3 @@
+-#include <ext/functional>
+ #include <string>
+ #include <vector>
+ 
+diff --git a/RecoLocalTracker/SiStripClusterizer/src/SiStripClusterInfo.cc b/RecoLocalTracker/SiStripClusterizer/src/SiStripClusterInfo.cc
+index dcdf774f0..762f8d974 100644
+--- a/RecoLocalTracker/SiStripClusterizer/src/SiStripClusterInfo.cc
++++ b/RecoLocalTracker/SiStripClusterizer/src/SiStripClusterInfo.cc
+@@ -19,9 +19,9 @@ void SiStripClusterInfo::setCluster(const SiStripCluster& cluster, int detId) {
+ }
+ 
+ std::pair<uint16_t, uint16_t> SiStripClusterInfo::chargeLR() const {
+-  std::vector<uint8_t>::const_iterator begin(stripCharges().begin()), end(stripCharges().end()), max;
+-  max = max_element(begin, end);
+-  return std::make_pair(accumulate(begin, max, uint16_t(0)), accumulate(max + 1, end, uint16_t(0)));
++  auto begin = stripCharges().begin(), end = stripCharges().end();
++  auto max = std::max_element(begin, end);
++  return std::make_pair(std::accumulate(begin, max, uint16_t(0)), std::accumulate(max + 1, end, uint16_t(0)));
+ }
+ 
+ float SiStripClusterInfo::variance() const {
