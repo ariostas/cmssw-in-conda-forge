@@ -339,8 +339,7 @@ latter returns a slice of 79 subsystems that does not deliver anything in partic
 
 - [x] `cmssw-reco`: RecoTracker, RecoVertex, RecoMuon, TrackingTools, RecoLocalTracker,
       CommonTools and the rest of Geometry. 238 packages, 2514 TU; builds and tests pass on
-      all three platforms. The Linux packages predate build 3 (the libc++ patch and the
-      fastjet pin), so they need a rebuild to match the recipe.
+      all three platforms, from the same recipe revision (build 3).
 - [ ] The three layers after it (EventFilter/Validation, DQM/L1Trigger/PhysicsTools, and the
       remainder). Re-run `reach.py --layers` before each, since the partition shifts as layers land.
 - [ ] Data packages needed by reco (`cmssw-data-*`).
@@ -1584,9 +1583,11 @@ channel, and `gbl` picked it. Both recipes now pin ROOT like the layers do. `gbl
 header-compile test then hit a second conflict: `root_base` 6.40.2 requires `libcxx-devel 20`
 and `clangxx_osx-arm64` 21 requires `libcxx-devel 21`, so a *test* environment, which is a
 single prefix, cannot hold both. A build does not hit this, because the compiler and ROOT
-live in separate prefixes. `gbl` builds and tests with clang 20 on macOS. `cmssw-devel` puts
-compilers and ROOT in one environment by design, so it may hit the same thing on its next
-build.
+live in separate prefixes. `gbl` builds and tests with clang 20 on macOS. `cmssw-devel`,
+which puts compilers and ROOT in one environment by design, already avoided this: it asks for
+`cxx-compiler` (conda-forge's current default, clang 18) rather than `${{ compiler('cxx') }}`,
+and its recipe says why. CLAUDE.md claimed the opposite, which is how the same conflict came
+to be rediscovered here; it has been corrected. The rebuild with fwlite 7 passes.
 
 **The memory cap measured the wrong thing on macOS.** It read `hw.memsize`, the machine's
 total RAM, and called it "available": 32768 MB against 7060 MB actually free with a Docker VM
@@ -1598,3 +1599,12 @@ idle-slept on battery (`pmset -g log`). Long macOS builds now run under `caffein
 rattler's phase timer, which stops during sleep, is what tells the two apart. And `-k` pays
 for itself: a failing layer build still compiles everything else, so a single two-hour run
 lists every root cause, where fixing one and restarting would have taken four runs.
+
+**Re-verified on all three platforms (2026-09-24).** Everything that changed was rebuilt from
+the committed recipes on linux-aarch64 and linux-64 as well, with `cmssw-devel` as the
+regression test for the developer loop against fwlite 7: `cmssw-toolbox` 10, `mille` and `gbl`
+(now one variant each instead of five), `cmssw-fwlite` 7, `cmssw-reco` 3 and `cmssw-devel`. All
+pass their tests. `cmssw-reco` loads 637 libraries on Linux, has 42 ES producers everywhere, and
+shows no `Invalid tool` warnings, with patch 0004 applied and `fastjet-cxx` build 5 in the host
+environment. linux-aarch64 took 1906 s at 4 jobs, and linux-64 took 3962 s at 5 jobs under
+emulation.

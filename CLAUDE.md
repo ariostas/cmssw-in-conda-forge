@@ -121,8 +121,12 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
   `PyInit_<its own name>`; `libFWCorePythonParameterSet` is the one `cmsRun` needs to read a
   configuration. Each layer only aliases the libraries it built, so no two packages claim a file.
 - `c-compiler`/`cxx-compiler` resolve to conda-forge's current default, which on osx-arm64 lags
-  the version the variants pin. `cmssw-devel` therefore uses `${{ compiler('c') }}` and friends
-  in its **run** requirements, so a developer gets the toolchain the release was built with.
+  the version the variants pin (clang 18 against 21). `cmssw-devel` uses them anyway, in its
+  **run** requirements: `${{ compiler('cxx') }}` would ask for clang 21, whose `libcxx-devel 21`
+  cannot be installed next to the `libcxx-devel 20` that conda-forge's `root_base` 6.40
+  requires. Any single environment holding ROOT and a compiler hits this, e.g. a recipe's test
+  environment (a build does not, since build and host are separate prefixes); `gbl` pins clang
+  20 on macOS for that reason.
 
 ## CMSSW/SCRAM gotchas learned so far
 
