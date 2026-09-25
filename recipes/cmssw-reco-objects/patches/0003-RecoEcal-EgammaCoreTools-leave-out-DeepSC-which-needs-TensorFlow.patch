@@ -1,0 +1,18 @@
+diff --git a/RecoEcal/EgammaCoreTools/BuildFile.xml b/RecoEcal/EgammaCoreTools/BuildFile.xml
+index 3287680ad..48631489c 100644
+--- a/RecoEcal/EgammaCoreTools/BuildFile.xml
++++ b/RecoEcal/EgammaCoreTools/BuildFile.xml
+@@ -15,7 +15,12 @@
+ <use name="Geometry/Records"/>
+ <use name="RecoLocalCalo/EcalRecAlgos"/>
+ <use name="CalibCalorimetry/EcalLaserCorrection"/>
+-<use name="PhysicsTools/TensorFlow"/>
++<!--
++  Only the DeepSC supercluster evaluator (DeepSCGraphEvaluation, EcalClustersGraph) uses
++  TensorFlow. Where TensorFlow is not available it is left out, and the rest of the library,
++  which particle flow and e/gamma reconstruction are built on, does not depend on it.
++-->
++<flags SKIP_FILES="DeepSCGraphEvaluation.cc EcalClustersGraph.cc"/>
+ <use name="clhep"/>
+ <export>
+   <lib name="1"/>

@@ -1,0 +1,18 @@
+diff --git a/PhysicsTools/ONNXRuntime/interface/ONNXRuntime.h b/PhysicsTools/ONNXRuntime/interface/ONNXRuntime.h
+index 1e1215b6e..58a703ff6 100644
+--- a/PhysicsTools/ONNXRuntime/interface/ONNXRuntime.h
++++ b/PhysicsTools/ONNXRuntime/interface/ONNXRuntime.h
+@@ -18,7 +18,13 @@
+ #include <string>
+ #include <memory>
+ 
++// ONNX Runtime installs its public headers flat under include/onnxruntime/; some
++// distributions (conda-forge) keep the source tree layout instead.
++#if __has_include("onnxruntime/onnxruntime_cxx_api.h")
+ #include "onnxruntime/onnxruntime_cxx_api.h"
++#else
++#include "onnxruntime/core/session/onnxruntime_cxx_api.h"
++#endif
+ 
+ namespace cms::Ort {
+ 

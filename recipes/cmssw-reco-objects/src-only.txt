@@ -1,0 +1,73 @@
+# Packages that only contribute their source: python configuration, headers and data.
+# `cmssw-build-layer --src-only` deletes their plugins/ and bin/ before building.
+
+CalibCalorimetry/Configuration
+CalibCalorimetry/EcalTBCondTools
+CalibMuon/Configuration
+CalibTracker/Configuration
+Configuration/AlCa
+Configuration/Applications
+Configuration/DataProcessing
+Configuration/EcalTB
+Configuration/EventContent
+Configuration/Generator
+Configuration/Geometry
+Configuration/GlobalRuns
+Configuration/HLT
+Configuration/JetMET
+Configuration/PyReleaseValidation
+Configuration/SVSuite
+Configuration/StandardSequences
+DataFormats/L1Scouting
+EventFilter/Configuration
+JetMETCorrections/Configuration
+JetMETCorrections/IsolatedParticles
+L1Trigger/Configuration
+RecoBTag/Configuration
+RecoBTau/Configuration
+RecoCaloTools/Navigation
+RecoCaloTools/Selectors
+RecoEcal/Configuration
+RecoEgamma/Configuration
+RecoHGCal/Configuration
+RecoHI/Configuration
+RecoJets/Configuration
+RecoLocalCalo/Configuration
+RecoLocalFastTime/Configuration
+RecoLocalMuon/Configuration
+RecoLuminosity/LumiDB
+RecoMET/Configuration
+RecoMTD/Configuration
+RecoPPS/Configuration
+RecoParticleFlow/PFBlockProducer
+RecoTICL/Configuration
+RecoTauTag/Configuration
+
+# Packages whose own library builds but whose plugins need something blocked, directly or
+# through a header they include (analysis/scripts/include_graph.py): mostly the unlicensed
+# utm, through the L1 trigger and HLTrigger/HLTcore, and ML runtimes. --src-only is all or
+# nothing per package, so all of their plugins go.
+CalibCalorimetry/EcalTPGTools
+CalibTracker/SiPixelQuality
+CondTools/RunInfo
+EventFilter/GctRawToDigi
+EventFilter/RctRawToDigi
+JetMETCorrections/Type1MET
+L1Trigger/L1CaloTrigger
+L1Trigger/L1THGCalUtilities
+L1Trigger/L1TZDC
+L1Trigger/Phase2L1GT
+L1Trigger/TextToDigi
+RecoBTag/ONNXRuntime
+RecoEgamma/EgammaHLTProducers
+RecoEgamma/EgammaIsolationAlgos
+RecoEgamma/EgammaTools
+RecoLocalCalo/HGCalRecProducers
+RecoLocalMuon/RPCRecHit
+RecoLuminosity/LumiProducer
+RecoParticleFlow/PFSimProducer
+
+# Python only, for the local reconstruction configuration: ecalRecHit_cfi, the HCAL and DT
+# rechit fragments and others import its embedding customisations. Its plugins need pythia8
+# and RecoEgamma plugins this layer cannot build.
+TauAnalysis/MCEmbeddingTools

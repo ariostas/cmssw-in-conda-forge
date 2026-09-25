@@ -6,4 +6,11 @@
     <environment name="INCLUDE" default="$TOOL_BASE/include/LCG"/>
   </client>
   <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+  <!--
+    At CMS, CORAL is a SCRAM project and RelationalAccess brings its own dependencies along;
+    as a flat tool it has to name them, or RecoLuminosity/LumiProducer, which calls
+    coral::Context directly, fails to link.
+  -->
+  <use name="CoralBase"/>
+  <use name="CoralKernel"/>
 </tool>

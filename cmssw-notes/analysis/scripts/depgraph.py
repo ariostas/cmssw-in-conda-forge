@@ -9,6 +9,9 @@ from collections import defaultdict
 SRC = sys.argv[1]
 tools = {line.split()[0].lower() for line in open(sys.argv[2])}
 use_re = re.compile(r'<\s*use\s+name\s*=\s*"([^"]+)"', re.I)
+# BuildFiles comment out <use>s they no longer want, e.g. L1Trigger/DemonstratorTools'
+# <!--<use name="hls/2019.08"/>-->, and those must not count as dependencies.
+comment_re = re.compile(r"<!--.*?-->", re.S)
 pkgs = {}
 for sub in sorted(os.listdir(SRC)):
     d = os.path.join(SRC, sub)
@@ -32,9 +35,8 @@ for sub in sorted(os.listdir(SRC)):
                         if rel in ("plugins", "test", "bin")
                         else ("lib" if rel == "." else "other:" + rel)
                     )
-                    for u in use_re.findall(
-                        open(os.path.join(root, f), errors="replace").read()
-                    ):
+                    text = open(os.path.join(root, f), errors="replace").read()
+                    for u in use_re.findall(comment_re.sub("", text)):
                         info["lib"][kind].add(u)
         pkgs[name] = {
             "uses": {k: sorted(v) for k, v in info["lib"].items()},

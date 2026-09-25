@@ -1,0 +1,9 @@
+<tool name="highfive" version="2.10.1" path="@PREFIX@" revision="1">
+  <info url="https://github.com/highfive-devs/highfive"/>
+  <client>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH" value="$TOOL_BASE/include" type="path"/>
+  <use name="boost"/>
+  <use name="hdf5"/>
+</tool>

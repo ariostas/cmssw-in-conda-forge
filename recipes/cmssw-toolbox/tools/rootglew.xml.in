@@ -1,0 +1,11 @@
+<tool name="rootglew" version="6.36.13" path="@PREFIX@" revision="1">
+  <!--
+    CMS's ROOT builds its own GLEW; conda-forge's links the separate glew package, so this
+    says where it is, which also lets cmssw-generate-toolbox leave the tool out without it.
+  -->
+  <info url="http://root.cern.ch/root/"/>
+  <lib name="GLEW"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+</tool>

@@ -41,6 +41,43 @@ PKG_INCLUDE = re.compile(r"^[A-Za-z][A-Za-z0-9]*/[A-Za-z0-9]+/(?:interface|src)/
 # with an include of PhysicsTools/PatExamples, which is not a dependency at all and which
 # drags in MET, Ecal and the rest of PAT behind it.
 COMMENTS = re.compile(r"/\*.*?\*/|//[^\n]*", re.S)
+# Includes only a GPU build sees. Alpaka sources are compiled once per backend, and their
+# CUDA and ROCm branches include HeterogeneousCore/CUDA* and ROCm* packages that a CPU-only
+# build never needs; counting them made HeterogeneousCore/AlpakaCore, which cmssw-reco
+# builds, look unbuildable.
+GPU = re.compile(r"CUDA|ROCM|HIP|GPU|__NVCC__")
+DIRECTIVE = re.compile(r"^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b(.*)$")
+
+
+def active_includes(text):
+    """The quoted includes of `text`, minus those in branches only a GPU build compiles."""
+    out, stack = [], []  # stack: whether each enclosing branch is GPU-only
+    for line in text.splitlines():
+        m = DIRECTIVE.match(line)
+        if m:
+            kind, cond = m.groups()
+            gpu = bool(GPU.search(cond))
+            if kind in ("if", "ifdef"):
+                stack.append(("pos", gpu))
+            elif kind == "ifndef":
+                stack.append(("neg", gpu))
+            elif kind == "elif" and stack:
+                # a GPU condition after a CPU one, or vice versa: judge the branch by its own
+                stack[-1] = ("pos", gpu)
+            elif kind == "else" and stack:
+                sense, g = stack[-1]
+                stack[-1] = ("neg" if sense == "pos" else "pos", g)
+            elif kind == "endif" and stack:
+                stack.pop()
+            continue
+        if any(sense == "pos" and g for sense, g in stack):
+            continue
+        m = INC.search(line)
+        if m:
+            out.append(m.group(1))
+    return out
+
+
 # Files a layer's patches take out of the build, so what they include does not matter.
 # Keep in step with the patches/ directory of the layers that have them, and keep the
 # entries specific: "/alpaka/" was used here at first to skip one package's alpaka plugins
@@ -54,6 +91,8 @@ PATCHED_OUT = (
     "Geometry/GEMGeometryBuilder/plugins/ME0GeometryValidate.cc",
     "Geometry/RPCGeometryBuilder/plugins/RPCGeometryValidate.cc",
     "RecoTracker/FinalTrackSelectors/plugins/alpaka/",
+    "RecoEcal/EgammaCoreTools/src/DeepSCGraphEvaluation.cc",
+    "RecoEcal/EgammaCoreTools/src/EcalClustersGraph.cc",
 )
 
 
@@ -84,7 +123,7 @@ def main():
         if path not in cache:
             try:
                 text = COMMENTS.sub("", open(path, errors="ignore").read())
-                cache[path] = INC.findall(text)
+                cache[path] = active_includes(text)
             except OSError:
                 cache[path] = []
         return cache[path]
@@ -128,11 +167,11 @@ def main():
     added = []
     for rnd in range(1, 10):
         have = layer | shipped
-        seen_files, stack, needed = set(), [], set()
+        seen_files, stack, needed, blocked = set(), [], set(), {}
         for p in layer:
-            stack.extend(compiled(p))
+            stack.extend((f, f) for f in compiled(p))
         while stack:
-            f = stack.pop()
+            f, root = stack.pop()
             if f in seen_files:
                 continue
             seen_files.add(f)
@@ -141,12 +180,16 @@ def main():
                     pkg = "/".join(rel.split("/")[:2])
                     if pkg not in have and pkg in libs:
                         needed.add(pkg)
+                    elif pkg not in have and pkg in pkgs:
+                        # a package that cannot be built: adding it would not help, and
+                        # leaving it out means this file does not compile
+                        blocked.setdefault(pkg, set()).add(os.path.relpath(root, R))
                     target = os.path.join(R, rel)
                 else:
                     # a sibling, relative to the including file
                     target = os.path.normpath(os.path.join(os.path.dirname(f), rel))
                 if os.path.exists(target):
-                    stack.append(target)
+                    stack.append((target, root))
         print(
             f"round {rnd}: {len(layer)} packages, {len(seen_files)} files, {len(needed)} new"
         )
@@ -165,6 +208,14 @@ def main():
     print(
         f"\n{len(layer)} packages, {tu} TU ({len(added)} added over the BuildFile graph)"
     )
+    if blocked:
+        print(
+            f"\n{len(blocked)} included packages cannot be built; these files will fail:"
+        )
+        for pkg in sorted(blocked):
+            print(f"  {pkg}:")
+            for f in sorted(blocked[pkg]):
+                print(f"      {f}")
 
     if args.write:
         header = [ln for ln in open(listing) if ln.startswith("#")]

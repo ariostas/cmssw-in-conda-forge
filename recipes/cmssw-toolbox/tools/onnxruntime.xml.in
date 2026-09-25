@@ -1,0 +1,12 @@
+<tool name="onnxruntime" version="1.30.0" path="@PREFIX@" revision="1">
+  <!--
+    conda-forge's onnxruntime-cpp, CPU build. CMS's tool also names cuda, cudnn and re2, which
+    belong to their own CUDA-enabled build; the CPU library links neither.
+  -->
+  <lib name="onnxruntime"/>
+  <client>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+  <runtime name="MLAS_DYNAMIC_CPU_ARCH" value="2"/>
+</tool>

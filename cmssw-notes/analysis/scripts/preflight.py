@@ -34,11 +34,17 @@ def main():
 
     # what the layer's patches take out of the build, read from the patches themselves
     patched = set()
+    # and the <use>s they delete from a BuildFile, e.g. one that names an external no source
+    # file includes
+    removed_uses = set()
     for p in glob.glob(os.path.join(layer_dir, "patches", "*.patch")):
-        for m in re.finditer(
-            r"^--- a/([A-Za-z0-9]+/[A-Za-z0-9]+)/", open(p).read(), re.M
-        ):
+        text = open(p).read()
+        for m in re.finditer(r"^--- a/([A-Za-z0-9]+/[A-Za-z0-9]+)/", text, re.M):
             patched.add(m.group(1))
+        for diff in re.split(r"^diff --git ", text, flags=re.M)[1:]:
+            m = re.match(r"a/([A-Za-z0-9]+/[A-Za-z0-9]+)/", diff)
+            for use in re.findall(r'^-\s*<use\s+name="([^"]+)"', diff, re.M):
+                removed_uses.add((m.group(1), use))
 
     bad = []
     for p in sorted(layer):
@@ -56,7 +62,11 @@ def main():
         kinds = ("lib",) if p in src_only else ("lib", "plugins", "bin")
         for kind in kinds:
             for u in pkgs[p]["uses"].get(kind, []):
-                if u in pkgs or u.lower() in names:
+                if u in pkgs or u.lower() in names or (p, u) in removed_uses:
+                    continue
+                # the compiler of that language, whichever toolchain was selected; CMS's own
+                # toolbox has no tool of this name either (only gcc-f77compiler and friends)
+                if u.lower() in ("f77compiler", "cxxcompiler", "ccompiler"):
                     continue
                 if u.lower() not in have:
                     missing_tools.setdefault(u.lower(), set()).add(p)

@@ -1,0 +1,11 @@
+<tool name="lhapdf" version="6.5.5" path="@PREFIX@" revision="1">
+  <info url="https://lhapdf.hepforge.org"/>
+  <lib name="LHAPDF"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="LHAPDF_DATA_PATH" value="$TOOL_BASE/share/LHAPDF"/>
+  <runtime name="ROOT_INCLUDE_PATH" value="$TOOL_BASE/include" type="path"/>
+  <use name="root_cxxdefaults"/>
+</tool>

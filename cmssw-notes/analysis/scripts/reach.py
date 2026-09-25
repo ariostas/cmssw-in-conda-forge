@@ -16,6 +16,8 @@ Reads `_work/pkgs.json` (from depgraph.py) and the release's compile_commands.js
 import argparse
 import collections
 import json
+import sys
+import os
 import re
 
 RELEASE = "/cvmfs/cms.cern.ch/el9_amd64_gcc13/cms/cmssw/CMSSW_20_1_0_pre2"
@@ -25,6 +27,7 @@ SHIPPED = [
     "cmssw-conditions",
     "cmssw-geometry",
     "cmssw-reco",
+    "cmssw-reco-objects",
 ]
 
 # Externals that are blocked, and why. The reason doubles as the group name in the ladder:
@@ -91,6 +94,7 @@ BLOCKED = {
     "hydjet2": "generators",
     "pyquen": "generators",
     "CepGen": "generators",
+    # see PATCHED_USES for RecoJets/JetAlgorithms, which declares ktjet without using it
     "ktjet": "generators",
     "hector": "generators",
     "millepede": "small unpackaged",
@@ -121,6 +125,19 @@ BLOCKED = {
     "dip": "GPU and proprietary",
 }
 
+# <use>s that a layer's patches remove, as (package, product kind) -> uses. The BuildFile
+# graph would otherwise count these packages as blocked, and with them everything above them.
+PATCHED_USES = {
+    # cmssw-reco-objects 0001: declared, but no file in the package includes KtJet; jet
+    # clustering is FastJet. Unpatched, this blocks RecoJets/JetProducers and all of jets.
+    ("RecoJets/JetAlgorithms", "lib"): {"ktjet"},
+    # cmssw-reco-objects 0003: only the DeepSC supercluster evaluator (DeepSCGraphEvaluation,
+    # EcalClustersGraph) uses TensorFlow, and the patch leaves those two files out. Unpatched,
+    # this one library blocks e/gamma and particle flow, and RecoLocalCalo includes its
+    # EcalClusterTools.h.
+    ("RecoEcal/EgammaCoreTools", "lib"): {"PhysicsTools/TensorFlow"},
+}
+
 # The order the ladder unblocks them in: cheapest and most valuable first.
 LADDER = [
     "L1 menu (unlicensed utm)",
@@ -135,6 +152,23 @@ LADDER = [
 
 def load():
     pkgs = json.load(open("_work/pkgs.json"))
+    # what the compiled files #include without declaring it (include_graph.py)
+    if os.path.exists("_work/include-uses.json"):
+        for pkg, kinds in json.load(open("_work/include-uses.json")).items():
+            if pkg not in pkgs:
+                continue
+            for kind, used in kinds.items():
+                have = pkgs[pkg]["uses"].setdefault(kind, [])
+                have += [u for u in used if u in pkgs and u not in have]
+    else:
+        print(
+            "warning: no _work/include-uses.json, undeclared includes are not counted "
+            "(run include_graph.py)",
+            file=sys.stderr,
+        )
+    for (pkg, kind), removed in PATCHED_USES.items():
+        uses = pkgs[pkg]["uses"].get(kind, [])
+        pkgs[pkg]["uses"][kind] = [u for u in uses if u not in removed]
     names = {n.lower(): n for n in pkgs}
     tus = collections.Counter()
     for entry in json.load(open(RELEASE + "/compile_commands.json")):
@@ -160,24 +194,21 @@ def solve(pkgs, names, blocked):
     def resolve(use):
         return use if use in pkgs else names.get(use.lower())
 
-    libs, changed = set(), True
+    # Start from everything and take away what cannot be built, until nothing changes. The
+    # other direction (add what has all its dependencies) is the same on the BuildFile graph,
+    # which is acyclic for libraries, but not once undeclared includes are counted: headers
+    # include each other across packages in cycles, which are harmless when the packages
+    # are built together and would keep every member of a cycle out forever.
+    libs, changed = set(pkgs), True
     while changed:
         changed = False
-        for p in pkgs:
-            if p in libs:
-                continue
-            ok = True
+        for p in sorted(libs):
             for use in pkgs[p]["uses"].get("lib", []):
                 q = resolve(use)
-                if q is None:
-                    ok = use not in blocked
-                elif q != p and q not in libs:
-                    ok = False
-                if not ok:
+                if (use in blocked) if q is None else (q != p and q not in libs):
+                    libs.discard(p)
+                    changed = True
                     break
-            if ok:
-                libs.add(p)
-                changed = True
     plugins = set()
     for p in libs:
         uses = pkgs[p]["uses"].get("plugins", []) + pkgs[p]["uses"].get("bin", [])

@@ -1,0 +1,10 @@
+<tool name="davix" version="0.8.10" path="@PREFIX@" revision="1">
+  <info url="https://github.com/cern-fts/davix"/>
+  <lib name="davix"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include/davix"/>
+  </client>
+  <runtime name="PATH" value="$TOOL_BASE/bin" type="path"/>
+  <use name="boost_system"/>
+</tool>

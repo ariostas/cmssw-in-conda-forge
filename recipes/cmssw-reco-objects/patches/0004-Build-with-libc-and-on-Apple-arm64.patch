@@ -1,0 +1,236 @@
+diff --git a/Alignment/Geners/interface/CharBuffer.hh b/Alignment/Geners/interface/CharBuffer.hh
+index 84da1a2b9..58001d089 100644
+--- a/Alignment/Geners/interface/CharBuffer.hh
++++ b/Alignment/Geners/interface/CharBuffer.hh
+@@ -9,7 +9,9 @@
+ namespace gs {
+   class CharBuffer : public std::basic_iostream<char> {
+   public:
+-    inline CharBuffer() { this->init(&buf_); }
++    // std::basic_iostream has no default constructor in the standard (libstdc++ adds a
++    // protected one), so pass no buffer and attach it once buf_ exists.
++    inline CharBuffer() : std::basic_iostream<char>(nullptr) { this->init(&buf_); }
+ 
+     unsigned long size() const;
+ 
+diff --git a/Alignment/Geners/src/CStringStream.cc b/Alignment/Geners/src/CStringStream.cc
+index c8f4f67b2..5574850f3 100644
+--- a/Alignment/Geners/src/CStringStream.cc
++++ b/Alignment/Geners/src/CStringStream.cc
+@@ -70,7 +70,8 @@ namespace gs {
+                                const int compressionLevel,
+                                const unsigned minSizeToCompress,
+                                const unsigned bufSize)
+-      : mode_(m),
++      : std::basic_iostream<char>(nullptr),  // no default constructor; init() below attaches buf_
++        mode_(m),
+         compressionLevel_(compressionLevel),
+         minSizeToCompress_(minSizeToCompress),
+         // Have a reasonable minimum buffer size to maintain
+diff --git a/CalibCalorimetry/HcalTPGAlgos/src/LutXml.cc b/CalibCalorimetry/HcalTPGAlgos/src/LutXml.cc
+index 1b22f6f14..319b117dc 100644
+--- a/CalibCalorimetry/HcalTPGAlgos/src/LutXml.cc
++++ b/CalibCalorimetry/HcalTPGAlgos/src/LutXml.cc
+@@ -10,6 +10,7 @@
+ //         Created:  Tue Mar 18 14:30:20 CDT 2008
+ //
+ 
++#include <cinttypes>
+ #include <iostream>
+ #include <string>
+ #include <vector>
+@@ -156,7 +157,7 @@ DOMElement *LutXml::addData(std::string _elements, std::string _encoding, const
+ 
+   for (const auto &iter : _lut) {
+     char buf2[16];
+-    sprintf(buf2, "%lx", uint64_t(iter));
++    sprintf(buf2, "%" PRIx64, uint64_t(iter));
+     buf << buf2 << " ";
+   }
+ 
+diff --git a/RecoLocalCalo/CaloTowersCreator/src/CaloTowersCreationAlgo.cc b/RecoLocalCalo/CaloTowersCreator/src/CaloTowersCreationAlgo.cc
+index 44fd60f66..e765300f8 100644
+--- a/RecoLocalCalo/CaloTowersCreator/src/CaloTowersCreationAlgo.cc
++++ b/RecoLocalCalo/CaloTowersCreator/src/CaloTowersCreationAlgo.cc
+@@ -989,8 +989,12 @@ void CaloTowersCreationAlgo::convert(const CaloTowerDetId& id, const MetaTower&
+ 
+   GlobalPoint emPoint, hadPoint;
+ 
+-  // this is actually a 4D vector
++  // The tower momentum, and its energy kept separately. This used to be a single
++  // Basic3DVectorF with the energy in the fourth lane of the SIMD vector, which only exists
++  // where DataFormats/Math/interface/SIMDVec.h selects the extended vector syntax (not on
++  // Apple arm64, for one). The arithmetic, and its float rounding, is unchanged.
+   Basic3DVectorF towerP4;
++  float towerE = 0;
+   bool massless = true;
+   // float mass1=0;
+   float mass2 = 0;
+@@ -1013,8 +1017,8 @@ void CaloTowersCreationAlgo::convert(const CaloTowerDetId& id, const MetaTower&
+     case 0: {  // Simple 4-momentum assignment
+       GlobalPoint p = theTowerGeometry->getGeometry(id)->getPosition();
+       towerP4 = p.basicVector().unit();
+-      towerP4.mathVector()[3] = 1.f;  // energy
+       towerP4 *= E;
++      towerE = float(E);
+ 
+       // double pf=1.0/cosh(p.eta());
+       // if (E>0) towerP4 = CaloTower::PolarLorentzVector(E*pf, p.eta(), p.phi(), 0);
+@@ -1030,8 +1034,8 @@ void CaloTowersCreationAlgo::convert(const CaloTowerDetId& id, const MetaTower&
+         if (E_em > 0) {
+           emPoint = emShwrPos(metaContains, momEmDepth, E_em);
+           emP4 = emPoint.basicVector().unit();
+-          emP4.mathVector()[3] = 1.f;  // energy
+           towerP4 = emP4 * E_em;
++          towerE = float(E_em);
+ 
+           // double emPf = 1.0/cosh(emPoint.eta());
+           // towerP4 += CaloTower::PolarLorentzVector(E_em*emPf, emPoint.eta(), emPoint.phi(), 0);
+@@ -1040,13 +1044,13 @@ void CaloTowersCreationAlgo::convert(const CaloTowerDetId& id, const MetaTower&
+           massless = (E_em <= 0);
+           hadPoint = hadShwrPos(id, momHadDepth);
+           auto lP4 = hadPoint.basicVector().unit();
+-          lP4.mathVector()[3] = 1.f;  // energy
+           if (!massless) {
+             auto diff = lP4 - emP4;
+             mass2 = std::sqrt(E_em * E_had_tot * diff.mag2());
+           }
+           lP4 *= E_had_tot;
+           towerP4 += lP4;
++          towerE += float(E_had_tot);
+           /*
+             if (!massless) {
+                auto p = towerP4;
+@@ -1061,8 +1065,8 @@ void CaloTowersCreationAlgo::convert(const CaloTowerDetId& id, const MetaTower&
+       } else {  // forward detector: use the CaloTower position
+         GlobalPoint p = theTowerGeometry->getGeometry(id)->getPosition();
+         towerP4 = p.basicVector().unit();
+-        towerP4.mathVector()[3] = 1.f;  // energy
+         towerP4 *= E;
++        towerE = float(E);
+         // double pf=1.0/cosh(p.eta());
+         // if (E>0) towerP4 = CaloTower::PolarLorentzVector(E*pf, p.eta(), p.phi(), 0);  // simple momentum assignment, same position
+         emPoint = p;
+@@ -1078,8 +1082,8 @@ void CaloTowersCreationAlgo::convert(const CaloTowerDetId& id, const MetaTower&
+         else
+           emPoint = theTowerGeometry->getGeometry(id)->getPosition();
+         towerP4 = emPoint.basicVector().unit();
+-        towerP4.mathVector()[3] = 1.f;  // energy
+         towerP4 *= E;
++        towerE = float(E);
+ 
+         // double sumPf = 1.0/cosh(emPoint.eta());
+         /// if (E>0) towerP4 = CaloTower::PolarLorentzVector(E*sumPf, emPoint.eta(), emPoint.phi(), 0);
+@@ -1088,8 +1092,8 @@ void CaloTowersCreationAlgo::convert(const CaloTowerDetId& id, const MetaTower&
+       } else {  // forward detector: use the CaloTower position
+         GlobalPoint p = theTowerGeometry->getGeometry(id)->getPosition();
+         towerP4 = p.basicVector().unit();
+-        towerP4.mathVector()[3] = 1.f;  // energy
+         towerP4 *= E;
++        towerE = float(E);
+ 
+         // double pf=1.0/cosh(p.eta());
+         // if (E>0) towerP4 = CaloTower::PolarLorentzVector(E*pf, p.eta(), p.phi(), 0);  // simple momentum assignment, same position
+@@ -1102,7 +1106,7 @@ void CaloTowersCreationAlgo::convert(const CaloTowerDetId& id, const MetaTower&
+   }  // end of decision on p4 reconstruction method
+ 
+   // insert in collection (remove and return if below threshold)
+-  if UNLIKELY ((towerP4[3] == 0) & (E_outer > 0)) {
++  if UNLIKELY ((towerE == 0) & (E_outer > 0)) {
+     float val = theHOIsUsed ? 0 : 1E-9;  // to keep backwards compatibility for theHOIsUsed == true
+     collection.emplace_back(id,
+                             E_em,
+@@ -1115,7 +1119,7 @@ void CaloTowersCreationAlgo::convert(const CaloTowerDetId& id, const MetaTower&
+                             hadPoint);
+   } else {
+     collection.emplace_back(
+-        id, E_em, E_had, E_outer, -1, -1, GlobalVector(towerP4), towerP4[3], mass2, emPoint, hadPoint);
++        id, E_em, E_had, E_outer, -1, -1, GlobalVector(towerP4), towerE, mass2, emPoint, hadPoint);
+   }
+   auto& caloTower = collection.back();
+ 
+diff --git a/RecoParticleFlow/PFClusterTools/src/LinkByRecHit.cc b/RecoParticleFlow/PFClusterTools/src/LinkByRecHit.cc
+index be304eef7..ef8cdbf3a 100644
+--- a/RecoParticleFlow/PFClusterTools/src/LinkByRecHit.cc
++++ b/RecoParticleFlow/PFClusterTools/src/LinkByRecHit.cc
+@@ -3,11 +3,7 @@
+ #include "DataFormats/ParticleFlowReco/interface/PFRecHit.h"
+ #include "TMath.h"
+ 
+-using BVector2D = Basic2DVector<double>;
+-using Vector2D = Basic2DVector<double>::MathVector;
+ namespace {
+-  const Vector2D one2D = BVector2D(1.0, 1.0).v;
+-  const Vector2D fivepercent2D = BVector2D(0.05, 0.05).v;
+   // rechit with fraction below this value will be ignored in LinkByRecHit
+   const float minPFRecHitFrac = 1E-4;
+ }  // namespace
+@@ -408,7 +404,11 @@ double LinkByRecHit::testECALAndPSByRecHit(const reco::PFCluster& clusterECAL,
+       break;
+   }
+ 
+-  auto deltaXY = BVector2D(deltaX, deltaY).v * 0.5;
++  // Written out per coordinate rather than with Basic2DVector<double>::MathVector: that is a
++  // SIMD vector only where DataFormats/Math/interface/SIMDVec.h selects the extended vector
++  // syntax, and on targets where it does not (__BIGGEST_ALIGNMENT__ < 16, e.g. Apple arm64)
++  // the class has no .v and its operator* is a dot product, not an element-wise product.
++  const double deltaXYx = deltaX * 0.5, deltaXYy = deltaY * 0.5;
+   // Get the rechits
+   auto zCorr = zPS / zECAL;
+   const std::vector<reco::PFRecHitFraction>& fracs = clusterECAL.recHitFractions();
+@@ -428,10 +428,11 @@ double LinkByRecHit::testECALAndPSByRecHit(const reco::PFCluster& clusterECAL,
+     //getting rechit corners
+     auto const& corners = rechit_cluster.getCornersXYZ();
+ 
+-    auto posxy = BVector2D(rechit_cluster.position().xy()).v * zCorr;
++    const double posx = double(rechit_cluster.position().x()) * zCorr;
++    const double posy = double(rechit_cluster.position().y()) * zCorr;
+ #ifdef PFLOW_DEBUG
+     if (debug) {
+-      std::cout << "Ecal rechit " << posxy.x() << " " << posxy.y() << std::endl;
++      std::cout << "Ecal rechit " << posx << " " << posy << std::endl;
+       std::cout << "PS cluster  " << xPS << " " << yPS << std::endl;
+     }
+ #endif
+@@ -440,24 +441,15 @@ double LinkByRecHit::testECALAndPSByRecHit(const reco::PFCluster& clusterECAL,
+     double y[5];
+     for (unsigned jc = 0; jc < 4; ++jc) {
+       // corner position projected onto the preshower
+-      Vector2D cornerpos = BVector2D(corners[jc].basicVector().xy()).v * zCorr;
+-      auto dist = (cornerpos - posxy);
+-      auto adist =
+-          BVector2D(std::abs(dist[0]), std::abs(dist[1])).v;  // all this beacuse icc does not support vector extension
++      const double cornerx = double(corners[jc].x()) * zCorr, cornery = double(corners[jc].y()) * zCorr;
++      const double distx = cornerx - posx, disty = cornery - posy;
+       // Inflate the size by the size of the PS strips, and by 5% to include ECAL cracks.
+-      auto xy = cornerpos + (dist * (fivepercent2D + one2D / adist) * deltaXY);
+-      /*
+-      Vector2D xy(
+-		  cornerpos.x() + (cornerpos.x()-posxy.x()) * (0.05 +1.0/std::abs((cornerpos.x()-posxy.x()))*deltaXY.x()),
+-		  cornerpos.y() + (cornerpos.y()-posxy.y()) * (0.05 +1.0/std::abs((cornerpos.y()-posxy.y()))*deltaXY.y())
+-		  );
+-      */
+-      x[3 - jc] = xy[0];
+-      y[3 - jc] = xy[1];
++      x[3 - jc] = cornerx + distx * (0.05 + 1.0 / std::abs(distx)) * deltaXYx;
++      y[3 - jc] = cornery + disty * (0.05 + 1.0 / std::abs(disty)) * deltaXYy;
+ 
+ #ifdef PFLOW_DEBUG
+       if (debug) {
+-        std::cout << "corners " << jc << " " << cornerpos.x() << " " << x[3 - jc] << " " << cornerpos.y() << " "
++        std::cout << "corners " << jc << " " << cornerx << " " << x[3 - jc] << " " << cornery << " "
+                   << y[3 - jc] << std::endl;
+       }
+ #endif
+diff --git a/RecoTracker/LSTCore/src/ModuleMethods.h b/RecoTracker/LSTCore/src/ModuleMethods.h
+index 0084b650a..b6cafc38e 100644
+--- a/RecoTracker/LSTCore/src/ModuleMethods.h
++++ b/RecoTracker/LSTCore/src/ModuleMethods.h
+@@ -3,6 +3,7 @@
+ 
+ #include <map>
+ #include <iostream>
++#include <fstream>
+ 
+ #include "RecoTracker/LSTCore/interface/Common.h"
+ #include "RecoTracker/LSTCore/interface/ModulesSoA.h"

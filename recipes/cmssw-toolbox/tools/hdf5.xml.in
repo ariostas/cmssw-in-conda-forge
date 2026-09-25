@@ -1,0 +1,9 @@
+<tool name="hdf5" version="1.14.6" path="@PREFIX@" revision="1">
+  <!-- CMS's also names mpi; conda-forge's default hdf5 build is the serial one -->
+  <lib name="hdf5"/>
+  <lib name="hdf5_hl"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+</tool>

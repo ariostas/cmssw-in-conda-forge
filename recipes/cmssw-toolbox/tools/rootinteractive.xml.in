@@ -1,0 +1,7 @@
+<tool name="rootinteractive" version="6.36.13" path="@PREFIX@" revision="1">
+  <!-- CMS's also names libjpeg-turbo and libpng, which libGui links itself -->
+  <info url="http://root.cern.ch/root/"/>
+  <lib name="Gui"/>
+  <use name="rootgpad"/>
+  <use name="rootrint"/>
+</tool>

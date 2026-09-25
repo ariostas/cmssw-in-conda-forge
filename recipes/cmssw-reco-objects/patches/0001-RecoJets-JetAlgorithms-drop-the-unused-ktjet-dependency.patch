@@ -1,0 +1,11 @@
+diff --git a/RecoJets/JetAlgorithms/BuildFile.xml b/RecoJets/JetAlgorithms/BuildFile.xml
+index 752de6b6f..081f5d0e5 100644
+--- a/RecoJets/JetAlgorithms/BuildFile.xml
++++ b/RecoJets/JetAlgorithms/BuildFile.xml
+@@ -1,6 +1,5 @@
+ <use name="fastjet"/>
+ <use name="fastjet-contrib"/>
+-<use name="ktjet"/>
+ <use name="DataFormats/BTauReco"/>
+ <use name="DataFormats/JetReco"/>
+ <use name="DataFormats/Candidate"/>

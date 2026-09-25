@@ -1,0 +1,9 @@
+<tool name="xgboost" version="3.0.0" path="@PREFIX@" revision="1">
+  <info url="https://xgboost.ai"/>
+  <lib name="xgboost"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="ROOT_INCLUDE_PATH" value="$TOOL_BASE/include" type="path"/>
+</tool>

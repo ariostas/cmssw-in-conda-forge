@@ -1,0 +1,220 @@
+context:
+  cmssw_tag: CMSSW_20_1_0_pre2
+  version: "20.1.0pre2"
+
+package:
+  name: cmssw-reco-objects
+  version: ${{ version }}
+
+source:
+  - url: https://github.com/cms-sw/cmssw/archive/refs/tags/${{ cmssw_tag }}.tar.gz
+    sha256: 39afc8deff3e31952cc43699324b25bbc10e619abe616b0eb6c3c20b4746312e
+    target_directory: cmssw
+    patches:
+      # RecoJets/JetAlgorithms names KtJet, a library from 2005 that conda-forge does not
+      # have, but no file in the package includes it: jet clustering is FastJet.
+      - patches/0001-RecoJets-JetAlgorithms-drop-the-unused-ktjet-dependency.patch
+      # ONNX Runtime installs its public headers flat under include/onnxruntime/;
+      # conda-forge's onnxruntime-cpp keeps the source tree's core/session/ layout.
+      - patches/0002-PhysicsTools-ONNXRuntime-accept-the-source-tree-header-layout.patch
+      # The DeepSC supercluster evaluator is the only part of RecoEcal/EgammaCoreTools that
+      # uses TensorFlow, whose conda-forge C++ headers do not compile. Leaving those two files
+      # out makes the library -- and e/gamma and particle flow above it -- buildable.
+      - patches/0003-RecoEcal-EgammaCoreTools-leave-out-DeepSC-which-needs-TensorFlow.patch
+      # Code that only compiles with libstdc++ or on targets with 16-byte vector alignment:
+      # - RecoTracker/LSTCore reads its geometry with std::ifstream without <fstream>;
+      # - code that uses the internals of the SIMD geometry vectors, which only exist where
+      #   DataFormats/Math/interface/SIMDVec.h selects the extended vector syntax. Apple arm64
+      #   reports __BIGGEST_ALIGNMENT__ 8 and gets the scalar classes instead, with no .v and
+      #   no fourth lane. RecoParticleFlow/PFClusterTools does element-wise arithmetic on
+      #   Basic2DVector<double>::MathVector (whose scalar operator* is a dot product), now
+      #   written per coordinate; RecoLocalCalo/CaloTowersCreator keeps the tower energy in
+      #   the fourth lane of a Basic3DVectorF, now in a float of its own. Both compute the
+      #   same values as before, with the same rounding;
+      # - CalibCalorimetry/HcalTPGAlgos prints a uint64_t with %lx, and uint64_t is unsigned
+      #   long long on macOS;
+      # - Alignment/Geners derives two streams from std::basic_iostream and relies on the
+      #   default constructor libstdc++ adds; the standard (and libc++) only has the one taking
+      #   a streambuf.
+      - patches/0004-Build-with-libc-and-on-Apple-arm64.patch
+
+build:
+  number: 0
+  skip:
+    - win
+    - osx and x86_64
+  script:
+    env:
+      CMSSW_TAG: ${{ cmssw_tag }}
+    file: build.sh
+  dynamic_linking:
+    rpath_allowlist:
+      - share/cmssw/**
+  prefix_detection:
+    ignore_binary_files: true
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ compiler('fortran') }}
+    - ${{ stdlib('c') }}
+    - cms-scram
+    - cmssw-toolbox ==${{ version }}
+    - make
+    - bash
+    - sed
+    - coreutils
+    - findutils
+    - grep
+    - gawk
+    - which
+    - rsync
+    # protoc, for prepare.sh
+    - libprotobuf
+    # the CondFormats serialization code is generated with libclang
+    - clangxx
+  host:
+    - cms-scram
+    - cmssw-reco ==${{ version }}
+    # the same externals as the layers below, because the release's headers include them
+    - python
+    - numpy
+    - root_base
+    # root_base comes in cxx20 and cxx23 builds; CMSSW 20_1 is C++20
+    - root_cxx_standard
+    - libboost-devel
+    - tbb-devel
+    - clhep
+    - fmt
+    - xerces-c
+    - libuuid
+    - eigen
+    - vdt
+    - hepmc2
+    - hepmc3
+    - tinyxml2
+    - zlib
+    - xz
+    - zstd
+    - bzip2
+    - pcre2
+    - openssl
+    - libxcrypt
+    - gsl
+    - openblas
+    - alpaka
+    - hls-arbitrary-precision-types
+    - cms-md5
+    - coral
+    - frontier-client
+    - sqlite
+    - expat
+    - libcurl
+    - pybind11
+    - libboost-python-devel
+    # this layer brings in more CondFormats packages, whose serialization is generated
+    - python-clang
+    - libclang
+    - dd4hep
+    - geant4
+    # from the reco layer
+    # track refitting for alignment: RecoTracker/TrackProducer's plugins reach these
+    # through Alignment/ReferenceTrajectories
+    - gbl
+    - mille
+    # jet clustering, used by CommonTools/PileupAlgos and the muon rechit clusterer. The C++
+    # library, not `fastjet`, which is the python bindings.
+    # Build 5 is the last one that ships the headers. Build 6 (2026-09-22) moved them to a new
+    # fastjet-cxx-devel, which requires cgal-cpp; every current cgal-cpp requires eigen-abi
+    # 5.0.1, lwtnn requires eigen-abi 3.4.0, and so the solver falls back to cgal-cpp 5.x and
+    # the long-gone boost-cpp and cannot resolve. Take fastjet-cxx-devel once lwtnn (or
+    # cgal-cpp) is built against a matching eigen.
+    - fastjet-cxx ==3.5.1 *_5
+    - fastjet-contrib
+    # particle properties, for SimGeneral/HepPDTRecord
+    - heppdt
+    # nlohmann/json, header only; RecoTracker/MkFitCore reads its configuration with it
+    - nlohmann_json
+    # the neural-net evaluator RecoTracker/FinalTrackSelectors uses for track quality
+    - lwtnn
+    # new in this layer
+    # CMS's socket and I/O library; DQMServices/Core's network protocol (DQMNet) uses it
+    - classlib
+    - pcre
+    # DQMServices/Core writes its histograms as protobuf; prepare.sh regenerates the C++ with
+    # the protoc in `build`, which the global pinning keeps at the same version as this
+    - libprotobuf
+    # the CPU build; the CUDA one would pull the CUDA runtime in for nothing
+    - onnxruntime-cpp * *_cpu
+    # boosted decision trees for photon identification (PhysicsTools/XGBoost)
+    - libxgboost * cpu_*
+  run:
+    - cms-scram
+    - cmssw-reco ==${{ version }}
+    - python
+    - root_base
+    - coral
+    - frontier-client
+    # ROOT parses the release's headers at runtime, so these are run dependencies too
+    - dd4hep
+    - geant4
+    - gbl
+    - mille
+    - fastjet-cxx
+    - fastjet-contrib
+    - heppdt
+    - lwtnn
+    # new in this layer
+    - classlib
+    - libprotobuf
+    - onnxruntime-cpp * *_cpu
+    - libxgboost * cpu_*
+  ignore_run_exports:
+    from_package:
+      - libclang
+      - python-clang
+
+tests:
+  - script:
+      - python -c "import ctypes, glob, os; libs = glob.glob(os.path.join(os.environ['CMSSW_BASE'], 'lib', os.environ['SCRAM_ARCH'], '*.[ds][oy]*')); assert libs; [ctypes.CDLL(lib, mode=ctypes.RTLD_GLOBAL) for lib in sorted(libs)]; print(len(libs), 'libraries loaded')"
+      # a plugin from each stage this layer adds: unpacking, calorimeter and muon local
+      # reconstruction, calorimeter towers, particle flow, electrons and jet clustering
+      - edmPluginDump | grep -q EcalRawToDigi
+      - edmPluginDump | grep -q HcalRawToDigi
+      - edmPluginDump | grep -q CSCDCCUnpacker
+      - edmPluginDump | grep -q EcalUncalibRecHitProducer
+      - edmPluginDump | grep -q HBHEPhase1Reconstructor
+      - edmPluginDump | grep -q CSCRecHitDProducer
+      - edmPluginDump | grep -q DTRecHitProducer
+      - edmPluginDump | grep -q CaloTowersCreator
+      - edmPluginDump | grep -q FastjetJetProducer
+      - edmPluginDump | grep -q PFProducer
+      - edmPluginDump | grep -q GsfElectronProducer
+      - cmsRun test/localreco.py
+    files:
+      recipe:
+        - test/
+
+about:
+  homepage: https://cms-sw.github.io
+  summary: CMS reconstruction - raw data unpacking, calorimetry, muons, e/gamma, particle flow and jets
+  description: |
+    CMSSW is the software framework of the CMS experiment at CERN. This package adds the
+    reconstruction that sits on top of cmssw-reco's tracking: unpacking of the detector's raw
+    data, local reconstruction in the calorimeters and muon chambers, calorimeter towers,
+    electrons and photons, particle flow, jet clustering and jet energy corrections,
+    b-tagging and the calibration packages those read.
+
+    Left out for want of an external: the DeepSC superclustering and other models that need
+    TensorFlow or the Triton inference client, whose conda-forge C++ headers are incomplete
+    or which are not packaged; and most of the L1 trigger emulator and unpackers, the MET
+    producers (whose beam-halo code includes the L1 CSC track finder) and the HLT-derived
+    plugins, which all reach the unlicensed `utm`.
+  license: Apache-2.0
+  license_file: cmssw/LICENSE
+  repository: https://github.com/cms-sw/cmssw
+
+extra:
+  recipe-maintainers:
+    - ariostas

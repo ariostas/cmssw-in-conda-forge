@@ -1,0 +1,73 @@
+context:
+  version: "3.1.3"
+  # CMS maintains classlib in cms-externals, on a branch per version with no tags; this is
+  # the commit cmsdist's classlib.spec builds.
+  commit: b43e382237aa91d7dfcc9ef4d8642c7abd9b08c4
+
+package:
+  name: classlib
+  version: ${{ version }}
+
+source:
+  url: https://github.com/cms-externals/classlib/archive/${{ commit }}.tar.gz
+  sha256: e48eaa6b212573238735da1fb2d93393448114cac5ad013e34d2f8243ec3830c
+  patches:
+    # CMS's fork only ever builds on Linux, and some of its fixes there went to glibc
+    # internals: <linux/sysctl.h> where there was <sys/sysctl.h>, and <bits/types.h> for
+    # __clock_t, which is glibc's name for the public clock_t.
+    - patches/0001-Build-on-macOS-guard-Linux-only-headers-and-use-clock_t.patch
+
+build:
+  number: 0
+  skip:
+    - win
+  script: build.sh
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+    - make
+    # the bundled config.guess predates aarch64 and arm64 macOS
+    - gnuconfig
+  host:
+    - zlib
+    - bzip2
+    - xz
+    - lzo
+    - openssl
+    - pcre
+
+tests:
+  - package_contents:
+      lib:
+        - classlib
+      include:
+        - classlib/iobase/InetServerSocket.h
+        - classlib/sysapi/config.h
+  - files:
+      recipe:
+        - test.cpp
+    requirements:
+      run:
+        - ${{ compiler('cxx') }}
+    script:
+      # DQMServices/Core's DQMNet is what CMSSW uses it for: sockets and a selector
+      - ${CXX} ${CXXFLAGS} -I${PREFIX}/include test.cpp -o classlib-test ${LDFLAGS} -L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib -lclasslib
+      - ./classlib-test
+
+about:
+  homepage: https://github.com/cms-externals/classlib
+  summary: C++ class library of system utilities (sockets, files, pipes, processes)
+  description: |
+    Lassi Tuura's C++ class library: portable wrappers for sockets, files, pipes, sub-processes,
+    memory-mapped files, compression streams and a few utilities. CMSSW's DQM network protocol
+    (DQMServices/Core) is built on it.
+  license: LGPL-2.0-or-later
+  license_file: LICENSE
+  repository: https://github.com/cms-externals/classlib
+
+extra:
+  recipe-maintainers:
+    - ariostas
