@@ -19,7 +19,13 @@ import json
 import re
 
 RELEASE = "/cvmfs/cms.cern.ch/el9_amd64_gcc13/cms/cmssw/CMSSW_20_1_0_pre2"
-SHIPPED = ["cmssw-fwlite", "cmssw-framework", "cmssw-conditions", "cmssw-geometry"]
+SHIPPED = [
+    "cmssw-fwlite",
+    "cmssw-framework",
+    "cmssw-conditions",
+    "cmssw-geometry",
+    "cmssw-reco",
+]
 
 # Externals that are blocked, and why. The reason doubles as the group name in the ladder:
 # unblocking is nearly always an all-or-nothing decision about one upstream problem.

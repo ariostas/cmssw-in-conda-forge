@@ -327,9 +327,10 @@ outstanding part of this milestone.
 
 ### M5: reconstruction, then L1/HLT and ML — **the next work**
 
-240 of 1358 packages are packaged (3072 TU, 20% of the build). **1123 packages (9579 TU, 63%)
-are reachable with the externals that already work**, so what lies between is packaging effort,
-not dependency effort. The figure was 54% until geant4 was found not to be blocked at all and
+478 of 1358 packages are packaged (5513 TU, 36% of the build; 240 packages and 20% before
+`cmssw-reco`). **1123 packages (9579 TU, 63%) are reachable with the externals that already
+work**, so what lies between is packaging effort, not dependency effort. `reach.py --layers
+1500` splits the remaining 645 packages (4066 TU) into three layers. The figure was 54% until geant4 was found not to be blocked at all and
 `gbl`/`mille` were packaged; it was briefly recorded as 67% on the mistaken belief that
 conda-forge's `libtensorflow_cc` was usable. See the 2026-09-21 progress entries.
 
