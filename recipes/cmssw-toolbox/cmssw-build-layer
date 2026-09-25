@@ -69,11 +69,24 @@ while read -r pkg; do
   mkdir -p "$(dirname "${pkg}")"
   cp -R "${SOURCE}/${pkg}" "${pkg}"
 done < "${PACKAGES}"
+# Tests are not built, but a couple of libraries include a file from a test/ directory
+# (TopQuarkAnalysis/TopTools includes test/tdrstyle.C, DQMOffline/Muon test/langauFit.C), so
+# those few files survive.
+KEEP=$(mktemp -d)
+{ grep -rhoE '#include "[A-Za-z0-9]+/[A-Za-z0-9]+/test/[^"]+"' ./*/*/src ./*/*/interface \
+    ./*/*/plugins ./*/*/bin 2>/dev/null || true; } | sed -E 's/^#include "(.*)"$/\1/' | sort -u |
+  while read -r f; do
+    if [ -f "${f}" ]; then mkdir -p "${KEEP}/$(dirname "${f}")" && cp "${f}" "${KEEP}/${f}"; fi
+  done
 rm -rf ./*/*/test
+cp -R "${KEEP}/." . && rm -rf "${KEEP}"
 if [ -n "${SRC_ONLY}" ]; then
   while read -r pkg; do
     case "${pkg}" in ""|\#*) continue ;; esac
-    rm -rf "${pkg}/plugins" "${pkg}/bin"
+    # Only the BuildFiles go, so that SCRAM builds nothing there. The sources stay: a few
+    # libraries include a file from their own plugins/ (Alignment/OfflineValidation's
+    # src/Trend.cc includes plugins/ColorParser.C).
+    find "${pkg}/plugins" "${pkg}/bin" -name BuildFile.xml -delete 2>/dev/null || true
   done < "${SRC_ONLY}"
 fi
 if [ -n "${PREPARE}" ]; then

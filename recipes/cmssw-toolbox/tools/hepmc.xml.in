@@ -1,4 +1,6 @@
 <tool name="hepmc" version="2.06.10" path="@PREFIX@" revision="3">
+  <!-- the Fortran interface (IO_HEPEVT, HEPEVT_Wrapper), which generator interfaces use -->
+  <lib name="HepMCfio"/>
   <lib name="HepMC"/>
   <client>
     <environment name="LIBDIR" default="$TOOL_BASE/lib"/>

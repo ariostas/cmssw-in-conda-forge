@@ -1,0 +1,16 @@
+diff --git a/Alignment/OfflineValidation/BuildFile.xml b/Alignment/OfflineValidation/BuildFile.xml
+index 6dbd783de..773701306 100644
+--- a/Alignment/OfflineValidation/BuildFile.xml
++++ b/Alignment/OfflineValidation/BuildFile.xml
+@@ -27,6 +27,11 @@
+ <use name="roothistmatrix"/>
+ <use name="rootgraphics"/>
+ <use name="roofit"/>
++<!--
++  src/Trend.cc uses boost::filesystem (interface/Trend.h includes it). At CMS the library comes
++  along through their ROOT; conda-forge's does not link it, so it is named here.
++-->
++<use name="boost_filesystem"/>
+ <lib name="MultiProc" />
+ <export>
+   <lib name="1"/>

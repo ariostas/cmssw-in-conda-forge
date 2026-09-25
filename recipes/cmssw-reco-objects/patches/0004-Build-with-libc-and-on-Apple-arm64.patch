@@ -48,6 +48,58 @@ index 1b22f6f14..319b117dc 100644
      buf << buf2 << " ";
    }
  
+diff --git a/DataFormats/CTPPSReco/interface/CTPPSPixelLocalTrack.h b/DataFormats/CTPPSReco/interface/CTPPSPixelLocalTrack.h
+index bd704ea8d..aa393ab8d 100644
+--- a/DataFormats/CTPPSReco/interface/CTPPSPixelLocalTrack.h
++++ b/DataFormats/CTPPSReco/interface/CTPPSPixelLocalTrack.h
+@@ -184,7 +184,7 @@ namespace io_v1 {
+ 
+     inline void setValid(bool valid) { valid_ = valid; }
+ 
+-    bool operator<(const CTPPSPixelLocalTrack& r);
++    bool operator<(const CTPPSPixelLocalTrack& r) const;
+ 
+     inline CTPPSpixelLocalTrackReconstructionInfo recoInfo() const { return recoInfo_; }
+     inline void setRecoInfo(CTPPSpixelLocalTrackReconstructionInfo recoInfo) { recoInfo_ = recoInfo; }
+diff --git a/DataFormats/CTPPSReco/src/CTPPSPixelLocalTrack.cc b/DataFormats/CTPPSReco/src/CTPPSPixelLocalTrack.cc
+index fbedb1cc2..ac1154a9f 100644
+--- a/DataFormats/CTPPSReco/src/CTPPSPixelLocalTrack.cc
++++ b/DataFormats/CTPPSReco/src/CTPPSPixelLocalTrack.cc
+@@ -36,7 +36,7 @@ CTPPSPixelLocalTrack::CTPPSPixelLocalTrack(float z0,
+       numberOfPointsUsedForFit_(0),
+       recoInfo_(CTPPSpixelLocalTrackReconstructionInfo::invalid) {}
+ 
+-bool CTPPSPixelLocalTrack::operator<(const CTPPSPixelLocalTrack &r) {
++bool CTPPSPixelLocalTrack::operator<(const CTPPSPixelLocalTrack &r) const {
+   if (z0_ < r.z0_)
+     return true;
+   if (z0_ > r.z0_)
+diff --git a/L1Trigger/L1TGEM/interface/ME0StubPrimitive.h b/L1Trigger/L1TGEM/interface/ME0StubPrimitive.h
+index 2a58c01f6..88c6a9ac3 100644
+--- a/L1Trigger/L1TGEM/interface/ME0StubPrimitive.h
++++ b/L1Trigger/L1TGEM/interface/ME0StubPrimitive.h
+@@ -56,16 +56,16 @@ public:
+   void fit(int maxSpan = 37);
+ 
+   // operators
+-  bool operator==(const ME0StubPrimitive& other) {
++  bool operator==(const ME0StubPrimitive& other) const {
+     if (layerCount_ == 0 && other.layerCount_ == 0) {
+       return true;
+     }
+     return (quality_ == other.quality_);
+   }
+-  bool operator>(const ME0StubPrimitive& other) { return (quality_ > other.quality_); }
+-  bool operator<(const ME0StubPrimitive& other) { return (quality_ < other.quality_); }
+-  bool operator>=(const ME0StubPrimitive& other) { return (quality_ >= other.quality_); }
+-  bool operator<=(const ME0StubPrimitive& other) { return (quality_ <= other.quality_); }
++  bool operator>(const ME0StubPrimitive& other) const { return (quality_ > other.quality_); }
++  bool operator<(const ME0StubPrimitive& other) const { return (quality_ < other.quality_); }
++  bool operator>=(const ME0StubPrimitive& other) const { return (quality_ >= other.quality_); }
++  bool operator<=(const ME0StubPrimitive& other) const { return (quality_ <= other.quality_); }
+   // ostream
+   friend std::ostream& operator<<(std::ostream& os, const ME0StubPrimitive& stub) {
+     os << "id=" << stub.patternId() << ", lc=" << stub.layerCount() << ", strip=" << stub.strip()
 diff --git a/RecoLocalCalo/CaloTowersCreator/src/CaloTowersCreationAlgo.cc b/RecoLocalCalo/CaloTowersCreator/src/CaloTowersCreationAlgo.cc
 index 44fd60f66..e765300f8 100644
 --- a/RecoLocalCalo/CaloTowersCreator/src/CaloTowersCreationAlgo.cc
@@ -222,6 +274,19 @@ index be304eef7..ef8cdbf3a 100644
                    << y[3 - jc] << std::endl;
        }
  #endif
+diff --git a/RecoTracker/LST/plugins/LSTOutputConverter.cc b/RecoTracker/LST/plugins/LSTOutputConverter.cc
+index 1184b4b21..4f896554d 100644
+--- a/RecoTracker/LST/plugins/LSTOutputConverter.cc
++++ b/RecoTracker/LST/plugins/LSTOutputConverter.cc
+@@ -286,7 +286,7 @@ void LSTOutputConverter::produce(edm::Event& iEvent, const edm::EventSetup& iSet
+       if (dropHitsOTpL) {                                                     // true if need to drop OT hits
+         using Hit = SeedingHitSet::ConstRecHitPointer;
+         hitsForSeed.clear();
+-        hitsForSeed.reserve(std::ranges::size(pixelSeeds[iSeed].recHits()));
++        hitsForSeed.reserve(pixelSeeds[iSeed].nHits());
+         for (auto const& hit : pixelSeeds[iSeed].recHits()) {
+           if (hit.geographicalId().subdetId() > PixelSubdetector::PixelEndcap)
+             continue;
 diff --git a/RecoTracker/LSTCore/src/ModuleMethods.h b/RecoTracker/LSTCore/src/ModuleMethods.h
 index 0084b650a..b6cafc38e 100644
 --- a/RecoTracker/LSTCore/src/ModuleMethods.h

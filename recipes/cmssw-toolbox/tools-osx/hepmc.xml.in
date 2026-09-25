@@ -1,0 +1,14 @@
+<tool name="hepmc" version="2.06.10" path="@PREFIX@" revision="3">
+  <!--
+    No HepMCfio here, unlike on Linux. It refers to the HEPEVT common block (_hepevt_), which
+    only a Fortran generator defines, and macOS will not load a library with an unresolved data
+    symbol: every library that uses HepMC would then fail to dlopen. The generator interfaces
+    that need the Fortran interface do not build on macOS.
+  -->
+  <lib name="HepMC"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+  <use name="hepmc_headers"/>
+  <runtime name="CMSSW_FWLITE_INCLUDE_PATH" value="$TOOL_BASE/include" type="path"/>
+</tool>

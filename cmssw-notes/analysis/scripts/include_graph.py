@@ -35,24 +35,26 @@ def main():
                 cache[path] = []
         return cache[path]
 
-    # packages reached from one file, memoised: headers are shared across the release
-    reached = {}
-
-    def reach_from(f, stack=()):
-        if f in reached:
-            return reached[f]
-        if f in stack:
-            return set()
-        out = set()
-        for rel in includes(f):
-            if PKG_INCLUDE.match(rel):
-                out.add("/".join(rel.split("/")[:2]))
-                target = os.path.join(R, rel)
-            else:
-                target = os.path.normpath(os.path.join(os.path.dirname(f), rel))
-            if os.path.exists(target):
-                out |= reach_from(target, stack + (f,))
-        reached[f] = out
+    # One walk per package and product, with its own visited set. Memoising per file is
+    # tempting but wrong: headers include each other in cycles (harmless with include
+    # guards), a file met again while it is still being walked has to be cut short, and the
+    # truncated answer would then be cached and reused. That lost, for instance, everything
+    # DQM/CastorMonitor/interface/CastorMonitorModule.h includes, SimG4CMS/Calo among it.
+    def reach_from(roots):
+        out, seen, stack = set(), set(), list(roots)
+        while stack:
+            f = stack.pop()
+            if f in seen:
+                continue
+            seen.add(f)
+            for rel in includes(f):
+                if PKG_INCLUDE.match(rel):
+                    out.add("/".join(rel.split("/")[:2]))
+                    target = os.path.join(R, rel)
+                else:
+                    target = os.path.normpath(os.path.join(os.path.dirname(f), rel))
+                if os.path.exists(target):
+                    stack.append(target)
         return out
 
     result = {}
@@ -62,13 +64,14 @@ def main():
             name = f"{sub}/{pkg}"
             entry = {}
             for kind in ("src", "plugins", "bin"):
-                found = set()
+                roots = []
                 for root, _, files in os.walk(os.path.join(R, sub, pkg, kind)):
                     for n in files:
                         if n.endswith((".cc", ".cpp", ".c", ".cu")):
                             f = os.path.join(root, n)
                             if not any(m in f for m in PATCHED_OUT):
-                                found |= reach_from(f)
+                                roots.append(f)
+                found = reach_from(roots)
                 found.discard(name)
                 if found:
                     entry["lib" if kind == "src" else kind] = sorted(found)
@@ -79,5 +82,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.setrecursionlimit(10000)
     main()

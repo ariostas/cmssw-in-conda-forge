@@ -28,6 +28,7 @@ SHIPPED = [
     "cmssw-geometry",
     "cmssw-reco",
     "cmssw-reco-objects",
+    "cmssw-sim-dqm",
 ]
 
 # Externals that are blocked, and why. The reason doubles as the group name in the ladder:

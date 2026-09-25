@@ -18,14 +18,22 @@ first, and add to its progress log (section 6) when something significant is lea
   - `alpaka`, `hls-arbitrary-precision-types`: header-only dependencies (noarch).
   - `frontier-client`, `coral`: conditions database access. CORAL is a SCRAM project like
     CMSSW and builds with the same toolbox.
+  - `mille`, `gbl`, `classlib`: small externals CMSSW needs that conda-forge lacks (track
+    refitting for alignment; `classlib` is CMS's socket/IO library, used by DQM).
   - The CMSSW layers, each built on the previous one and all installed into **one** release
     directory: `cmssw-fwlite` (the base release) → `cmssw-framework` (`cmsRun`, IOPool,
     services, storage) → `cmssw-conditions` (CondCore/CondFormats) → `cmssw-geometry`
-    (DD4hep detector description, geometry records, magnetic field). A layer contains:
-    - `packages.txt`: CMSSW packages to build; `src-only.txt`: those of which only `src/` is;
+    (DD4hep detector description, geometry records, magnetic field) → `cmssw-reco` (tracking,
+    vertexing, muons) → `cmssw-reco-objects` (RAW unpacking, calorimetry, e/gamma, particle
+    flow, jets) → `cmssw-sim-dqm` (DQM, validation, digitisation, fast simulation, the rest).
+    Together they are everything `reach.py` counts as reachable. A layer contains:
+    - `packages.txt`: CMSSW packages to build; `src-only.txt`: those of which only `src/` is
+      built (the BuildFiles in their `plugins/` and `bin/` are removed; the sources stay);
     - `patches/`, `cmssw-config-patches/`: source patches;
     - `variants.yaml`: ROOT/CLHEP pins for this CMSSW version;
-    - `build.sh`: a few lines around `cmssw-build-layer`;
+    - `build.sh`: a few lines around `cmssw-build-layer`, and optionally a `prepare.sh` it
+      sources in the developer area before building (`cmssw-reco-objects` regenerates DQM's
+      protobuf code there);
     - activation scripts (`cmssw-fwlite` only; there is one release directory).
   - `cmssw-devel`: a metapackage that turns a CMSSW environment into one where `scram b` works
     (compilers, `make`, and the `-devel` splits of the externals the layers were built against).
@@ -152,10 +160,17 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
 - Packages installed by separate conda packages must not share files. Use per-package plugin caches
   (`lib/<arch>/.edmplugincache.d/<pkg>`, which needs the PluginManager patch) and per-directory
   `.SCRAM/<arch>/MakeData/DirCache/*.mk` fragments (which need the cmssw-config `updateToolMK.py` patch).
-- Before building a new layer, run `analysis/scripts/undeclared.py recipes/<layer>`. CMSSW is
-  built as one area where every package's `interface/` is on the include path whether or not a
-  BuildFile declares a `<use>`, so packages include headers they never declare and a layer that
-  installs only what the graph names fails to compile minutes in.
+- Before building a new layer, run `analysis/scripts/includes.py recipes/<layer>` and
+  `analysis/scripts/preflight.py recipes/<layer>`. CMSSW is built as one area where every
+  package's `interface/` is on the include path whether or not a BuildFile declares a `<use>`,
+  so packages include headers they never declare. A layer that installs only what the graph
+  names fails to compile minutes in, and a file that includes a header from a package that
+  *cannot* be built fails whatever the layer contains. `includes.py` reports both; `reach.py`
+  counts undeclared includes as dependencies through `_work/include-uses.json`, which
+  `include_graph.py` regenerates (do so after changing `PATCHED_OUT` in `includes.py`).
+- SCRAM compiles with the compiler in the **host** prefix, which `root_base` brings in for its
+  interpreter, not the one in the build prefix; and `root_base` 6.36 pins the host sysroot to
+  glibc 2.17. So a layer cannot move to a newer glibc by setting `c_stdlib_version`.
 - A missing tool file is only a `****WARNING: Invalid tool <name>` at configure time; the build
   then dies much later with undefined references, because the tool's libraries were silently
   dropped from the link line. Grep a layer's log for `Invalid tool` even when it succeeds.
@@ -190,6 +205,11 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
     `L1Trigger/*` emulator, so it is on the critical path for reconstruction from RAW.
   - `coral` (the LCG relational abstraction layer, needed for conditions). Neither the CMS fork
     nor the upstream LCG repository has a license file or license headers.
+- macOS: `DataFormats/Math/interface/SIMDVec.h` enables the SIMD geometry vectors only when
+  `__BIGGEST_ALIGNMENT__ >= 16`, and Apple arm64 reports 8, so the release uses the scalar
+  `Basic2DVector`/`Basic3DVector` there, as no CMS platform does. Code that touches `.v`,
+  `mathVector()` or a fourth lane does not compile on macOS and has to be written per
+  coordinate. Also: a non-const member `operator<` fails in libc++'s sort.
 - macOS: libc++ is stricter than libstdc++, and `uint64_t` is `unsigned long long` there. EDM class
   checksums differ for 64-bit integer members, so the checks are skipped (`SCRAM_NOEDM_CHECKS`).
   ROOT 6.36's interpreter only works with the SDK its modules were built with.

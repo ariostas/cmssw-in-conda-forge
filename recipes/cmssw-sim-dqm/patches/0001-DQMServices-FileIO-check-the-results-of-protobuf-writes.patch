@@ -1,0 +1,39 @@
+diff --git a/DQMServices/FileIO/plugins/DQMFileSaverPB.cc b/DQMServices/FileIO/plugins/DQMFileSaverPB.cc
+index 7c8e68d1f..8a96812c5 100644
+--- a/DQMServices/FileIO/plugins/DQMFileSaverPB.cc
++++ b/DQMServices/FileIO/plugins/DQMFileSaverPB.cc
+@@ -21,6 +21,7 @@
+ 
+ #include "zlib.h"
+ #include "DQMServices/Core/interface/DQMStore.h"
++#include "FWCore/Utilities/interface/Exception.h"
+ #include "DQMServices/Core/interface/ROOTFilePB.pb.h"
+ #include "FWCore/Framework/interface/LuminosityBlock.h"
+ #include "FWCore/ParameterSet/interface/ParameterSet.h"
+@@ -318,17 +319,21 @@ void DQMFileSaverPB::savePB(DQMStore* store, std::string const& filename, int ru
+     options.format = GzipOutputStream::GZIP;
+     options.compression_level = 1;
+     GzipOutputStream gzip_stream(&file_stream, options);
+-    dqmstore_message.SerializeToZeroCopyStream(&gzip_stream);
++    bool ok = dqmstore_message.SerializeToZeroCopyStream(&gzip_stream);
+ 
+     // Flush the internal streams & Close the file descriptor
+-    gzip_stream.Close();
+-    file_stream.Close();
++    ok &= gzip_stream.Close();
++    ok &= file_stream.Close();
++    if (!ok)
++      throw cms::Exception("DQMFileSaverPB") << "failed to write " << filename;
+   } else {
+     // We zlib compressed individual MEs so no need to compress the entire file again.
+-    dqmstore_message.SerializeToZeroCopyStream(&file_stream);
++    bool ok = dqmstore_message.SerializeToZeroCopyStream(&file_stream);
+ 
+     // Flush the internal stream & Close the file descriptor
+-    file_stream.Close();
++    ok &= file_stream.Close();
++    if (!ok)
++      throw cms::Exception("DQMFileSaverPB") << "failed to write " << filename;
+   }
+ 
+   // Maybe make some noise.

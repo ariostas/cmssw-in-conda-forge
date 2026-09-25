@@ -3,7 +3,7 @@ context:
   version: "20.1.0pre2"
 
 package:
-  name: cmssw-reco-objects
+  name: cmssw-sim-dqm
   version: ${{ version }}
 
 source:
@@ -11,36 +11,16 @@ source:
     sha256: 39afc8deff3e31952cc43699324b25bbc10e619abe616b0eb6c3c20b4746312e
     target_directory: cmssw
     patches:
-      # RecoJets/JetAlgorithms names KtJet, a library from 2005 that conda-forge does not
-      # have, but no file in the package includes it: jet clustering is FastJet.
-      - patches/0001-RecoJets-JetAlgorithms-drop-the-unused-ktjet-dependency.patch
-      # ONNX Runtime installs its public headers flat under include/onnxruntime/;
-      # conda-forge's onnxruntime-cpp keeps the source tree's core/session/ layout.
-      - patches/0002-PhysicsTools-ONNXRuntime-accept-the-source-tree-header-layout.patch
-      # The DeepSC supercluster evaluator is the only part of RecoEcal/EgammaCoreTools that
-      # uses TensorFlow, whose conda-forge C++ headers do not compile. Leaving those two files
-      # out makes the library -- and e/gamma and particle flow above it -- buildable.
-      - patches/0003-RecoEcal-EgammaCoreTools-leave-out-DeepSC-which-needs-TensorFlow.patch
-      # Code that only compiles with libstdc++ or on targets with 16-byte vector alignment:
-      # - RecoTracker/LSTCore reads its geometry with std::ifstream without <fstream>;
-      # - RecoTracker/LST calls std::ranges::size on TrajectorySeed's hit range, which is not a
-      #   sized range for libc++; the seed's own nHits() gives the same number;
-      # - code that uses the internals of the SIMD geometry vectors, which only exist where
-      #   DataFormats/Math/interface/SIMDVec.h selects the extended vector syntax. Apple arm64
-      #   reports __BIGGEST_ALIGNMENT__ 8 and gets the scalar classes instead, with no .v and
-      #   no fourth lane. RecoParticleFlow/PFClusterTools does element-wise arithmetic on
-      #   Basic2DVector<double>::MathVector (whose scalar operator* is a dot product), now
-      #   written per coordinate; RecoLocalCalo/CaloTowersCreator keeps the tower energy in
-      #   the fourth lane of a Basic3DVectorF, now in a float of its own. Both compute the
-      #   same values as before, with the same rounding;
-      # - DataFormats/CTPPSReco declares CTPPSPixelLocalTrack::operator< non-const, and libc++'s
-      #   sort compares const objects;
-      # - CalibCalorimetry/HcalTPGAlgos prints a uint64_t with %lx, and uint64_t is unsigned
-      #   long long on macOS;
-      # - Alignment/Geners derives two streams from std::basic_iostream and relies on the
-      #   default constructor libstdc++ adds; the standard (and libc++) only has the one taking
-      #   a streambuf.
-      - patches/0004-Build-with-libc-and-on-Apple-arm64.patch
+      # Newer protobuf marks SerializeToZeroCopyStream() and the streams' Close() [[nodiscard]],
+      # and CMSSW builds with -Werror=unused-result. A DQM file that fails to write was being
+      # ignored; now it throws.
+      - patches/0001-DQMServices-FileIO-check-the-results-of-protobuf-writes.patch
+      # Alignment/OfflineValidation calls boost::filesystem without naming the library in its
+      # BuildFile; CMS gets it through their ROOT, conda-forge's does not link it.
+      - patches/0002-Alignment-OfflineValidation-declare-boost-filesystem.patch
+      # Fit results sorted with a non-const operator<, which libc++'s sort cannot call on the
+      # const objects it compares (libstdc++ happens to accept it).
+      - patches/0003-TopQuarkAnalysis-const-comparison-operators-for-libc.patch
 
 build:
   number: 0
@@ -80,7 +60,7 @@ requirements:
     - clangxx
   host:
     - cms-scram
-    - cmssw-reco ==${{ version }}
+    - cmssw-reco-objects ==${{ version }}
     # the same externals as the layers below, because the release's headers include them
     - python
     - numpy
@@ -142,7 +122,7 @@ requirements:
     - nlohmann_json
     # the neural-net evaluator RecoTracker/FinalTrackSelectors uses for track quality
     - lwtnn
-    # new in this layer
+    # from the reco-objects layer
     # CMS's socket and I/O library; DQMServices/Core's network protocol (DQMNet) uses it
     - classlib
     - pcre
@@ -153,9 +133,23 @@ requirements:
     - onnxruntime-cpp * *_cpu
     # boosted decision trees for photon identification (PhysicsTools/XGBoost)
     - libxgboost * cpu_*
+    - xrootd
+    # new in this layer
+    # WebDAV/HTTP file access (FWStorage/DavixAdaptor)
+    - davix
+    # HDF5 conditions and LHE files (CondCore/CondHDF5ESSource, GeneratorInterface/LHEInterface)
+    - hdf5
+    - highfive
+    # parton densities, for the generator interface
+    - lhapdf
+    # the event display's GL rendering (Fireworks/Eve), through ROOT's RGL
+    - glew
+    # PerfTools/Callgrind's client requests; there is no macOS build of valgrind
+    - if: linux
+      then: valgrind
   run:
     - cms-scram
-    - cmssw-reco ==${{ version }}
+    - cmssw-reco-objects ==${{ version }}
     - python
     - root_base
     - coral
@@ -169,11 +163,16 @@ requirements:
     - fastjet-contrib
     - heppdt
     - lwtnn
-    # new in this layer
     - classlib
     - libprotobuf
     - onnxruntime-cpp * *_cpu
     - libxgboost * cpu_*
+    # new in this layer
+    - davix
+    - hdf5
+    - highfive
+    - lhapdf
+    - glew
   ignore_run_exports:
     from_package:
       - libclang
@@ -182,39 +181,27 @@ requirements:
 tests:
   - script:
       - python -c "import ctypes, glob, os; libs = glob.glob(os.path.join(os.environ['CMSSW_BASE'], 'lib', os.environ['SCRAM_ARCH'], '*.[ds][oy]*')); assert libs; [ctypes.CDLL(lib, mode=ctypes.RTLD_GLOBAL) for lib in sorted(libs)]; print(len(libs), 'libraries loaded')"
-      # a plugin from each stage this layer adds: unpacking, calorimeter and muon local
-      # reconstruction, calorimeter towers, particle flow, electrons and jet clustering
-      - edmPluginDump | grep -q EcalRawToDigi
-      - edmPluginDump | grep -q HcalRawToDigi
-      - edmPluginDump | grep -q CSCDCCUnpacker
-      - edmPluginDump | grep -q EcalUncalibRecHitProducer
-      - edmPluginDump | grep -q HBHEPhase1Reconstructor
-      - edmPluginDump | grep -q CSCRecHitDProducer
-      - edmPluginDump | grep -q DTRecHitProducer
-      - edmPluginDump | grep -q CaloTowersCreator
-      - edmPluginDump | grep -q FastjetJetProducer
-      - edmPluginDump | grep -q PFProducer
-      - edmPluginDump | grep -q GsfElectronProducer
-      - cmsRun test/localreco.py
+      # a plugin each from DQM, validation and digitisation
+      - edmPluginDump | grep -q DQMRootOutputModule
+      - edmPluginDump | grep -q MultiTrackValidator
+      - edmPluginDump | grep -q SiPixelDigitizer
+      - cmsRun test/simdqm.py
     files:
       recipe:
         - test/
 
 about:
   homepage: https://cms-sw.github.io
-  summary: CMS reconstruction - raw data unpacking, calorimetry, muons, e/gamma, particle flow and jets
+  summary: CMS data quality monitoring, validation, digitisation, fast simulation and analysis tools
   description: |
-    CMSSW is the software framework of the CMS experiment at CERN. This package adds the
-    reconstruction that sits on top of cmssw-reco's tracking: unpacking of the detector's raw
-    data, local reconstruction in the calorimeters and muon chambers, calorimeter towers,
-    electrons and photons, particle flow, jet clustering and jet energy corrections,
-    b-tagging and the calibration packages those read.
+    CMSSW is the software framework of the CMS experiment at CERN. This package adds what the
+    reconstruction layers leave: data quality monitoring (DQM) and validation, digitisation
+    and pile-up mixing, fast simulation, alignment and calibration workflows, conditions
+    tools and analysis tools.
 
-    Left out for want of an external: the DeepSC superclustering and other models that need
-    TensorFlow or the Triton inference client, whose conda-forge C++ headers are incomplete
-    or which are not packaged; and most of the L1 trigger emulator and unpackers, the MET
-    producers (whose beam-halo code includes the L1 CSC track finder) and the HLT-derived
-    plugins, which all reach the unlicensed `utm`.
+    Plugins that need the HLT framework (HLTrigger/HLTcore), and through it the unlicensed L1
+    trigger menu library `utm`, are left out, as are those that need event generators or
+    CMS's own Geant4 extensions.
   license: Apache-2.0
   license_file: cmssw/LICENSE
   repository: https://github.com/cms-sw/cmssw

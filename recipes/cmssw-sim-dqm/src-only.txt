@@ -1,0 +1,141 @@
+# Packages that only contribute their source: python configuration, headers and data.
+# `cmssw-build-layer --src-only` removes the BuildFiles in their plugins/ and bin/.
+
+AnalysisDataFormats/EWK
+Calibration/Hotline
+Calibration/PPSAlCaRecoProducer
+CondCore/Modules
+CondFormats/HcalMapping
+CondTools/IntegrationTest
+CondTools/O2OFramework
+CondTools/Utilities
+DQM/Integration
+DQM/SiPixelPhase1Config
+DQMOffline/Configuration
+DataFormats/HcalCalibObjects
+Documentation/CodingRules
+Documentation/DataFormats
+Documentation/PhysicsTools
+Documentation/ReferenceManualScripts
+FWCore/ROOTTests
+FWCore/Skeletons
+FWIO/RNTupleTempTests
+FastSimDataFormats/PileUpEvents
+FastSimulation/Configuration
+FastSimulation/HighLevelTrigger
+Fireworks/Macros
+GeneratorInterface/Configuration
+HLTrigger/Configuration
+HLTriggerOffline/SMP
+HeavyIonsAnalysis/Configuration
+IOPool/SecondaryInput
+IOPool/Tests
+JetMETAnalysis/Configuration
+JetMETAnalysis/METSkims
+PhysicsTools/Configuration
+PhysicsTools/HeppyCore
+PhysicsTools/JetExamples
+PhysicsTools/NanoAODTools
+PhysicsTools/PythonAnalysis
+RecoRomanPot/Configuration
+SLHCUpgradeSimulations/Configuration
+SLHCUpgradeSimulations/Geometry
+SimCalorimetry/Configuration
+SimCalorimetry/EcalTestBeam
+SimCalorimetry/EcalZeroSuppressionAlgos
+SimDataFormats/HTXS
+SimFastTiming/Configuration
+SimG4Core/Configuration
+SimGeneral/Configuration
+SimMuon/Configuration
+SimPPS/Configuration
+SimRomanPot/Configuration
+SimTracker/Configuration
+TopQuarkAnalysis/Configuration
+Utilities/RelMon
+Utilities/Testing
+Validation/Configuration
+Validation/Performance
+Validation/RecoPixelVertexing
+Validation/SiPixelPhase1ConfigV
+Validation/Tools
+Validation/TrackerConfiguration
+
+# Packages whose own library builds but whose plugins need something blocked, directly or
+# through a header they include. Most of them reach HLTrigger/HLTcore, whose library needs
+# the L1 trigger menu and so the unlicensed utm; for many the only thing they want from it is
+# HLTrigger/HLTcore/interface/defaultModuleLabel.h. The rest need generators (pythia6,
+# photospp), CMS's Geant4 extensions (SimG4CMS), Fireworks, or the conditions tools behind
+# CondCore/Utilities (utm again).
+Alignment/CommonAlignmentProducer
+Alignment/OfflineValidation
+Calibration/EcalAlCaRecoProducers
+Calibration/HcalAlCaRecoProducers
+Calibration/HcalCalibAlgos
+Calibration/IsolatedParticles
+Calibration/TkAlCaRecoProducers
+CaloOnlineTools/EcalTools
+CondCore/AlignmentPlugins
+CondCore/HcalPlugins
+CondCore/PCLConfigPlugins
+CondCore/SiPixelPlugins
+CondFormats/PCLConfig
+CondTools/SiStrip
+DPGAnalysis/MuonTools
+DPGAnalysis/Phase2L1TNanoAOD
+DPGAnalysis/SiStripTools
+DQM/BeamMonitor
+DQM/DataScouting
+DQM/HLTEvF
+DQM/HcalTasks
+DQM/SiPixelPhase1Track
+DQM/SiTrackerPhase2
+DQMOffline/ParticleFlow
+DQMServices/Components
+FastSimulation/CTPPSFastTrackingProducer
+FastSimulation/CTPPSRecHitProducer
+FastSimulation/CTPPSSimHitProducer
+FastSimulation/Muons
+Fireworks/Eve
+Fireworks/GenParticle
+Fireworks/MTD
+Fireworks/SimData
+GeneratorInterface/Core
+GeneratorInterface/ExhumeInterface
+GeneratorInterface/GenExtensions
+GeneratorInterface/GenFilters
+GeneratorInterface/PhotosInterface
+HLTrigger/Egamma
+HLTrigger/HLTanalyzers
+HLTrigger/HLTfilters
+HLTrigger/JSONMonitoring
+HLTrigger/Muon
+HLTrigger/NGTScouting
+HLTrigger/Tools
+HLTrigger/btau
+HLTrigger/special
+HLTriggerOffline/Higgs
+HLTriggerOffline/Scouting
+MuonAnalysis/MomentumScaleCalibration
+OnlineDB/SiStripO2O
+PhysicsTools/BPHNano
+PhysicsTools/PatUtils
+PhysicsTools/RecoUtils
+PhysicsTools/Scouting
+RecoML/AnomalyDetection
+SimCalorimetry/HGCalAssociatorProducers
+SimG4Core/PrintGeomInfo
+SimGeneral/CaloAnalysis
+SimGeneral/DataMixingModule
+SimPPS/PPSSimTrackProducer
+Validation/EcalDigis
+Validation/HGCalValidation
+Validation/MuonRPCGeometry
+Validation/MuonME0Validation
+
+# Its plugins include xrootd's XrdPosix/XrdPosixExtern.hh, and xrootd 6's XrdSys/XrdSysStatx.hh
+# uses statx whenever __linux__ is defined, which glibc declares only from 2.28. The layers
+# build against glibc 2.17, and cannot move: root_base 6.36 pins the 2.17 sysroot for its
+# interpreter, and SCRAM compiles with the compiler root_base brings into the host prefix.
+# (conda-forge's xrootd package declares no glibc requirement at all.)
+IORawData/DTCommissioning

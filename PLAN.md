@@ -327,12 +327,12 @@ outstanding part of this milestone.
 
 ### M5: reconstruction, then L1/HLT and ML — **the next work**
 
-478 of 1358 packages are packaged (5513 TU, 36% of the build; 240 packages and 20% before
-`cmssw-reco`). **1123 packages (9579 TU, 63%) are reachable with the externals that already
-work**, so what lies between is packaging effort, not dependency effort. `reach.py --layers
-1500` splits the remaining 645 packages (4066 TU) into three layers. The figure was 54% until geant4 was found not to be blocked at all and
-`gbl`/`mille` were packaged; it was briefly recorded as 67% on the mistaken belief that
-conda-forge's `libtensorflow_cc` was usable. See the 2026-09-21 progress entries.
+**Everything reachable with the externals that already work is now packaged**: 1127 of 1358
+packages, about 9.8k TU, **64%** of the build (36% before `cmssw-reco-objects` and
+`cmssw-sim-dqm`, 20% before `cmssw-reco`). The figure counts undeclared `#include`s as
+dependencies since 2026-09-25; on the BuildFile graph alone it read 63%, and before geant4 and
+`gbl`/`mille` 54%. It was briefly recorded as 67% on the mistaken belief that conda-forge's
+`libtensorflow_cc` was usable. What remains is blocked on externals: the ladder below.
 
 Layers are chosen with `reach.py --target`, from the subsystems a layer is meant to deliver,
 not with the greedy `--layers` partition: asked for the same number of translation units the
@@ -341,14 +341,18 @@ latter returns a slice of 79 subsystems that does not deliver anything in partic
 - [x] `cmssw-reco`: RecoTracker, RecoVertex, RecoMuon, TrackingTools, RecoLocalTracker,
       CommonTools and the rest of Geometry. 238 packages, 2514 TU; builds and tests pass on
       all three platforms, from the same recipe revision (build 3).
-- [ ] The three layers after it (EventFilter/Validation, DQM/L1Trigger/PhysicsTools, and the
-      remainder). Re-run `reach.py --layers` before each, since the partition shifts as layers land.
+- [x] `cmssw-reco-objects`: RAW unpacking, calorimeter and muon local reconstruction, e/gamma,
+      particle flow, jets, b-tagging, calibration. 257 packages, about 2000 TU.
+- [x] `cmssw-sim-dqm`: DQM, validation, digitisation, fast simulation and the rest of what is
+      reachable. 392 packages, about 2300 TU.
 - [ ] Data packages needed by reco (`cmssw-data-*`).
-- [ ] Probe geant4 early, out of order: it is the single largest step left on the ladder
-      (72% → 90%) and `cmssw-geometry` already links conda-forge's build, so it may be much
-      closer than its "blocked" classification suggests. dd4hep looked equally blocked and was not.
-- [ ] Then the externals-blocked steps: ML runtimes and L1 ML models (→69%), a few small
-      unpackaged externals (→72%). `utm` (→60%) is blocked on its licence, not on us.
+- [ ] The externals ladder, cumulative in `reach.py`'s order (2026-09-25): the `utm` licence
+      64% → 72%; ML runtimes (TensorFlow's headers, PyTorch, Triton) → 73%; the L1 ML models
+      → 86%; small unpackaged externals → 90%; CMS's Geant4 extensions → 90%; generators →
+      94%. `utm` is blocked on its licence, not on us, and is the one step that matters most:
+      through `HLTrigger/HLTcore` it also costs most of the plugins the last two layers had to
+      build without. The TensorFlow step is a conda-forge feedstock fix (its C++ headers are
+      incomplete) and would also bring the DeepSC superclustering and `RecoTracker_cff` back.
 - [ ] Target: run a standard RECO step from RAW (e.g. a relval workflow `runTheMatrix.py -l ...`).
 
 ### M6: simulation and generators (group 6)
@@ -1609,3 +1613,127 @@ pass their tests. `cmssw-reco` loads 637 libraries on Linux, has 42 ES producers
 shows no `Invalid tool` warnings, with patch 0004 applied and `fastjet-cxx` build 5 in the host
 environment. linux-aarch64 took 1906 s at 4 jobs, and linux-64 took 3962 s at 5 jobs under
 emulation.
+
+### 2026-09-25: the last two layers, and a reachability figure that counts includes
+
+Two layers take the packaged share to everything that is reachable today:
+
+  * `cmssw-reco-objects`: RAW unpacking, calorimeter and muon local reconstruction, e/gamma,
+    particle flow, jets, b-tagging and calibration. 257 packages, about 2000 TU.
+  * `cmssw-sim-dqm`: DQM and validation, digitisation and fast simulation, alignment and
+    calibration workflows, conditions tools and analysis tools. 392 packages, about 2300 TU,
+    chosen as "the rest" rather than by subsystem, because the rest is too varied.
+
+#### "Reachable" was measured on the wrong graph
+
+`reach.py` walked BuildFile `<use>`s. CMSSW packages include headers they never declare, and
+when such a header belongs to a package that cannot be built, the file does not compile. The
+first build of `cmssw-reco-objects` failed in exactly those files: the MET producers include
+`L1Trigger/CSCTrackFinder` (so utm) through the beam-halo code, the e/gamma isolation and
+Type-1 MET plugins include `HLTrigger/HLTcore/interface/defaultModuleLabel.h`, and so on.
+`include_graph.py` now walks the include graph of every package's compiled files and
+`reach.load()` merges it into the uses. Getting that walk right took four fixes, each found
+by a build error the model had not predicted:
+
+  * branches only a GPU build compiles (`#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED` and the like) are
+    skipped, or `HeterogeneousCore/AlpakaCore`, which `cmssw-reco` builds, looked unbuildable
+    and took 18 points with it;
+  * `solve()` works top-down (a greatest fixed point): headers include each other in cycles,
+    and the bottom-up version never admitted any member of one;
+  * per-file memoisation is wrong in the presence of those cycles: a file met again while it is
+    still being walked is cut short, and the truncated answer was cached. It is one walk per
+    package and product now;
+  * `#include <DQM/CastorMonitor/...>` counts (angle brackets, when the path is a package's),
+    and so do paths through `plugins/`, `bin/` and `test/`, not only `interface/` and `src/`.
+
+The honest figure is **64%**. Undeclared includes cost about two points against the BuildFile
+graph; two patches (below) gained three.
+
+`reach.py` also models `<use>`s that a layer's patches remove (`PATCHED_USES`), and
+`depgraph.py` no longer reads `<use>`s inside XML comments (`L1Trigger/DemonstratorTools` has
+`<!--<use name="hls/2019.08"/>-->`). `includes.py` reports includes into packages that cannot
+be built, with the compiled file each chain starts from, instead of skipping them silently.
+
+#### Two patches worth three points
+
+  * `RecoJets/JetAlgorithms` declares `ktjet`, a 2005 library conda-forge does not have, but
+    no file includes it; jet clustering is FastJet. The `<use>` blocked all of jets.
+  * `RecoEcal/EgammaCoreTools` links TensorFlow for two files, the DeepSC supercluster
+    evaluator. `SKIP_FILES` leaves them out, and the library -- and e/gamma, `PFClusterProducer`
+    and `PFProducer` above it -- builds. The PF superclusters themselves
+    (`RecoEcal/EgammaClusterAlgos`) stay blocked: they also need the Triton client.
+
+#### New externals, and what the tool files were missing
+
+  * `classlib`, CMS's socket and I/O library, used by `DQMServices/Core`'s DQMNet. Not on
+    conda-forge; LGPL-2.0-or-later, now a recipe. CMS's fork uses glibc internals
+    (`<linux/sysctl.h>`, `__clock_t`) and needed a patch to build on macOS. Its optional
+    compression libraries are all linked rather than stripped out of the Makefile as cmsdist
+    does, so the library carries no undefined symbols.
+  * protobuf: CMSSW commits the C++ that protoc 3.21 generated for `ROOTFilePB.proto`, which
+    does not compile against conda-forge's protobuf 36. The layer's `--prepare` script
+    regenerates it with the matching protoc. Generated code calls Abseil's logging, so the tool
+    file names `absl_log_internal_check_op` and `absl_log_internal_message`.
+  * onnxruntime (conda-forge keeps the source tree's `core/session/` header layout; a
+    `__has_include` patch accepts both), xgboost, davix, hdf5, highfive, lhapdf, valgrind,
+    and ROOT's GUI, graphics, RooFit and RNTuple libraries: tool files only.
+  * `RelationalAccess` now names `CoralBase` and `CoralKernel`: at CMS, CORAL is a SCRAM project
+    that brings its dependencies along. `RecoLuminosity/LumiProducer` calls `coral::Context`.
+  * `hepmc` now names `HepMCfio`, as CMS's does; the generator interfaces use `IO_HEPEVT`.
+  * `f77compiler` and friends are resolved by SCRAM to the selected compiler; preflight now
+    knows that.
+
+#### src-only, and test/, were too blunt
+
+`--src-only` deleted a package's `plugins/` and `cmssw-build-layer` deleted every `test/`. Two
+libraries include a file from their own `plugins/` (`Alignment/OfflineValidation`'s
+`Trend.cc` includes `plugins/ColorParser.C`), and two from a `test/`
+(`TopQuarkAnalysis/TopTools` includes `test/tdrstyle.C`). src-only now deletes only the
+BuildFiles in `plugins/` and `bin/`, and the few `test/` files that non-test code includes
+survive (`cmssw-toolbox` 13).
+
+#### macOS: libc++, and geometry vectors without SIMD
+
+Most of the macOS fixes are the familiar libc++ kind: a missing `<fstream>`, `%lx` for a
+`uint64_t`, a `std::basic_iostream` subclass relying on libstdc++'s default constructor,
+`std::ranges::size` on a range that is not sized for libc++, and six classes whose
+`operator<` is a non-const member, which libc++'s sort cannot call on the const objects it
+compares. Two of those live in `cmssw-fwlite`'s `DataFormats`, which is why fwlite is rebuilt
+(build 9); the operators are inline, so nothing above it has to be.
+
+One is new in kind. `DataFormats/Math/interface/SIMDVec.h` uses GCC/clang vector extensions
+only when `__BIGGEST_ALIGNMENT__ >= 16`, and **Apple arm64 reports 8**. The whole release
+therefore uses the scalar `Basic2DVector`/`Basic3DVector` on macOS, which no CMS platform
+does. Code that reaches into the SIMD internals does not compile there:
+`RecoParticleFlow/PFClusterTools` does element-wise arithmetic on `MathVector` (whose scalar
+`operator*` is a dot product), and `RecoLocalCalo/CaloTowersCreator` keeps the tower energy in
+the fourth lane of a `Basic3DVectorF`. Both are rewritten to compute the same values with the
+same rounding on every platform. The scalar path also means macOS geometry numerics may
+differ from Linux in the last bits; the geometry comparison has only been run on Linux.
+
+`Phase2ITQCore::operator<` is wrong everywhere, not only on macOS: when the columns are equal
+it compares the column with itself, so it is not a strict weak ordering. Left as is and worth
+reporting.
+
+#### Linux: a protobuf nodiscard, a missing Boost library, and xrootd's glibc
+
+  * Newer protobuf marks `SerializeToZeroCopyStream()` and the streams' `Close()`
+    `[[nodiscard]]`, and CMSSW builds with `-Werror=unused-result`. `DQMFileSaverPB` ignored a
+    failed write; it now throws.
+  * `Alignment/OfflineValidation` uses Boost.Filesystem without naming it, like
+    `PhysicsTools/MVAComputer` in `cmssw-reco`.
+  * xrootd 6's `XrdSys/XrdSysStatx.hh` uses `statx` whenever `__linux__` is defined, which glibc
+    declares from 2.28, and the xrootd package declares no glibc requirement. The layers cannot
+    move to the 2.28 sysroot: SCRAM compiles with the compiler `root_base` brings into the host
+    prefix, and `root_base` 6.36 pins the 2.17 sysroot there. The only user,
+    `IORawData/DTCommissioning`, is src-only. Worth reporting to the xrootd feedstock.
+
+#### Tests
+
+`cmssw-reco-objects` constructs the unpackers, ECAL/HCAL/muon local reconstruction, calorimeter
+towers, particle flow, jets and the jet corrections (152 producers, 68 ES producers). Loading
+`RecoJets_cff` whole is not possible: its heavy-ion sequence refers to modules only other
+fragments define. `cmssw-sim-dqm` constructs the tracking validation and the DQM output module;
+the mixing module is left out because its digitisers name files from CMS's separate data
+repositories (`SimTracker/SiStripDigitizer/data/APVProbaList.txt`), which are still unpackaged.
+That is the next thing between these packages and running a full workflow.

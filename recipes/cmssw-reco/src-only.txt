@@ -1,5 +1,5 @@
 # Packages that only contribute their source: detector XML, python configuration and headers.
-# `cmssw-build-layer --src-only` deletes their plugins/ and bin/ before building.
+# `cmssw-build-layer --src-only` removes the BuildFiles in their plugins/ and bin/.
 
 # Pure python. Every cfi and cff in the release imports one of these two for the era and
 # process modifiers it is customised by, so nothing in the tracking configuration can be

@@ -32,7 +32,7 @@ source:
       - cmssw-config-patches/0001-conda-build-environment-fixes.patch
 
 build:
-  number: 7
+  number: 9
   skip:
     - win
     - osx and x86_64

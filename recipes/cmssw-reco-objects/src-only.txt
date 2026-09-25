@@ -1,5 +1,5 @@
 # Packages that only contribute their source: python configuration, headers and data.
-# `cmssw-build-layer --src-only` deletes their plugins/ and bin/ before building.
+# `cmssw-build-layer --src-only` removes the BuildFiles in their plugins/ and bin/.
 
 CalibCalorimetry/Configuration
 CalibCalorimetry/EcalTBCondTools

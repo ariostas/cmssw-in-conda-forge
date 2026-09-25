@@ -34,8 +34,17 @@ R = os.path.join(reach.RELEASE, "src")
 # Following only the first form means the siblings are never walked and whatever *they*
 # include is never seen -- which is how RecoTracker/LSTCore's src/alpaka/Hit.h, and through
 # it HeterogeneousCore/AlpakaMath, went missing until the build failed on it.
-INC = re.compile(r'#\s*include\s+"([^"]+)"')
-PKG_INCLUDE = re.compile(r"^[A-Za-z][A-Za-z0-9]*/[A-Za-z0-9]+/(?:interface|src)/")
+# Angle brackets count too when the path is a CMSSW package's: DQM/CastorMonitor includes
+# its own header as <DQM/CastorMonitor/interface/CastorMonitorModule.h>, and through it
+# SimG4CMS/Calo. System headers in angle brackets are not followed.
+INC = re.compile(
+    r'#\s*include\s+(?:"([^"]+)"|<([A-Za-z][A-Za-z0-9]*/[A-Za-z0-9]+/(?:interface|src|plugins|bin|test)/[^>]+)>)'
+)
+# Any directory of a package, not only interface/ and src/: plugins include their own headers
+# as "Sub/Pkg/plugins/X.h" (Validation/MuonME0Validation, and through it SimMuon/MCTruth).
+PKG_INCLUDE = re.compile(
+    r"^[A-Za-z][A-Za-z0-9]*/[A-Za-z0-9]+/(?:interface|src|plugins|bin|test)/"
+)
 # Comments have to go first. CMSSW's doxygen blocks show example code, and the examples
 # contain #include lines: PhysicsTools/UtilAlgos/interface/BasicAnalyzer.h documents itself
 # with an include of PhysicsTools/PatExamples, which is not a dependency at all and which
@@ -74,7 +83,7 @@ def active_includes(text):
             continue
         m = INC.search(line)
         if m:
-            out.append(m.group(1))
+            out.append(m.group(1) or m.group(2))
     return out
 
 

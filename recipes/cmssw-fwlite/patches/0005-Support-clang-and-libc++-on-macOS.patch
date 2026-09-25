@@ -152,3 +152,55 @@ index d14220373..92edb4e9a 100644
      std::string temp;
      std::format_to(std::back_inserter(temp), "ValidityInterval{{ {}, {} }}", interval.first(), interval.last());
      return std::formatter<std::string_view>::format(temp, ctx);
+diff --git a/DataFormats/Phase2TrackerDigi/interface/Phase2ITQCore.h b/DataFormats/Phase2TrackerDigi/interface/Phase2ITQCore.h
+index bdb829ac4..61dd55aa7 100644
+--- a/DataFormats/Phase2TrackerDigi/interface/Phase2ITQCore.h
++++ b/DataFormats/Phase2TrackerDigi/interface/Phase2ITQCore.h
+@@ -35,7 +35,7 @@ public:
+   std::vector<int> getADCs();
+   std::vector<bool> encodeQCore(bool is_new_col);
+ 
+-  const bool operator<(const Phase2ITQCore& other) {
++  bool operator<(const Phase2ITQCore& other) const {
+     if (ccol_ == other.ccol_) {
+       return (ccol_ < other.ccol_);
+     } else {
+diff --git a/DataFormats/GEMDigi/interface/ME0Stub.h b/DataFormats/GEMDigi/interface/ME0Stub.h
+index 05e6bf3e7..a98b5f633 100644
+--- a/DataFormats/GEMDigi/interface/ME0Stub.h
++++ b/DataFormats/GEMDigi/interface/ME0Stub.h
+@@ -44,16 +44,16 @@ public:
+   double bx() const { return bx_; }
+ 
+   // operators
+-  bool operator==(const ME0Stub& other) {
++  bool operator==(const ME0Stub& other) const {
+     if (layerCount_ == 0 && other.layerCount_ == 0) {
+       return true;
+     }
+     return (quality_ == other.quality_);
+   }
+-  bool operator>(const ME0Stub& other) { return (quality_ > other.quality_); }
+-  bool operator<(const ME0Stub& other) { return (quality_ < other.quality_); }
+-  bool operator>=(const ME0Stub& other) { return (quality_ >= other.quality_); }
+-  bool operator<=(const ME0Stub& other) { return (quality_ <= other.quality_); }
++  bool operator>(const ME0Stub& other) const { return (quality_ > other.quality_); }
++  bool operator<(const ME0Stub& other) const { return (quality_ < other.quality_); }
++  bool operator>=(const ME0Stub& other) const { return (quality_ >= other.quality_); }
++  bool operator<=(const ME0Stub& other) const { return (quality_ <= other.quality_); }
+   // ostream
+   friend std::ostream& operator<<(std::ostream& os, const ME0Stub& stub) {
+     os << "id=" << stub.patternId() << ", lc=" << stub.layerCount() << ", strip=" << std::fixed << std::setprecision(3)
+diff --git a/DataFormats/Phase2TrackerDigi/interface/Phase2ITChipBitStream.h b/DataFormats/Phase2TrackerDigi/interface/Phase2ITChipBitStream.h
+index 09fb37dce..dc9661f76 100644
+--- a/DataFormats/Phase2TrackerDigi/interface/Phase2ITChipBitStream.h
++++ b/DataFormats/Phase2TrackerDigi/interface/Phase2ITChipBitStream.h
+@@ -16,7 +16,7 @@ public:
+ 
+   const std::vector<bool>& get_bitstream() const { return bitstream_; }
+ 
+-  const bool operator<(const Phase2ITChipBitStream& other) { return rocid_ < other.rocid_; }
++  bool operator<(const Phase2ITChipBitStream& other) const { return rocid_ < other.rocid_; }
+ 
+ private:
+   int rocid_;                    // Chip index
