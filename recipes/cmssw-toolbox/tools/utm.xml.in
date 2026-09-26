@@ -9,6 +9,6 @@
     <environment name="INCLUDE" default="$TOOL_BASE/include"/>
   </client>
   <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
-  <runtime name="UTM_XSD_DIR" value="$TOOL_BASE"/>
+  <runtime name="UTM_XSD_DIR" value="$TOOL_BASE/share/cms-l1t-utm"/>
   <use name="root_cxxdefaults"/>
 </tool>

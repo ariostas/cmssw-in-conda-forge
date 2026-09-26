@@ -301,6 +301,11 @@ outstanding part of this milestone.
       `classlib` did become needed (DQM) and is now a recipe of its own.
 - [ ] **Open: ask for a `utm` licence.** Blocked on its missing licence, not on packaging; see
       "Open issues found" below for where and whom to ask. `heppdt` 3.x not needed yet.
+- [x] `utm` packaged as `cms-l1t-utm` (2026-09-26) **on an ASSUMED Apache-2.0 licence that its
+      authors have NOT granted**, so that the layers that need it can be built meanwhile. The
+      recipe's licence file and `LicenseRef-ASSUMED-Apache-2.0` say so. It and the utm-dependent
+      packages in `cmssw-reco-objects`/`cmssw-sim-dqm` must not be submitted until upstream adds
+      a licence; if they decline, those packages come out again (see the progress log).
 - [x] `tinyxml2`: no action needed, CMSSW compiles against conda-forge's 11.
 - [x] HepMC2: patch CMSSW (`SimDataFormats` weight container), not a CMS-ABI rebuild.
 - [x] **Decision point D1:** SCRAM route confirmed.
@@ -328,12 +333,15 @@ outstanding part of this milestone.
 
 ### M5: reconstruction, then L1/HLT and ML — **the next work**
 
-**Everything reachable with the externals that already work is now packaged**: 1127 of 1358
-packages, about 9.8k TU, **64%** of the build (36% before `cmssw-reco-objects` and
-`cmssw-sim-dqm`, 20% before `cmssw-reco`). The figure counts undeclared `#include`s as
-dependencies since 2026-09-25; on the BuildFile graph alone it read 63%, and before geant4 and
-`gbl`/`mille` 54%. It was briefly recorded as 67% on the mistaken belief that conda-forge's
-`libtensorflow_cc` was usable. What remains is blocked on externals: the ladder below.
+**Everything reachable is now packaged, on one ASSUMPTION**: 1179 of 1358 packages, about
+11.0k TU, **72%** of the build. The assumption is that `utm` will be released under
+Apache-2.0; it has **no licence** today, and the 8 points from 64% to 72% depend on it (see
+2026-09-26 in the progress log, and M2). Without utm it was 1127 packages, 9.8k TU, 64% (36%
+before `cmssw-reco-objects` and `cmssw-sim-dqm`, 20% before `cmssw-reco`). The figure counts
+undeclared `#include`s as dependencies since 2026-09-25; on the BuildFile graph alone it read
+63%, and before geant4 and `gbl`/`mille` 54%. It was briefly recorded as 67% on the mistaken
+belief that conda-forge's `libtensorflow_cc` was usable. What remains is blocked on
+externals: the ladder below.
 
 Layers are chosen with `reach.py --target`, from the subsystems a layer is meant to deliver,
 not with the greedy `--layers` partition: asked for the same number of translation units the
@@ -343,18 +351,22 @@ latter returns a slice of 79 subsystems that does not deliver anything in partic
       CommonTools and the rest of Geometry. 238 packages, 2514 TU; builds and tests pass on
       all three platforms, from the same recipe revision (build 3).
 - [x] `cmssw-reco-objects`: RAW unpacking, calorimeter and muon local reconstruction, e/gamma,
-      particle flow, jets, b-tagging, calibration. 257 packages, about 2000 TU; builds and tests
-      pass on all three platforms.
+      particle flow, jets, b-tagging, calibration, and (on the assumed utm licence) RPC and the
+      legacy L1 trigger. 283 packages, about 2600 TU; builds and tests pass on all three
+      platforms.
 - [x] `cmssw-sim-dqm`: DQM, validation, digitisation, fast simulation and the rest of what is
-      reachable. 392 packages, about 2300 TU; builds and tests pass on all three platforms.
+      reachable, including (on the assumed utm licence) the Stage-2 L1 emulator and the conddb
+      tools. 418 packages, about 2800 TU; builds and tests pass on all three platforms.
 - [ ] Data packages needed by reco (`cmssw-data-*`).
-- [ ] The externals ladder, cumulative in `reach.py`'s order (2026-09-25): the `utm` licence
-      64% → 72%; ML runtimes (TensorFlow's headers, PyTorch, Triton) → 73%; the L1 ML models
-      → 86%; small unpackaged externals → 90%; CMS's Geant4 extensions → 90%; generators →
-      94%. `utm` is blocked on its licence, not on us, and is the one step that matters most:
-      through `HLTrigger/HLTcore` it also costs most of the plugins the last two layers had to
-      build without. The TensorFlow step is a conda-forge feedstock fix (its C++ headers are
-      incomplete) and would also bring the DeepSC superclustering and `RecoTracker_cff` back.
+- [ ] The externals ladder, cumulative in `reach.py`'s order (2026-09-26): 72% with utm
+      (packaged, licence ASSUMED, see above); ML runtimes (TensorFlow's headers, PyTorch,
+      Triton) → 73%; the L1 ML models → 86%; small unpackaged externals → 90%; CMS's Geant4
+      extensions → 90%; generators → 94%. The L1 ML models are now the step that matters most:
+      `HLTrigger/HLTcore` needs `L1Trigger/L1TGlobal`, which needs AXOL1TL and hls4ml, and
+      through it they cost most of the plugins the last two layers build without. (This was
+      put down to utm until utm was actually unblocked; HLTcore needs both.) The TensorFlow
+      step is a conda-forge feedstock fix (its C++ headers are incomplete) and would also bring
+      the DeepSC superclustering and `RecoTracker_cff` back.
 - [ ] Target: run a standard RECO step from RAW (e.g. a relval workflow `runTheMatrix.py -l ...`).
 
 ### M6: simulation and generators (group 6)
@@ -1773,3 +1785,114 @@ load unresolved -- which is also why `hepmc` names `HepMCfio` only on Linux).
 The last layer's macOS patch is the usual libc++ list plus code that nothing at CMS has ever
 compiled on macOS: the macOS branch of `HLTrigger/Timer`'s `processor_model.cc` declares its
 result twice, `DQMServices/FileIO` uses glibc's `ulong`, and so on. Nine packages in all.
+
+### 2026-09-26: utm on an assumed licence, and the layers reach 72%
+
+**This rests on an assumption that has not been granted.** `utm` still has no licence (see
+"Open issues found" for the request, which has not been made yet). To keep things moving it is
+now packaged anyway, as `recipes/cms-l1t-utm`, on the assumption that its authors will release
+it under Apache-2.0 like CMSSW. The recipe says so everywhere it can: its licence file is
+`ASSUMED-LICENSE.txt` (the Apache text under a header saying it has not been granted), its
+licence is `LicenseRef-ASSUMED-Apache-2.0`, and its recipe, the two layers that use it and
+`reach.py` all carry the same warning. Nothing that needs utm may be submitted until upstream
+adds a real licence. If they decline, `utm` goes back into `reach.py`'s `BLOCKED` and its
+packages come out of the two layers again; they are listed below.
+
+#### The utm recipe
+
+- The package is `cms-l1t-utm`, after its GitLab group: `utm` on conda-forge is an unrelated
+  python package.
+- utm bundles the CodeSynthesis XSD 4.0.0 runtime headers (GPL-2.0 with the FLOSS exception)
+  without their licence files, so the recipe fetches `LICENSE` and `FLOSSE` from XSD's 4.0.0
+  tag. The FLOSS exception allows distributing it as part of an Apache-2.0 work.
+- Three patches: cmsdist's (boost_system has been header-only since 1.69); `.dylib` names and
+  install names on macOS, and sonames on Linux; and XSD's `config.hxx`, which takes clang for
+  GCC 4.2 (`__GNUC__` 4, `__GNUC_MINOR__` 2), so it turns its C++11 aliases off and falls back
+  to `std::auto_ptr`, which libc++ drops in C++17. On Linux that fallback compiled only because
+  libstdc++ still has `auto_ptr`.
+- It must be built against boost 1.90 like the rest of the stack (the layers take conda-forge's
+  1.88 → 1.90 migration early); built against the global pinning's 1.88, it made
+  `cmssw-reco-objects` unsolvable.
+- The XML schemas go to `share/cms-l1t-utm`, and an activation script sets `UTM_XSD_DIR`, which
+  tmTable needs to read a menu. The SCRAM tool file sets the same for `cmsenv`. The test reads
+  the example menu from utm's own tests through all five libraries.
+
+#### Where the new packages went: into the existing layers, not a new one
+
+Unblocking utm makes 52 more packages buildable (1196 TU), plus the plugins of 23 packages
+the layers had built src-only. The obvious move, a new layer on top, cannot build the latter:
+a package's plugins can only be built in the layer that owns the package. Moving those
+packages up does not work either, because the dependency graph does not see python.
+`RecoLocalMuon_cff` (in `cmssw-reco-objects`) imports `RecoLocalMuon.RPCRecHit`,
+`RecoLocalTracker/SiPixelClusterizer` (in `cmssw-reco`) imports `CondTools.SiPixel`, and
+`Configuration/StandardSequences` imports `EventFilter.GctRawToDigi` and
+`SimGeneral.DataMixingModule`.
+
+So each new package went into the lowest existing layer its dependencies allow:
+
+- **`cmssw-reco-objects` (+26):**
+  - `CondFormats/L1TObjects`, `CondFormats/RPCObjects`, `DataFormats/RPCDigi`;
+  - RPC unpacking and calibration;
+  - the legacy L1 unpackers and emulator (GCT, RCT, GMT, GT, the RPC trigger) with their
+    configuration producers;
+  - `CondTools/L1Trigger`.
+
+  Four of its src-only packages now have plugins too: `RecoLocalMuon/RPCRecHit`,
+  `EventFilter/GctRawToDigi`, `EventFilter/RctRawToDigi` and `L1Trigger/TextToDigi`.
+- **`cmssw-sim-dqm` (+26):**
+  - the Stage-2 L1 emulator (calorimeter, the barrel and overlap muon track finders, TwinMux);
+    it needs `DataFormats/L1TCalorimeter`, which lives in this layer;
+  - the conddb library `CondCore/Utilities`, and its payload inspectors;
+  - RPC DQM, validation and digitisation.
+
+  Nine of its src-only packages now have plugins too, among them `SimGeneral/DataMixingModule`
+  and `CondTools/SiStrip`.
+
+`cmssw-fwlite` to `cmssw-reco` are unchanged, so they did not have to be rebuilt. Only 45 TU of
+what utm makes reachable are left out:
+
+- the payload inspectors of the seven CondCore packages in `cmssw-conditions`, because
+  `CondCore/Utilities` includes the payload headers of every CondFormats package and so can
+  only be built at the top;
+- `CondTools/RunInfo` and `L1Trigger/L1TZDC`, which are imported from python lower down.
+
+The result is **1179 packages, about 11.0k TU, 72%**, which is what `reach.py` predicted.
+
+HLTrigger/HLTcore is still out. The notes said it needed utm; it does, but it also needs
+`L1Trigger/L1TGlobal`, and that needs the L1 ML models (AXOL1TL, hls4ml). Those are now the
+biggest step on the ladder (72% → 86%).
+
+#### Two analysis fixes
+
+- **`include_graph.py` reads only the `bin/` files CMS compiles.** `CondCore/ESSources/bin` has
+  a dead `CondDataProxy_t.cpp`, written against the long-gone DBCommon API, which made
+  ESSources' plugins look as though they needed CondCore/Utilities.
+- **`reach.py` no longer has `utm` in `BLOCKED`,** with the assumption spelled out where it used
+  to be. Its "today" row is now 72%.
+
+#### macOS
+
+Two libc++ problems, both in the new L1 packages, in patch 0005 of `cmssw-reco-objects`:
+
+- `L1Trigger/GlobalMuonTrigger` keeps its shared configuration in a
+  `std::atomic<std::shared_ptr>`, which libc++ does not implement. It is set once, by the
+  first instance, so `std::call_once` does the same on every platform.
+- `L1Trigger/RPCTrigger` constructs a map iterator from `nullptr` (the same fix as before).
+
+#### Results
+
+A linux-64 run was lost to the out-of-memory killer while three builds shared the machine;
+two at a time is the limit. `cmssw-toolbox` 16, `cms-l1t-utm` 0, `cmssw-reco-objects` 1 and
+`cmssw-sim-dqm` 1, from the same recipe revision on every platform:
+
+| | linux-aarch64 | linux-64 (emulated) | osx-arm64 |
+|---|---|---|---|
+| `cmssw-reco-objects` | 2544 s, 993 libraries (was 955) | 5210 s, 993 | 9262 s, 996 |
+| `cmssw-sim-dqm` | 2788 s, 1538 libraries (was 1400) | 7069 s, 1538 | 12352 s, 1531 |
+
+macOS has seven fewer libraries in `cmssw-sim-dqm` for the same reason as before
+(`skip-osx.txt`).
+
+Both tests now also check the new plugins: the RPC and legacy L1 unpackers, whose cfis import
+ones generated from the plugins' parameter descriptions; the RPC rechits; the Stage-2 emulator;
+RPC DQM; the mixing module; and conddb's `EmptyIOVSource`.

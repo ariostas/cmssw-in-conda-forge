@@ -8,7 +8,7 @@ time does.
 
     python3 cmssw-notes/analysis/scripts/reach.py            # the ladder of scenarios
     python3 cmssw-notes/analysis/scripts/reach.py --layers 1500 \
-        --scenario "geometry (dd4hep),L1 menu (unlicensed utm)"
+        --scenario "ML runtimes,L1 ML models"
 
 Reads `_work/pkgs.json` (from depgraph.py) and the release's compile_commands.json.
 """
@@ -48,7 +48,10 @@ BLOCKED = {
     #
     # dd4hep-geant4 (DDG4) stays blocked until conda-forge's dd4hep is confirmed to ship it.
     "dd4hep-geant4": "simulation (geant4)",
-    "utm": "L1 menu (unlicensed utm)",
+    # utm is NOT blocked any more, on an ASSUMPTION (2026-09-26): that its authors will release
+    # it under Apache-2.0. They have not; it still has no licence (see recipes/cms-l1t-utm and
+    # the open item in PLAN.md). Put it back here if they decline:
+    #   "utm": "L1 menu (unlicensed utm)",
     # g4hepem and adept are genuinely absent from conda-forge.
     "g4hepemcore": "simulation (geant4)",
     "g4hepemstatic": "simulation (geant4)",
@@ -141,7 +144,6 @@ PATCHED_USES = {
 
 # The order the ladder unblocks them in: cheapest and most valuable first.
 LADDER = [
-    "L1 menu (unlicensed utm)",
     "ML runtimes",
     "L1 ML models",
     "small unpackaged",

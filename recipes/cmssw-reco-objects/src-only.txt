@@ -44,28 +44,31 @@ RecoTICL/Configuration
 RecoTauTag/Configuration
 
 # Packages whose own library builds but whose plugins need something blocked, directly or
-# through a header they include (analysis/scripts/include_graph.py): mostly the unlicensed
-# utm, through the L1 trigger and HLTrigger/HLTcore, and ML runtimes. --src-only is all or
-# nothing per package, so all of their plugins go.
+# through a header they include (analysis/scripts/include_graph.py): mostly the L1 ML models
+# (HLTrigger/HLTcore needs L1Trigger/L1TGlobal, which needs AXOL1TL and hls4ml), and ML
+# runtimes. --src-only is all or nothing per package, so all of their plugins go.
 CalibCalorimetry/EcalTPGTools
 CalibTracker/SiPixelQuality
-CondTools/RunInfo
-EventFilter/GctRawToDigi
-EventFilter/RctRawToDigi
+EventFilter/L1TRawToDigi
 JetMETCorrections/Type1MET
 L1Trigger/L1CaloTrigger
 L1Trigger/L1THGCalUtilities
-L1Trigger/L1TZDC
 L1Trigger/Phase2L1GT
-L1Trigger/TextToDigi
 RecoBTag/ONNXRuntime
 RecoEgamma/EgammaHLTProducers
 RecoEgamma/EgammaIsolationAlgos
 RecoEgamma/EgammaTools
 RecoLocalCalo/HGCalRecProducers
-RecoLocalMuon/RPCRecHit
 RecoLuminosity/LumiProducer
 RecoParticleFlow/PFSimProducer
+
+# Their plugins could be built one layer up, but the packages cannot move there: python in
+# this layer imports them (L1Trigger/Configuration, RecoLocalMuon's and the PPS
+# configuration). CondTools/RunInfo's need the conddb library, CondCore/Utilities, which
+# includes the payload headers of every CondFormats package; L1Trigger/L1TZDC's need
+# L1Trigger/L1TCalorimeter.
+CondTools/RunInfo
+L1Trigger/L1TZDC
 
 # Python only, for the local reconstruction configuration: ecalRecHit_cfi, the HCAL and DT
 # rechit fragments and others import its embedding customisations. Its plugins need pythia8

@@ -15,7 +15,7 @@ RECIPES=("$@")
 if [ ${#RECIPES[@]} -eq 0 ]; then
   RECIPES=(recipes/cms-scram recipes/cmssw-toolbox recipes/alpaka
            recipes/hls-arbitrary-precision-types cmssw-notes/feedstock-changes/cms-md5
-           recipes/frontier-client recipes/coral recipes/classlib
+           recipes/frontier-client recipes/coral recipes/classlib recipes/cms-l1t-utm
            recipes/cmssw-fwlite recipes/cmssw-framework recipes/cmssw-conditions
            recipes/cmssw-geometry recipes/mille recipes/gbl recipes/cmssw-reco
            recipes/cmssw-reco-objects recipes/cmssw-sim-dqm recipes/cmssw-devel)

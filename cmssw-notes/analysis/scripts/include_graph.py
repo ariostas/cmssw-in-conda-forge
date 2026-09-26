@@ -57,6 +57,17 @@ def main():
                     stack.append(target)
         return out
 
+    # bin/ directories keep sources that no BuildFile names any more (CondCore/ESSources/bin
+    # has a CondDataProxy_t.cpp written against the long-gone DBCommon API), so for bin/ only
+    # what CMS actually compiled counts. src/ and plugins/ are walked in full: their BuildFiles
+    # take every file in the directory, and the .cu files are not in compile_commands.json.
+    compiled = {
+        os.path.relpath(e["file"], "src")
+        for e in json.load(
+            open(os.path.join(os.path.dirname(R), "compile_commands.json"))
+        )
+    }
+
     result = {}
     subs = sorted(d for d in os.listdir(R) if os.path.isdir(os.path.join(R, d)))
     for sub in subs:
@@ -69,8 +80,11 @@ def main():
                     for n in files:
                         if n.endswith((".cc", ".cpp", ".c", ".cu")):
                             f = os.path.join(root, n)
-                            if not any(m in f for m in PATCHED_OUT):
-                                roots.append(f)
+                            if any(m in f for m in PATCHED_OUT):
+                                continue
+                            if kind == "bin" and os.path.relpath(f, R) not in compiled:
+                                continue
+                            roots.append(f)
                 found = reach_from(roots)
                 found.discard(name)
                 if found:

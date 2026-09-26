@@ -1,0 +1,98 @@
+diff --git a/config/mfCommonDefs.mk b/config/mfCommonDefs.mk
+index 0fbd145..740bcd7 100644
+--- a/config/mfCommonDefs.mk
++++ b/config/mfCommonDefs.mk
+@@ -20,6 +20,15 @@ MKDEPEND = c++ -MMD -MP
+ RM = rm -f
+ TOUCH = touch
+ 
++# shared libraries: macOS names them .dylib, and records an install name in them
++ifeq ($(shell uname -s),Darwin)
++SOEXT = dylib
++SONAME_FLAGS = -Wl,-install_name,@rpath/$(LIBRARY)
++else
++SOEXT = so
++SONAME_FLAGS = -Wl,-soname,$(LIBRARY)
++endif
++
+ # temp
+ GARBAGE = core* *.o *~ *.d *.log a.out gmon.out
+ 
+diff --git a/config/mfRules.mk b/config/mfRules.mk
+index a8ac64c..7755023 100644
+--- a/config/mfRules.mk
++++ b/config/mfRules.mk
+@@ -8,7 +8,7 @@ _DEPS = $(SRCS:.cc=.d)
+ all: $(LIBRARY) $(PROGRAMS) _all
+ 
+ $(LIBRARY): $(_OBJS)
+-	$(AR) -o $@ $^ $(LIBDIR) $(LIBS)
++	$(AR) -o $@ $^ $(SONAME_FLAGS) $(LIBDIR) $(LIBS)
+ 
+ $(PROGRAMS): %: %.o
+ 	$(CXX) -o $@ $(CXXFLAGS) $(CPPFLAGS) $(LIBDIR) $< $(LIBS)
+diff --git a/tmEventSetup/Makefile.default b/tmEventSetup/Makefile.default
+index 2c16bae..2b4064e 100644
+--- a/tmEventSetup/Makefile.default
++++ b/tmEventSetup/Makefile.default
+@@ -2,7 +2,7 @@ include ../config/mfCommonDefs.mk
+ 
+ PACKAGE = tmEventSetup
+ VERSION = 0.14.1
+-LIBRARY = libtmeventsetup.so
++LIBRARY = libtmeventsetup.$(SOEXT)
+ 
+ # install prefix
+ PREFIX ?= ..
+diff --git a/tmGrammar/Makefile.default b/tmGrammar/Makefile.default
+index b477d83..498e9c5 100644
+--- a/tmGrammar/Makefile.default
++++ b/tmGrammar/Makefile.default
+@@ -2,7 +2,7 @@ include ../config/mfCommonDefs.mk
+ 
+ PACKAGE = tmGrammar
+ VERSION = 0.14.1
+-LIBRARY = libtmgrammar.so
++LIBRARY = libtmgrammar.$(SOEXT)
+ 
+ # install prefix
+ PREFIX ?= ..
+diff --git a/tmTable/Makefile.default b/tmTable/Makefile.default
+index b97151c..dabc3d4 100644
+--- a/tmTable/Makefile.default
++++ b/tmTable/Makefile.default
+@@ -2,7 +2,7 @@ include ../config/mfCommonDefs.mk
+ 
+ PACKAGE = tmTable
+ VERSION = 0.14.1
+-LIBRARY = libtmtable.so
++LIBRARY = libtmtable.$(SOEXT)
+ 
+ # install prefix
+ PREFIX ?= ..
+diff --git a/tmUtil/Makefile.default b/tmUtil/Makefile.default
+index fbaef7e..9867478 100644
+--- a/tmUtil/Makefile.default
++++ b/tmUtil/Makefile.default
+@@ -2,7 +2,7 @@ include ../config/mfCommonDefs.mk
+ 
+ PACKAGE = tmUtil
+ VERSION = 0.14.1
+-LIBRARY = libtmutil.so
++LIBRARY = libtmutil.$(SOEXT)
+ 
+ # install prefix
+ PREFIX ?= ..
+diff --git a/tmXsd/Makefile.default b/tmXsd/Makefile.default
+index aebfed2..3d6c790 100644
+--- a/tmXsd/Makefile.default
++++ b/tmXsd/Makefile.default
+@@ -2,7 +2,7 @@ include ../config/mfCommonDefs.mk
+ 
+ PACKAGE = tmXsd
+ VERSION = 0.14.1
+-LIBRARY = libtmxsd.so
++LIBRARY = libtmxsd.$(SOEXT)
+ 
+ # install prefix
+ PREFIX ?= ..

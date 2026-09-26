@@ -7,6 +7,12 @@
 #   python3 cmssw-notes/analysis/scripts/reach.py --layers 5000 --dump 1
 # once cmssw-reco-objects is in reach.py's SHIPPED: the remainder of the reachable release,
 # which is too varied to be chosen by subsystem. Then close it with includes.py.
+#
+# The L1 trigger menu library (cms-l1t-utm) is used on an ASSUMPTION: that its authors will
+# release it under Apache-2.0. It has no licence yet (see recipes/cms-l1t-utm). What it
+# brought into this layer (2026-09-26) is the Stage-2 L1 emulator (calorimeter, muon
+# track finders), the RPC digitiser, DQM and validation, and the conddb tools
+# (CondCore/Utilities) with the payload inspectors that could move with them.
 Alignment/APEEstimation
 Alignment/CommonAlignmentMonitor
 Alignment/CommonAlignmentProducer
@@ -36,11 +42,15 @@ CondCore/AlignmentPlugins
 CondCore/CondHDF5ESSource
 CondCore/GeometryPlugins
 CondCore/HcalPlugins
+CondCore/L1TPlugins
 CondCore/MLObjectsPlugins
 CondCore/Modules
 CondCore/PCLConfigPlugins
+CondCore/RPCPlugins
 CondCore/SiPhase2TrackerPlugins
 CondCore/SiPixelPlugins
+CondCore/SiStripPlugins
+CondCore/Utilities
 CondFormats/HcalMapping
 CondFormats/MLObjects
 CondFormats/PCLConfig
@@ -53,8 +63,10 @@ CondTools/Geometry
 CondTools/HLT
 CondTools/IntegrationTest
 CondTools/JetMET
+CondTools/L1TriggerExt
 CondTools/MLObjects
 CondTools/O2OFramework
+CondTools/RPC
 CondTools/SiPhase2Tracker
 CondTools/SiPixel
 CondTools/SiStrip
@@ -73,6 +85,7 @@ DQM/DTMonitorClient
 DQM/DataScouting
 DQM/EcalCommon
 DQM/EcalMonitorClient
+DQM/EcalMonitorTasks
 DQM/EcalPreshowerMonitorClient
 DQM/EcalPreshowerMonitorModule
 DQM/GEM
@@ -87,6 +100,9 @@ DQM/MuonMonitor
 DQM/PFTasks
 DQM/PhysicsObjectsMonitoring
 DQM/PixelLumi
+DQM/RCTMonitor
+DQM/RPCMonitorClient
+DQM/RPCMonitorDigi
 DQM/SiPixelHeterogeneous
 DQM/SiPixelMonitorClient
 DQM/SiPixelMonitorCluster
@@ -227,6 +243,16 @@ IORawData/SiPixelInputSources
 IgTools/IgProf
 JetMETAnalysis/Configuration
 JetMETAnalysis/METSkims
+L1Trigger/DTTrackFinder
+L1Trigger/HardwareValidation
+L1Trigger/L1TCaloLayer1
+L1Trigger/L1TCalorimeter
+L1Trigger/L1TCommon
+L1Trigger/L1TMuon
+L1Trigger/L1TMuonBarrel
+L1Trigger/L1TMuonOverlapPhase1
+L1Trigger/L1TMuonOverlapPhase2
+L1Trigger/L1TTwinMux
 L1TriggerOffline/L1Analyzer
 L1TriggerScouting/NanoAOD
 L1TriggerScouting/OnlineProcessing
@@ -327,7 +353,9 @@ SimMuon/CSCDigitizer
 SimMuon/Configuration
 SimMuon/DTDigitizer
 SimMuon/GEMDigitizer
+SimMuon/MCTruth
 SimMuon/Neutron
+SimMuon/RPCDigitizer
 SimPPS/Configuration
 SimPPS/DirectSimProducer
 SimPPS/PPSPixelDigiProducer
@@ -356,6 +384,7 @@ TopQuarkAnalysis/TopSkimming
 TopQuarkAnalysis/TopTools
 Utilities/RelMon
 Utilities/Testing
+Validation/CSCRecHits
 Validation/CTPPS
 Validation/CaloTowers
 Validation/CheckOverlap
@@ -367,12 +396,14 @@ Validation/EcalTriggerPrimitives
 Validation/EventGenerator
 Validation/Geometry
 Validation/GlobalHits
+Validation/GlobalRecHits
 Validation/HGCalValidation
 Validation/HcalDigis
 Validation/HcalRecHits
 Validation/L1T
 Validation/Mixing
 Validation/MtdValidation
+Validation/MuonCSCDigis
 Validation/MuonDTDigis
 Validation/MuonGEMDigis
 Validation/MuonGEMHits
@@ -381,6 +412,7 @@ Validation/MuonHits
 Validation/MuonIdentification
 Validation/MuonIsolation
 Validation/MuonME0Validation
+Validation/MuonRPCDigis
 Validation/MuonRPCGeometry
 Validation/Performance
 Validation/RPCRecHits

@@ -1,0 +1,106 @@
+# !!! ASSUMED LICENCE !!!
+# utm has no licence (2026-09-26). This recipe assumes that its authors will release it under
+# Apache-2.0, which they have NOT done; see ASSUMED-LICENSE.txt and the open item in PLAN.md.
+# It exists so that the CMSSW layers that need utm can be built and tested in the meantime.
+# Do not submit it to conda-forge until upstream has added a licence, and then replace
+# ASSUMED-LICENSE.txt with that file.
+context:
+  version: "0.14.1"
+  # the XSD runtime utm bundles in xsd/, whose licence files it does not include
+  xsd_version: "4.0.0"
+
+package:
+  # `utm` on conda-forge is an unrelated python package (UTM coordinates); the upstream
+  # project lives in the cms-l1t-utm GitLab group
+  name: cms-l1t-utm
+  version: ${{ version }}
+
+source:
+  - url: https://gitlab.cern.ch/cms-l1t-utm/utm/-/archive/utm_${{ version }}/utm-utm_${{ version }}.tar.gz
+    sha256: 25db7023b8ce19d9fb23e2644d21c26900079498b8bac60aad3ae7e2b6a0d629
+    patches:
+      # From cmsdist (utm-boost190): boost 1.69 made boost_system header-only, and 1.89
+      # removed the stub library.
+      - patches/0001-Do-not-link-boost_system.patch
+      # The Makefiles name every library lib*.so and give none of them a soname. On macOS that
+      # is the wrong extension, and without an install name the libraries reference each other
+      # by a bare relative file name that the loader cannot find.
+      - patches/0002-Shared-library-names-and-install-names-on-macOS.patch
+      # The bundled XSD 4.0.0 runtime takes clang for GCC 4.2 (clang defines __GNUC__ 4 and
+      # __GNUC_MINOR__ 2), so it turns its C++11 template aliases off and falls back to
+      # std::auto_ptr, which libc++ no longer has in C++17.
+      - patches/0003-XSD-runtime-recognise-clang-as-a-C-11-compiler.patch
+  - url: https://raw.githubusercontent.com/codesynthesis-com/xsd/${{ xsd_version }}/LICENSE
+    sha256: beb332b704475a2def75cf109b566d1e47456092f25d5c45cd47b1688aaed172
+    file_name: LICENSE
+    target_directory: xsd-license
+  - url: https://raw.githubusercontent.com/codesynthesis-com/xsd/${{ xsd_version }}/FLOSSE
+    sha256: 2512f0047c514b9543bb97fc5ca3799130d520a958228483c0c4109ff90cef87
+    file_name: FLOSSE
+    target_directory: xsd-license
+
+build:
+  number: 0
+  skip:
+    - win
+  script: build.sh
+
+requirements:
+  build:
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+    - make
+  host:
+    - libboost-devel
+    - xerces-c
+
+tests:
+  - package_contents:
+      lib:
+        - tmeventsetup
+        - tmgrammar
+        - tmtable
+        - tmutil
+        - tmxsd
+      include:
+        - tmEventSetup/tmEventSetup.hh
+        - tmGrammar/Algorithm.hh
+      files:
+        - share/cms-l1t-utm/menu.xsd
+        - share/cms-l1t-utm/xsd-type/complex-menu.xsd
+  - files:
+      recipe:
+        - test.cpp
+      source:
+        - tmXsd/test/menu.xml
+    requirements:
+      run:
+        - ${{ compiler('cxx') }}
+        - libboost-devel
+    script:
+      - ${CXX} ${CXXFLAGS} -std=c++17 -I${PREFIX}/include test.cpp -o utm-test ${LDFLAGS} -L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib -ltmeventsetup -ltmtable -ltmxsd -ltmgrammar -ltmutil
+      - ./utm-test tmXsd/test/menu.xml
+
+about:
+  homepage: https://gitlab.cern.ch/cms-l1t-utm/utm
+  summary: CMS Level-1 trigger menu library (utm)
+  description: |
+    The CMS Level-1 Global Trigger's menu library: reads the XML description of an L1 trigger
+    menu, parses its algorithm grammar and provides the data classes CMSSW's L1 trigger
+    emulator and conditions use (tmEventSetup).
+
+    ASSUMED LICENCE: utm has no licence. This package assumes it will be released under
+    Apache-2.0, which has not happened; see ASSUMED-LICENSE.txt. The bundled CodeSynthesis XSD
+    runtime is GPL-2.0 with the FLOSS exception, which lets it be distributed as part of an
+    Apache-2.0 work.
+  # LicenseRef: the Apache-2.0 part is an assumption, not a licence upstream has granted
+  license: LicenseRef-ASSUMED-Apache-2.0 AND GPL-2.0-only
+  license_file:
+    - ASSUMED-LICENSE.txt
+    - xsd-license/LICENSE
+    - xsd-license/FLOSSE
+  repository: https://gitlab.cern.ch/cms-l1t-utm/utm
+
+extra:
+  recipe-maintainers:
+    - ariostas

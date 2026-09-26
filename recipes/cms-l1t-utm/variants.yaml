@@ -1,0 +1,7 @@
+# conda-forge is migrating boost 1.88 -> 1.90 (migrations/libboost190.yaml in the pinning), and
+# the CMSSW layers that use this library take the migration early (see their variants.yaml),
+# so this has to be built against the same boost. Drop this once the global pinning moves.
+libboost_devel:
+  - "1.90"
+libboost_headers:
+  - "1.90"

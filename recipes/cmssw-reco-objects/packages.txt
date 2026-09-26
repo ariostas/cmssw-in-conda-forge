@@ -15,10 +15,19 @@
 # EcalSimProducers and TauAnalysis/MCEmbeddingTools (the ECAL rechit fragments import them).
 #
 # Left out because they cannot be built: the MET producers, whose beam-halo code includes
-# L1Trigger/CSCTrackFinder and so needs the unlicensed `utm`; most of the L1 emulator, for
-# the same reason; and whatever needs TensorFlow or the Triton client (RecoEcal/
-# EgammaClusterAlgos, and with it the PF superclusters). Undeclared includes count as
-# dependencies here: reach.py merges analysis/scripts/include_graph.py's output.
+# L1Trigger/CSCTrackFinder and so needs the L1 ML models; the Phase-2 and Stage-2 parts of the
+# L1 emulator, for the same reason or because they need cmssw-sim-dqm's L1 data formats; and
+# whatever needs TensorFlow or the Triton client (RecoEcal/EgammaClusterAlgos, and with it
+# the PF superclusters). Undeclared includes count as dependencies here: reach.py merges
+# analysis/scripts/include_graph.py's output.
+#
+# The L1 trigger menu library (cms-l1t-utm) is used on an ASSUMPTION: that its authors will
+# release it under Apache-2.0. It has no licence yet (see recipes/cms-l1t-utm). The packages
+# it brought in (2026-09-26) are the L1 conditions formats, RPC data formats, unpacking and
+# rechits, the legacy L1 unpackers and emulator (GCT, RCT, GMT, GT, RPC trigger) and their
+# configuration producers: every package utm makes buildable whose dependencies are all in
+# this layer or below, apart from the DQM, validation and conditions-tool ones, which went to
+# cmssw-sim-dqm with the rest of their subsystems.
 Alignment/Geners
 CalibCalorimetry/CaloMiscalibTools
 CalibCalorimetry/CaloTPG
@@ -41,6 +50,7 @@ CalibMuon/CSCCalibration
 CalibMuon/Configuration
 CalibMuon/DTCalibration
 CalibMuon/DTDigiSync
+CalibMuon/RPCCalibration
 CalibPPS/AlignmentGlobal
 CalibPPS/AlignmentRelative
 CalibPPS/ESProducers
@@ -65,7 +75,10 @@ CalibTracker/SiStripQuality
 Calibration/Tools
 CondFormats/EcalCorrections
 CondFormats/HGCalObjects
+CondFormats/L1TObjects
+CondFormats/RPCObjects
 CondTools/DT
+CondTools/L1Trigger
 CondTools/RunInfo
 Configuration/AlCa
 Configuration/Applications
@@ -96,6 +109,7 @@ DataFormats/L1ScoutingRawData
 DataFormats/L1TCalorimeterPhase2
 DataFormats/LTCDigi
 DataFormats/ProtonReco
+DataFormats/RPCDigi
 DataFormats/TCDS
 DataFormats/TotemReco
 EventFilter/CSCRawToDigi
@@ -114,13 +128,16 @@ EventFilter/GEMRawToDigi
 EventFilter/GctRawToDigi
 EventFilter/HGCalRawToDigi
 EventFilter/HcalRawToDigi
+EventFilter/L1GlobalTriggerRawToDigi
 EventFilter/L1ScoutingRawToDigi
+EventFilter/L1TRawToDigi
 EventFilter/L1TXRawToDigi
 EventFilter/LTCRawToDigi
 EventFilter/MTDRawToDigi
 EventFilter/OnlineMetaDataRawToDigi
 EventFilter/Phase2PixelRawToDigi
 EventFilter/Phase2TrackerRawToDigi
+EventFilter/RPCRawToDigi
 EventFilter/RawDataCollector
 EventFilter/RctRawToDigi
 EventFilter/ScalersRawToDigi
@@ -152,17 +169,35 @@ L1Trigger/DTTriggerPhase2
 L1Trigger/DTTriggerServerPhi
 L1Trigger/DTTriggerServerTheta
 L1Trigger/DTUtilities
+L1Trigger/GlobalCaloTrigger
+L1Trigger/GlobalMuonTrigger
+L1Trigger/GlobalTrigger
+L1Trigger/GlobalTriggerAnalyzer
 L1Trigger/L1CaloTrigger
+L1Trigger/L1ExtraFromDigis
 L1Trigger/L1GctAnalyzer
 L1Trigger/L1TGEM
 L1Trigger/L1THGCalUtilities
+L1Trigger/L1TMuonOverlap
 L1Trigger/L1TZDC
 L1Trigger/Phase2L1GT
 L1Trigger/Phase2L1Taus
+L1Trigger/RPCTechnicalTrigger
+L1Trigger/RPCTrigger
+L1Trigger/RegionalCaloTrigger
+L1Trigger/Skimmer
 L1Trigger/TextToDigi
+L1TriggerConfig/CSCTFConfigProducers
 L1TriggerConfig/DTTPGConfig
 L1TriggerConfig/DTTPGConfigProducers
+L1TriggerConfig/DTTrackFinder
+L1TriggerConfig/GMTConfigProducers
+L1TriggerConfig/GctConfigProducers
 L1TriggerConfig/L1CSCTPConfigProducers
+L1TriggerConfig/L1GeometryProducers
+L1TriggerConfig/L1ScalesProducers
+L1TriggerConfig/RCTConfigProducers
+L1TriggerConfig/RPCTriggerConfig
 L1TriggerScouting/Utilities
 PhysicsTools/CondLiteIO
 PhysicsTools/ONNXRuntime

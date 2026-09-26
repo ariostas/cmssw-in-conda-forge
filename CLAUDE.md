@@ -20,6 +20,8 @@ first, and add to its progress log (section 6) when something significant is lea
     CMSSW and builds with the same toolbox.
   - `mille`, `gbl`, `classlib`: small externals CMSSW needs that conda-forge lacks (track
     refitting for alignment; `classlib` is CMS's socket/IO library, used by DQM).
+  - `cms-l1t-utm`: the L1 trigger menu library (`utm`; the name `utm` is taken on conda-forge).
+    It has **no licence**; the recipe assumes Apache-2.0 (see below).
   - The CMSSW layers, each built on the previous one and all installed into **one** release
     directory: `cmssw-fwlite` (the base release) → `cmssw-framework` (`cmsRun`, IOPool,
     services, storage) → `cmssw-conditions` (CondCore/CondFormats) → `cmssw-geometry`
@@ -200,9 +202,15 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
 - The CMSSW 20_1 data formats use `io_v1` namespaces with `using` aliases (e.g. `pat::Muon`). FWLite
   `Handle`s and TClass lookups need the `io_v1` name.
 - Two dependencies have **no license** and cannot go to conda-forge until that is resolved:
-  - `utm` (CMS L1 trigger menu). It blocks `CondFormats/L1TObjects`, and through it
+  - `utm` (CMS L1 trigger menu). It is needed by `CondFormats/L1TObjects`, and through it
     `CondCore/Utilities` (the `conddb` tools), `DataFormats/RPCDigi`, the L1 unpackers and the
     `L1Trigger/*` emulator, so it is on the critical path for reconstruction from RAW.
+    **Since 2026-09-26 it is packaged (`recipes/cms-l1t-utm`) and used by `cmssw-reco-objects`
+    and `cmssw-sim-dqm` on the ASSUMPTION that its authors will release it under Apache-2.0.
+    They have not.** The recipe says so in its licence file (`ASSUMED-LICENSE.txt`) and its
+    `LicenseRef-ASSUMED-Apache-2.0` licence; keep it that way, and do not submit it or the two
+    layers until upstream adds a real licence. If they decline, put `utm` back in `reach.py`'s
+    `BLOCKED` and take its packages out of those two layers.
   - `coral` (the LCG relational abstraction layer, needed for conditions). Neither the CMS fork
     nor the upstream LCG repository has a license file or license headers.
 - macOS: `DataFormats/Math/interface/SIMDVec.h` enables the SIMD geometry vectors only when

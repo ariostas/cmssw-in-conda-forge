@@ -63,24 +63,17 @@ Validation/TrackerConfiguration
 
 # Packages whose own library builds but whose plugins need something blocked, directly or
 # through a header they include. Most of them reach HLTrigger/HLTcore, whose library needs
-# the L1 trigger menu and so the unlicensed utm; for many the only thing they want from it is
-# HLTrigger/HLTcore/interface/defaultModuleLabel.h. The rest need generators (pythia6,
-# photospp), CMS's Geant4 extensions (SimG4CMS), Fireworks, or the conditions tools behind
-# CondCore/Utilities (utm again).
+# L1Trigger/L1TGlobal and so the L1 ML models (AXOL1TL, hls4ml); for many the only thing they
+# want from it is HLTrigger/HLTcore/interface/defaultModuleLabel.h. The rest need ML runtimes,
+# generators (pythia6, photospp), CMS's Geant4 extensions (SimG4CMS) or Fireworks.
 Alignment/CommonAlignmentProducer
 Alignment/OfflineValidation
 Calibration/EcalAlCaRecoProducers
 Calibration/HcalAlCaRecoProducers
 Calibration/HcalCalibAlgos
 Calibration/IsolatedParticles
-Calibration/TkAlCaRecoProducers
 CaloOnlineTools/EcalTools
-CondCore/AlignmentPlugins
-CondCore/HcalPlugins
-CondCore/PCLConfigPlugins
-CondCore/SiPixelPlugins
 CondFormats/PCLConfig
-CondTools/SiStrip
 DPGAnalysis/MuonTools
 DPGAnalysis/Phase2L1TNanoAOD
 DPGAnalysis/SiStripTools
@@ -116,6 +109,7 @@ HLTrigger/btau
 HLTrigger/special
 HLTriggerOffline/Higgs
 HLTriggerOffline/Scouting
+L1Trigger/L1TCaloLayer1
 MuonAnalysis/MomentumScaleCalibration
 OnlineDB/SiStripO2O
 PhysicsTools/BPHNano
@@ -126,12 +120,9 @@ RecoML/AnomalyDetection
 SimCalorimetry/HGCalAssociatorProducers
 SimG4Core/PrintGeomInfo
 SimGeneral/CaloAnalysis
-SimGeneral/DataMixingModule
 SimPPS/PPSSimTrackProducer
 Validation/EcalDigis
 Validation/HGCalValidation
-Validation/MuonRPCGeometry
-Validation/MuonME0Validation
 
 # Its plugins include xrootd's XrdPosix/XrdPosixExtern.hh, and xrootd 6's XrdSys/XrdSysStatx.hh
 # uses statx whenever __linux__ is defined, which glibc declares only from 2.28. The layers

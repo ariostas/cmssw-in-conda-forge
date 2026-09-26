@@ -1,0 +1,111 @@
+diff --git a/L1Trigger/GlobalMuonTrigger/interface/L1MuGlobalMuonTrigger.h b/L1Trigger/GlobalMuonTrigger/interface/L1MuGlobalMuonTrigger.h
+index 4e7b2bb33..f012401c5 100644
+--- a/L1Trigger/GlobalMuonTrigger/interface/L1MuGlobalMuonTrigger.h
++++ b/L1Trigger/GlobalMuonTrigger/interface/L1MuGlobalMuonTrigger.h
+@@ -18,6 +18,7 @@
+ //---------------
+ 
+ #include <memory>
++#include <mutex>
+ 
+ //----------------------
+ // Base Class Headers --
+@@ -100,7 +101,7 @@ public:
+   L1MuGMTReadoutRecord* currentReadoutRecord() const { return m_ReadoutRingbuffer.back(); };
+ 
+   /// for debug: return the debug block (in order to fill it)
+-  L1MuGMTDebugBlock* DebugBlockForFill() const { return m_db.load().get(); };
++  L1MuGMTDebugBlock* DebugBlockForFill() const { return m_db.get(); };
+ 
+ private:
+   L1MuGMTPSB* m_PSB;
+@@ -116,9 +117,13 @@ private:
+   bool m_writeLUTsAndRegs;
+   bool m_sendMipIso;
+ 
+-  static std::atomic<std::shared_ptr<L1MuGMTConfig>> m_config;
++  // Shared by all instances and set once, by the first one constructed. std::call_once
++  // rather than std::atomic<std::shared_ptr>, which libc++ does not implement.
++  static std::shared_ptr<L1MuGMTConfig> m_config;
++  static std::once_flag m_configOnce;
+ 
+-  static std::atomic<std::shared_ptr<L1MuGMTDebugBlock>> m_db;
++  static std::shared_ptr<L1MuGMTDebugBlock> m_db;
++  static std::once_flag m_dbOnce;
+ 
+   unsigned long long m_L1MuGMTScalesCacheID;
+   unsigned long long m_L1MuTriggerScalesCacheID;
+diff --git a/L1Trigger/GlobalMuonTrigger/src/L1MuGlobalMuonTrigger.cc b/L1Trigger/GlobalMuonTrigger/src/L1MuGlobalMuonTrigger.cc
+index b1197831e..957866551 100644
+--- a/L1Trigger/GlobalMuonTrigger/src/L1MuGlobalMuonTrigger.cc
++++ b/L1Trigger/GlobalMuonTrigger/src/L1MuGlobalMuonTrigger.cc
+@@ -71,11 +71,7 @@ L1MuGlobalMuonTrigger::L1MuGlobalMuonTrigger(const edm::ParameterSet& ps) {
+   m_ExtendedCands.reserve(20);
+ 
+   // set configuration parameters
+-  if (!m_config.load()) {
+-    auto temp = std::make_shared<L1MuGMTConfig>(ps);
+-    std::shared_ptr<L1MuGMTConfig> expected = nullptr;
+-    m_config.compare_exchange_strong(expected, temp, std::memory_order_acq_rel, std::memory_order_acquire);
+-  }
++  std::call_once(m_configOnce, [&ps]() { m_config = std::make_shared<L1MuGMTConfig>(ps); });
+   m_writeLUTsAndRegs = ps.getUntrackedParameter<bool>("WriteLUTsAndRegs", false);
+ 
+   // build GMT
+@@ -122,12 +118,9 @@ L1MuGlobalMuonTrigger::L1MuGlobalMuonTrigger(const edm::ParameterSet& ps) {
+     edm::LogVerbatim("GMT_info") << "creating GMT Sorter";
+   m_Sorter = new L1MuGMTSorter(*this);  // barrel
+ 
+-  if (!m_db.load()) {
+-    auto config = m_config.load();
+-    auto temp = std::make_shared<L1MuGMTDebugBlock>(config->getBxMin(), config->getBxMax());
+-    std::shared_ptr<L1MuGMTDebugBlock> expected = nullptr;
+-    m_db.compare_exchange_strong(expected, temp, std::memory_order_acq_rel, std::memory_order_acquire);
+-  }
++  std::call_once(m_dbOnce, []() {
++    m_db = std::make_shared<L1MuGMTDebugBlock>(m_config->getBxMin(), m_config->getBxMax());
++  });
+   usesResource("L1MuGlobalMuonTrigger");
+   ///EventSetup Tokens
+   m_gmtScalesToken = esConsumes<L1MuGMTScales, L1MuGMTScalesRcd>();
+@@ -173,7 +166,7 @@ void L1MuGlobalMuonTrigger::produce(edm::Event& e, const edm::EventSetup& es) {
+   // configure from the event setup
+ 
+   unsigned long long L1MuGMTScalesCacheID = es.get<L1MuGMTScalesRcd>().cacheIdentifier();
+-  auto config = m_config.load();
++  auto config = m_config;
+   if (L1MuGMTScalesCacheID != m_L1MuGMTScalesCacheID) {
+     edm::ESHandle<L1MuGMTScales> gmtscales_h = es.getHandle(m_gmtScalesToken);
+     config->setGMTScales(gmtscales_h.product());
+@@ -259,7 +252,7 @@ void L1MuGlobalMuonTrigger::produce(edm::Event& e, const edm::EventSetup& es) {
+     delete (*irr);
+   m_ReadoutRingbuffer.clear();
+ 
+-  auto x_db = m_db.load();
++  auto x_db = m_db;
+   if (x_db)
+     x_db->reset();  // reset debug block
+ 
+@@ -453,5 +446,7 @@ std::unique_ptr<L1MuGMTReadoutCollection> L1MuGlobalMuonTrigger::getReadoutColle
+ 
+ // static data members
+ 
+-std::atomic<std::shared_ptr<L1MuGMTConfig>> L1MuGlobalMuonTrigger::m_config;
+-std::atomic<std::shared_ptr<L1MuGMTDebugBlock>> L1MuGlobalMuonTrigger::m_db;
++std::shared_ptr<L1MuGMTConfig> L1MuGlobalMuonTrigger::m_config;
++std::once_flag L1MuGlobalMuonTrigger::m_configOnce;
++std::shared_ptr<L1MuGMTDebugBlock> L1MuGlobalMuonTrigger::m_db;
++std::once_flag L1MuGlobalMuonTrigger::m_dbOnce;
+diff --git a/L1Trigger/RPCTrigger/interface/RPCStripsRing.h b/L1Trigger/RPCTrigger/interface/RPCStripsRing.h
+index dbbaa5c09..a41d93fe2 100644
+--- a/L1Trigger/RPCTrigger/interface/RPCStripsRing.h
++++ b/L1Trigger/RPCTrigger/interface/RPCStripsRing.h
+@@ -39,7 +39,7 @@ public:
+   typedef std::map<int, RPCStripsRing> TIdToRindMap;
+ 
+   struct TOtherConnStruct {
+-    TOtherConnStruct() : m_logplane(0), m_logplaneSize(0), m_it(nullptr) {}
++    TOtherConnStruct() : m_logplane(0), m_logplaneSize(0), m_it() {}
+     short m_logplane;
+     short m_logplaneSize;
+     TIdToRindMap::iterator m_it;

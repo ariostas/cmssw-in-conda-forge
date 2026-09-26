@@ -177,8 +177,8 @@ about:
     geometry that those need.
 
     Some plugins are left out because what they need is not packaged: the ones that run a
-    TensorFlow or PyTorch inference, and the dE/dx estimators, which reach the L1 trigger
-    menu through HLTrigger/HLTcore and so the unlicensed `utm`. conda-forge does have a
+    TensorFlow or PyTorch inference, and the dE/dx estimators, which reach the L1 trigger's
+    ML models through HLTrigger/HLTcore. conda-forge does have a
     libtensorflow_cc, but its C++ headers are incomplete and do not compile.
   license: Apache-2.0
   license_file: cmssw/LICENSE

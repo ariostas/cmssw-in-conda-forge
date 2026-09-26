@@ -170,31 +170,38 @@ unusable there; see [PLAN.md](PLAN.md).
 
   It needed two new externals, `gbl` and `mille`, the track-refitting libraries used by
   alignment. The plugins that run a TensorFlow or PyTorch inference are left out (see below).
-- **The rest of reconstruction and the DQM/validation stack build.** `cmssw-reco-objects` (257
+- **The rest of reconstruction and the DQM/validation stack build.** `cmssw-reco-objects` (283
   packages) adds unpacking of the detector's raw data, calorimeter and muon local
   reconstruction, electrons and photons, particle flow, jets and b-tagging; its test constructs
   all of them, particle flow included:
 
   ```
-  152 producers, 68 ES producers
+  155 producers, 68 ES producers
   local reconstruction configuration built
   ```
 
-  `cmssw-sim-dqm` (392 packages, 1400 libraries) adds data quality monitoring, validation,
+  `cmssw-sim-dqm` (418 packages, 1538 libraries) adds data quality monitoring, validation,
   digitisation, fast simulation, alignment and calibration workflows and analysis tools. They
   needed one new external, `classlib`, and tool files for protobuf, onnxruntime, xgboost, hdf5,
   lhapdf and others that conda-forge already has.
-- 21 CMSSW source patches in total, plus one to cmssw-config. About half are needed only for
+- **The L1 trigger, RPC and conddb, on an assumed licence.** The L1 trigger menu library `utm`
+  has no licence. It is packaged as `cms-l1t-utm` **on the assumption, not granted by its
+  authors, that it will be released under Apache-2.0**, and with it the two layers above gain
+  52 packages: the RPC chambers' formats, unpacking, rechits and digitisation, the legacy and
+  Stage-2 L1 emulator and unpackers, and the conddb tools. None of this can be submitted until
+  utm has a real licence.
+- 22 CMSSW source patches in total, plus one to cmssw-config. About half are needed only for
   macOS, and most of those fix code that only compiled because libstdc++ is more permissive
   than libc++. All are meant for upstream.
 
 ## Where this stands
 
 **Seven CMSSW layers build and pass their tests on all three platforms**, but nothing has been
-submitted to conda-forge yet. They hold 1127 of
-the release's 1358 packages: about 9.8k of its 15.3k translation units (excluding tests), or
-**64% of the build**. That is everything reachable with the externals that already work: what
-is left needs externals that are unlicensed, broken on conda-forge, or not packaged yet (below).
+submitted to conda-forge yet. They hold 1179 of
+the release's 1358 packages: about 11.0k of its 15.3k translation units (excluding tests), or
+**72% of the build**. 8 of those points depend on `utm`, which is used on an **assumed**
+licence (above); without it the figure is 64%. That is everything reachable: what is left
+needs externals that are broken on conda-forge or not packaged yet (below).
 "Reachable" counts the headers CMSSW includes without declaring them as dependencies; on the
 BuildFile graph alone the figure reads 63%, and two small patches (a dependency on `ktjet` that
 nothing uses, and TensorFlow for a single e/gamma component) add three points.
@@ -210,7 +217,7 @@ nothing uses, and TensorFlow for a single e/gamma component) add three points.
 - CMSSW compiles against conda-forge's toolchain and externals (it has built with three
   different ROOT versions), including clang and libc++ on macOS.
 - Build cost: about 7.6 CPU-s per translation unit measured end to end (including dictionaries,
-  install and tests), so about 21 CPU-hours per architecture for the whole 64%. CPU is not the
+  install and tests), so about 23 CPU-hours per architecture for the whole 72%. CPU is not the
   constraint.
 
 **Not proven yet** (roughly by risk)
@@ -219,10 +226,10 @@ nothing uses, and TensorFlow for a single e/gamma component) add three points.
    peak at 4.3 GB each, and a default conda-forge runner has 7 GB. The reco layer therefore
    builds with one job there: about 2.2 hours of its 6-hour limit, which works but leaves little
    room for heavier layers. The layer builds size their job count from available memory.
-2. **Externals beyond today's 64%**, cumulative in order: utm, the L1 trigger menu (72%,
-   unlicensed; through `HLTrigger/HLTcore` it also costs many plugins in every layer), the ML
-   runtimes (73%), the L1 ML models (86%), a few small unpackaged externals (90%), CMS's Geant4
-   extensions (90%) and the event generators (94%).
+2. **Externals beyond today's 72%**, cumulative in order: the ML runtimes (73%), the L1 ML
+   models (86%; through `L1Trigger/L1TGlobal` and `HLTrigger/HLTcore` they also cost many
+   plugins in every layer), a few small unpackaged externals (90%), CMS's Geant4 extensions
+   (90%) and the event generators (94%).
 3. **Data packages.** 8.6 GB of CMS data files (one repository is 2.9 GB) versus what
    conda-forge accepts. They are now the next thing in the way: the digitisers cannot even be
    configured without them, so nothing that simulates or reconstructs from RAW can run yet.
@@ -242,9 +249,11 @@ they gate conditions tooling and L1 reconstruction from RAW.
   fails on system headers for any user. ROOT 6.38 generates them from the active SDK. macOS can
   move back once conda-forge's 6.36.x carries that fix, or CMSSW moves to a newer ROOT.
 - Two dependencies have **no licence** and cannot go to conda-forge until that is resolved:
-  - [utm](https://gitlab.cern.ch/cms-l1t-utm/utm), the CMS L1 trigger menu library. It blocks
+  - [utm](https://gitlab.cern.ch/cms-l1t-utm/utm), the CMS L1 trigger menu library, needed by
     `CondFormats/L1TObjects` and through it the `conddb` tools, `DataFormats/RPCDigi`, the L1
-    unpackers and the L1 emulator.
+    unpackers and the L1 emulator. It is packaged here (`cms-l1t-utm`) and those packages are
+    built, on the **assumption that its authors will release it under Apache-2.0. They have
+    not.** The request has not been made yet.
   - `coral`, the LCG relational abstraction layer used for conditions access. It is built here
     and works, but neither the CMS fork nor the upstream repository has a licence file or
     licence headers.
@@ -278,7 +287,8 @@ they gate conditions tooling and L1 reconstruction from RAW.
 1. Submit the dependency recipes (`alpaka`, `hls-arbitrary-precision-types`, `mille`, `gbl`,
    `classlib`, `frontier-client`, and PRs to the `cms-md5` and `cpu_features` feedstocks for the missing
    platforms) and upstream the CMSSW patches; they gate everything else.
-2. Ask the utm and CORAL authors for a licence (pure lead time).
+2. Ask the utm and CORAL authors for a licence (pure lead time). utm is already used on an
+   assumed Apache-2.0 licence; if its authors choose otherwise, the 8 points it brings come out.
 3. The data packages, starting with those the digitisers and a RECO step read, so that a
    standard workflow can run end to end.
 4. Fix conda-forge's TensorFlow headers; then the ML runtimes, simulation and generators, and

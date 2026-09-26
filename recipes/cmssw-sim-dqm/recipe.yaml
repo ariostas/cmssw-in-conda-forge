@@ -42,7 +42,7 @@ source:
       - patches/0004-Build-on-macOS.patch
 
 build:
-  number: 0
+  number: 1
   skip:
     - win
     - osx and x86_64
@@ -152,6 +152,8 @@ requirements:
     - onnxruntime-cpp * *_cpu
     # boosted decision trees for photon identification (PhysicsTools/XGBoost)
     - libxgboost * cpu_*
+    # ASSUMED LICENCE: utm has none yet; see recipes/cms-l1t-utm
+    - cms-l1t-utm
     - xrootd
     # new in this layer
     # WebDAV/HTTP file access (FWStorage/DavixAdaptor)
@@ -186,6 +188,7 @@ requirements:
     - libprotobuf
     - onnxruntime-cpp * *_cpu
     - libxgboost * cpu_*
+    - cms-l1t-utm
     # new in this layer
     - davix
     - hdf5
@@ -204,6 +207,13 @@ tests:
       - edmPluginDump | grep -q DQMRootOutputModule
       - edmPluginDump | grep -q MultiTrackValidator
       - edmPluginDump | grep -q SiPixelDigitizer
+      # the Stage-2 L1 emulator, RPC DQM, pile-up mixing and the conddb tools, which need
+      # cms-l1t-utm (ASSUMED licence)
+      - edmPluginDump | grep -q L1TStage2Layer2Producer
+      - edmPluginDump | grep -q L1TMuonBarrelKalmanTrackProducer
+      - edmPluginDump | grep -q RPCMonitorDigi
+      - edmPluginDump | grep -q DataMixingModule
+      - edmPluginDump | grep -q EmptyIOVSource
       - cmsRun test/simdqm.py
     files:
       recipe:
@@ -218,9 +228,13 @@ about:
     and pile-up mixing, fast simulation, alignment and calibration workflows, conditions
     tools and analysis tools.
 
-    Plugins that need the HLT framework (HLTrigger/HLTcore), and through it the unlicensed L1
-    trigger menu library `utm`, are left out, as are those that need event generators or
-    CMS's own Geant4 extensions.
+    It also has the Stage-2 L1 trigger emulator, the RPC digitiser and DQM, and the conddb
+    tools (CondCore/Utilities). Those need the L1 trigger menu library (cms-l1t-utm), which
+    is used on the ASSUMPTION that it will be released under Apache-2.0: it has no licence yet.
+
+    Plugins that need the HLT framework (HLTrigger/HLTcore), and through it the L1 trigger's
+    ML models, are left out, as are those that need event generators or CMS's own Geant4
+    extensions.
   license: Apache-2.0
   license_file: cmssw/LICENSE
   repository: https://github.com/cms-sw/cmssw

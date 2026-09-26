@@ -1,6 +1,8 @@
 # The plugins/ of the CondCore payload registrations are the payload inspectors of the
-# conditions web tool, which need Oracle and utm; CondFormats/JetMETObjects/bin is a
-# diagnostic that needs ROOT's graphics libraries.
+# conditions web tool. They need CondCore/Utilities, the conddb library, which includes the
+# payload headers of every CondFormats package and so is built in cmssw-sim-dqm; some also
+# need Oracle. CondFormats/JetMETObjects/bin is a diagnostic that needs ROOT's graphics
+# libraries.
 CondCore/BTauPlugins
 CondCore/BaseKeyedPlugins
 CondCore/BasicCondPlugins

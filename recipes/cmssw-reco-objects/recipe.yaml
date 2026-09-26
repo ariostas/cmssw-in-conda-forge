@@ -41,9 +41,15 @@ source:
       #   default constructor libstdc++ adds; the standard (and libc++) only has the one taking
       #   a streambuf.
       - patches/0004-Build-with-libc-and-on-Apple-arm64.patch
+      # The L1 trigger packages that the L1 menu library brings in (2026-09-26), on libc++:
+      # - L1Trigger/GlobalMuonTrigger keeps its shared configuration in a
+      #   std::atomic<std::shared_ptr>, which libc++ does not implement; it is set once by the
+      #   first instance, so std::call_once does the same;
+      # - L1Trigger/RPCTrigger constructs a std::map iterator from nullptr.
+      - patches/0005-L1-trigger-build-with-libc.patch
 
 build:
-  number: 0
+  number: 1
   skip:
     - win
     - osx and x86_64
@@ -153,6 +159,10 @@ requirements:
     - onnxruntime-cpp * *_cpu
     # boosted decision trees for photon identification (PhysicsTools/XGBoost)
     - libxgboost * cpu_*
+    # The L1 trigger menu library, for the L1 conditions formats (CondFormats/L1TObjects) and
+    # everything above them: RPC formats, the L1 unpackers and emulator. ASSUMED LICENCE: utm
+    # has none yet; see recipes/cms-l1t-utm.
+    - cms-l1t-utm
   run:
     - cms-scram
     - cmssw-reco ==${{ version }}
@@ -174,6 +184,7 @@ requirements:
     - libprotobuf
     - onnxruntime-cpp * *_cpu
     - libxgboost * cpu_*
+    - cms-l1t-utm
   ignore_run_exports:
     from_package:
       - libclang
@@ -191,6 +202,12 @@ tests:
       - edmPluginDump | grep -q HBHEPhase1Reconstructor
       - edmPluginDump | grep -q CSCRecHitDProducer
       - edmPluginDump | grep -q DTRecHitProducer
+      # RPC and the legacy L1 trigger, which need cms-l1t-utm (ASSUMED licence)
+      - edmPluginDump | grep -q RPCUnpackingModule
+      - edmPluginDump | grep -q RPCRecHitProducer
+      - edmPluginDump | grep -q L1GlobalTriggerRawToDigi
+      - edmPluginDump | grep -q GctRawToDigi
+      - edmPluginDump | grep -qw L1GlobalTrigger
       - edmPluginDump | grep -q CaloTowersCreator
       - edmPluginDump | grep -q FastjetJetProducer
       - edmPluginDump | grep -q PFProducer
@@ -210,11 +227,15 @@ about:
     electrons and photons, particle flow, jet clustering and jet energy corrections,
     b-tagging and the calibration packages those read.
 
+    It also has the RPC chambers' data formats, unpacking and local reconstruction, and the
+    L1 trigger's conditions formats, legacy unpackers and emulator. Those need the L1 trigger
+    menu library (cms-l1t-utm), which is used on the ASSUMPTION that it will be released
+    under Apache-2.0: it has no licence yet.
+
     Left out for want of an external: the DeepSC superclustering and other models that need
     TensorFlow or the Triton inference client, whose conda-forge C++ headers are incomplete
-    or which are not packaged; and most of the L1 trigger emulator and unpackers, the MET
-    producers (whose beam-halo code includes the L1 CSC track finder) and the HLT-derived
-    plugins, which all reach the unlicensed `utm`.
+    or which are not packaged; and the MET producers (whose beam-halo code includes the L1
+    CSC track finder) and the HLT-derived plugins, which reach the L1 trigger's ML models.
   license: Apache-2.0
   license_file: cmssw/LICENSE
   repository: https://github.com/cms-sw/cmssw
