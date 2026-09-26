@@ -18,9 +18,28 @@ source:
       # Alignment/OfflineValidation calls boost::filesystem without naming the library in its
       # BuildFile; CMS gets it through their ROOT, conda-forge's does not link it.
       - patches/0002-Alignment-OfflineValidation-declare-boost-filesystem.patch
-      # Fit results sorted with a non-const operator<, which libc++'s sort cannot call on the
-      # const objects it compares (libstdc++ happens to accept it).
-      - patches/0003-TopQuarkAnalysis-const-comparison-operators-for-libc.patch
+      # Classes sorted with a non-const operator< (TopQuarkAnalysis fit results, the ECAL test
+      # beam hodoscope's tracks), which libc++'s sort cannot call on the const objects it
+      # compares (libstdc++ happens to accept it).
+      - patches/0003-Const-comparison-operators-for-libc.patch
+      # Code nothing at CMS compiles on macOS:
+      # - the macOS branch of HLTrigger/Timer's processor_model.cc declares `result` a second
+      #   time (and kept the NUL sysctl counts in the length);
+      # - DQMServices/FileIO uses `ulong`, a glibc typedef, for `unsigned long`;
+      # - DQMServices/StreamerIO and Validation/Geometry call unlink() without <unistd.h>,
+      #   which glibc pulls in.
+      # - HeavyFlavorAnalysis/RecoDecay and DetectorDescription/OfflineDBLoader declare map
+      #   iterators with a different key constness or comparator than the map they iterate,
+      #   which libc++ keeps distinct types;
+      # - DQM/EcalMonitorClient constructs a std::vector iterator from nullptr;
+      # - DQM/SiStripMonitorHardware includes <ext/algorithm>, a libstdc++ extension it does not use;
+      # - unqualified setiosflags(): libstdc++'s fmtflags is an enum in std, so argument-dependent
+      #   lookup finds std::setiosflags; libc++'s is an integer, so nothing does;
+      # - Alignment/OfflineValidation opens a std::ifstream on a boost::filesystem::path, which
+      #   only libstdc++ converts implicitly;
+      # - DQM/TrackerRemapper links libstdc++fs, which std::filesystem has not needed since
+      #   GCC 9 and which libc++ does not have.
+      - patches/0004-Build-on-macOS.patch
 
 build:
   number: 0

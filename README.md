@@ -45,9 +45,11 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
   never overwrite each other's files.
 - **Replace `cmsenv` with a conda activation script:** no SCRAM is needed at runtime.
 - **Pin one ROOT and one CLHEP version per CMSSW version.**
-- **Grow layer by layer:** FWLite first, then the framework, conditions, geometry and
-  reconstruction, all from `CMSSW_20_1_0_pre2`. Each layer is chosen by the subsystems it should
-  deliver plus exactly their dependencies, not by an even split of the code.
+- **Grow layer by layer:** FWLite first, then the framework, conditions, geometry, tracking,
+  the rest of reconstruction, and finally DQM, validation and simulation, all from
+  `CMSSW_20_1_0_pre2`. Each layer is chosen by the subsystems it should deliver plus exactly
+  their dependencies (including headers CMSSW includes without declaring them), not by an even
+  split of the code.
 
 ## Status
 
@@ -63,15 +65,19 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 | `coral` | [recipes/coral](recipes/coral) | ✅ | ✅ | ✅ |
 | `mille` (Millepede-II I/O) | [recipes/mille](recipes/mille) | ✅ | ✅ | ✅ |
 | `gbl` (General Broken Lines) | [recipes/gbl](recipes/gbl) | ✅ | ✅ | ✅ |
+| `classlib` (CMS socket/IO library, for DQM) | [recipes/classlib](recipes/classlib) | ✅ | ✅ | ✅ |
 | `cmssw-fwlite` | [recipes/cmssw-fwlite](recipes/cmssw-fwlite) | ✅ | ✅ | ✅ |
 | `cmssw-framework` (`cmsRun`) | [recipes/cmssw-framework](recipes/cmssw-framework) | ✅ | ✅ | ✅ |
 | `cmssw-conditions` | [recipes/cmssw-conditions](recipes/cmssw-conditions) | ✅ | ✅ | ✅ |
 | `cmssw-geometry` (DD4hep detector description) | [recipes/cmssw-geometry](recipes/cmssw-geometry) | ✅ | ✅ | ✅ |
 | `cmssw-reco` (tracking, vertexing, muons) | [recipes/cmssw-reco](recipes/cmssw-reco) | ✅ | ✅ | ✅ |
+| `cmssw-reco-objects` (RAW unpacking, calorimetry, e/gamma, particle flow, jets) | [recipes/cmssw-reco-objects](recipes/cmssw-reco-objects) | ✅ | ✅ | ✅ |
+| `cmssw-sim-dqm` (DQM, validation, digitisation, fast simulation) | [recipes/cmssw-sim-dqm](recipes/cmssw-sim-dqm) | ✅ | ✅ | ⏳ |
 | `cmssw-devel` (build your own packages) | [recipes/cmssw-devel](recipes/cmssw-devel) | ✅ | ✅ | ✅ |
 
 ✅ = builds locally with rattler-build (in Docker for Linux, natively for macOS) and passes the
-recipe tests. — = not needed: the existing feedstock already covers that platform.
+recipe tests. — = not needed: the existing feedstock already covers that platform. ⏳ = in
+progress.
 
 Every package now builds on all three platforms from the same sources. macOS builds against a
 **newer ROOT than the release uses** (6.40 instead of 6.36) because conda-forge's 6.36 is
@@ -165,17 +171,34 @@ unusable there; see [PLAN.md](PLAN.md).
 
   It needed two new externals, `gbl` and `mille`, the track-refitting libraries used by
   alignment. The plugins that run a TensorFlow or PyTorch inference are left out (see below).
-- 13 CMSSW source patches in total, plus one to cmssw-config, and most of them are needed only
-  for macOS. All are meant for upstream.
+- **The rest of reconstruction and the DQM/validation stack build.** `cmssw-reco-objects` (257
+  packages) adds unpacking of the detector's raw data, calorimeter and muon local
+  reconstruction, electrons and photons, particle flow, jets and b-tagging; its test constructs
+  all of them, particle flow included:
+
+  ```
+  152 producers, 68 ES producers
+  local reconstruction configuration built
+  ```
+
+  `cmssw-sim-dqm` (392 packages, 1400 libraries) adds data quality monitoring, validation,
+  digitisation, fast simulation, alignment and calibration workflows and analysis tools. They
+  needed one new external, `classlib`, and tool files for protobuf, onnxruntime, xgboost, hdf5,
+  lhapdf and others that conda-forge already has.
+- 21 CMSSW source patches in total, plus one to cmssw-config. About half are needed only for
+  macOS, and most of those fix code that only compiled because libstdc++ is more permissive
+  than libc++. All are meant for upstream.
 
 ## Where this stands
 
-**Five CMSSW layers build and pass their tests on all three platforms**, but nothing has been
-submitted to conda-forge yet. They hold 478 of the release's 1358 packages: 5.5k of its 15.3k
-translation units (excluding tests), or **36% of the build**. Another 27% is reachable with the
-externals that already work, so it is packaging work rather than dependency work; `reach.py`
-splits it into three more layers of up to 1500 units each (DQM, CalibTracker and CondTools;
-EventFilter, L1Trigger and PhysicsTools; Validation and the simulation remainders).
+**Seven CMSSW layers build and pass their tests**, on all three platforms except the last layer
+on macOS, which is in progress. Nothing has been submitted to conda-forge yet. They hold 1127 of
+the release's 1358 packages: about 9.8k of its 15.3k translation units (excluding tests), or
+**64% of the build**. That is everything reachable with the externals that already work: what
+is left needs externals that are unlicensed, broken on conda-forge, or not packaged yet (below).
+"Reachable" counts the headers CMSSW includes without declaring them as dependencies; on the
+BuildFile graph alone the figure reads 63%, and two small patches (a dependency on `ktjet` that
+nothing uses, and TensorFlow for a single e/gamma component) add three points.
 
 **Proven so far**
 
@@ -188,8 +211,8 @@ EventFilter, L1Trigger and PhysicsTools; Validation and the simulation remainder
 - CMSSW compiles against conda-forge's toolchain and externals (it has built with three
   different ROOT versions), including clang and libc++ on macOS.
 - Build cost: about 7.6 CPU-s per translation unit measured end to end (including dictionaries,
-  install and tests), so about 32 CPU-hours per architecture for everything reachable today. CPU
-  is not the constraint.
+  install and tests), so about 21 CPU-hours per architecture for the whole 64%. CPU is not the
+  constraint.
 
 **Not proven yet** (roughly by risk)
 
@@ -197,10 +220,13 @@ EventFilter, L1Trigger and PhysicsTools; Validation and the simulation remainder
    peak at 4.3 GB each, and a default conda-forge runner has 7 GB. The reco layer therefore
    builds with one job there: about 2.2 hours of its 6-hour limit, which works but leaves little
    room for heavier layers. The layer builds size their job count from available memory.
-2. **Externals beyond today's 63%**, in order: utm, the L1 trigger menu (70%, unlicensed), the ML
-   runtimes (75%), the L1 ML models (85%), a few small unpackaged externals (88%), simulation
-   with geant4 (90%) and the event generators (95%).
-3. 8.6 GB of external data packages (one is 2.9 GB) versus what conda-forge accepts.
+2. **Externals beyond today's 64%**, cumulative in order: utm, the L1 trigger menu (72%,
+   unlicensed; through `HLTrigger/HLTcore` it also costs many plugins in every layer), the ML
+   runtimes (73%), the L1 ML models (86%), a few small unpackaged externals (90%), CMS's Geant4
+   extensions (90%) and the event generators (94%).
+3. **Data packages.** 8.6 GB of CMS data files (one repository is 2.9 GB) versus what
+   conda-forge accepts. They are now the next thing in the way: the digitisers cannot even be
+   configured without them, so nothing that simulates or reconstructs from RAW can run yet.
 4. Maintenance: every ROOT/boost/python migration forces a coordinated rebuild of all layers, and
    upstream packages change under the stack. For example, fastjet split its headers into a new
    package mid-build, and that package cannot be installed next to lwtnn. This is what ended the
@@ -223,9 +249,20 @@ they gate conditions tooling and L1 reconstruction from RAW.
   - `coral`, the LCG relational abstraction layer used for conditions access. It is built here
     and works, but neither the CMS fork nor the upstream repository has a licence file or
     licence headers.
-- **TensorFlow and PyTorch plugins are left out of `cmssw-reco`.** conda-forge has a
-  `libtensorflow_cc`, but its C++ headers are incomplete (`xla/tsl/framework/allocator.h` is
-  missing) and do not compile.
+- **TensorFlow and PyTorch plugins are left out.** conda-forge has a `libtensorflow_cc`, but its
+  C++ headers are incomplete (`xla/tsl/framework/allocator.h` is missing) and do not compile.
+  This also costs the DeepSC superclustering, whose TensorFlow files are patched out of
+  `RecoEcal/EgammaCoreTools` so that e/gamma and particle flow build; the PF superclusters
+  themselves also need the Triton client.
+- conda-forge's xrootd 6 headers use `statx` on Linux, which needs glibc 2.28, but the package
+  does not say so, and `root_base` 6.36 keeps the build at 2.17. The one plugin package that
+  includes them (`IORawData/DTCommissioning`) is built without its plugins.
+- **macOS gets the scalar geometry vectors.** CMSSW enables its SIMD `Basic3DVector` only when
+  `__BIGGEST_ALIGNMENT__ >= 16`, and Apple arm64 reports 8. Code that relied on the SIMD
+  internals is patched to compute the same values either way, but macOS numerics may differ from
+  Linux in the last bits, and the geometry comparison has only been run on Linux. A few
+  Linux-only packages (the malloc-interposing memory monitors, the valgrind profiler and the
+  beam halo generator) are left out on macOS.
 - `cmssw-reco` pins `fastjet-cxx` to build 5, the last one that ships its headers. Build 6
   moved them into `fastjet-cxx-devel`, which needs a CGAL that needs eigen 5, while lwtnn needs
   eigen 3.4.
@@ -239,14 +276,14 @@ they gate conditions tooling and L1 reconstruction from RAW.
 
 ## Roadmap
 
-1. Submit the dependency recipes (`alpaka`, `hls-arbitrary-precision-types`, `mille`, `gbl`, a
-   `frontier-client`, and PRs to the `cms-md5` and `cpu_features` feedstocks for the missing
+1. Submit the dependency recipes (`alpaka`, `hls-arbitrary-precision-types`, `mille`, `gbl`,
+   `classlib`, `frontier-client`, and PRs to the `cms-md5` and `cpu_features` feedstocks for the missing
    platforms) and upstream the CMSSW patches; they gate everything else.
 2. Ask the utm and CORAL authors for a licence (pure lead time).
-3. Package the rest of the reachable 63%: three more layers, starting with DQM and the
-   calibration tools.
-4. Then the ML runtimes, simulation and generators, the data packages, and automation for new
-   CMSSW releases and conda-forge migrations.
+3. The data packages, starting with those the digitisers and a RECO step read, so that a
+   standard workflow can run end to end.
+4. Fix conda-forge's TensorFlow headers; then the ML runtimes, simulation and generators, and
+   automation for new CMSSW releases and conda-forge migrations.
 
 See [PLAN.md](PLAN.md) for details.
 

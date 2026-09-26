@@ -1,0 +1,52 @@
+diff --git a/TopQuarkAnalysis/TopHitFit/plugins/TtSemiLepHitFitProducer.cc b/TopQuarkAnalysis/TopHitFit/plugins/TtSemiLepHitFitProducer.cc
+index a67aebb33..4b03b0762 100644
+--- a/TopQuarkAnalysis/TopHitFit/plugins/TtSemiLepHitFitProducer.cc
++++ b/TopQuarkAnalysis/TopHitFit/plugins/TtSemiLepHitFitProducer.cc
+@@ -72,7 +72,7 @@ private:
+     pat::Particle LepL;
+     pat::Particle LepN;
+     std::vector<int> JetCombi;
+-    bool operator<(const FitResult& rhs) { return Chi2 < rhs.Chi2; };
++    bool operator<(const FitResult& rhs) const { return Chi2 < rhs.Chi2; };
+   };
+ 
+   typedef hitfit::RunHitFit<pat::Electron, pat::Muon, pat::Jet, pat::MET> PatHitFit;
+diff --git a/TopQuarkAnalysis/TopKinFitter/interface/TtFullHadKinFitter.h b/TopQuarkAnalysis/TopKinFitter/interface/TtFullHadKinFitter.h
+index 684796330..9a92b40fd 100644
+--- a/TopQuarkAnalysis/TopKinFitter/interface/TtFullHadKinFitter.h
++++ b/TopQuarkAnalysis/TopKinFitter/interface/TtFullHadKinFitter.h
+@@ -138,7 +138,7 @@ public:
+     pat::Particle LightP;
+     pat::Particle LightPBar;
+     std::vector<int> JetCombi;
+-    bool operator<(const KinFitResult& rhs) { return Chi2 < rhs.Chi2; };
++    bool operator<(const KinFitResult& rhs) const { return Chi2 < rhs.Chi2; };
+   };
+ 
+   /// class that does the fitting
+diff --git a/TopQuarkAnalysis/TopKinFitter/plugins/TtSemiLepKinFitProducer.cc b/TopQuarkAnalysis/TopKinFitter/plugins/TtSemiLepKinFitProducer.cc
+index 8d3296d1f..978d46c2f 100644
+--- a/TopQuarkAnalysis/TopKinFitter/plugins/TtSemiLepKinFitProducer.cc
++++ b/TopQuarkAnalysis/TopKinFitter/plugins/TtSemiLepKinFitProducer.cc
+@@ -84,7 +84,7 @@ private:
+     pat::Particle LepL;
+     pat::Particle LepN;
+     std::vector<int> JetCombi;
+-    bool operator<(const KinFitResult& rhs) { return Chi2 < rhs.Chi2; };
++    bool operator<(const KinFitResult& rhs) const { return Chi2 < rhs.Chi2; };
+   };
+ };
+ 
+diff --git a/RecoTBCalo/EcalTBHodoscopeReconstructor/interface/EcalTBHodoscopeRecInfoAlgo.h b/RecoTBCalo/EcalTBHodoscopeReconstructor/interface/EcalTBHodoscopeRecInfoAlgo.h
+index 7b04253cc..78a3ef384 100644
+--- a/RecoTBCalo/EcalTBHodoscopeReconstructor/interface/EcalTBHodoscopeRecInfoAlgo.h
++++ b/RecoTBCalo/EcalTBHodoscopeReconstructor/interface/EcalTBHodoscopeRecInfoAlgo.h
+@@ -26,7 +26,7 @@ private:
+     float xS;
+     float xQ;
+ 
+-    bool operator<(BeamTrack& b2) { return (fabs(xS) < fabs(b2.xS)); }
++    bool operator<(const BeamTrack& b2) const { return (fabs(xS) < fabs(b2.xS)); }
+ 
+     BeamTrack(float x0, float xs, float xq) : x(x0), xS(xs), xQ(xq) {}
+ 

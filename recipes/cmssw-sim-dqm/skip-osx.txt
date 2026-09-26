@@ -1,0 +1,13 @@
+# Packages left out on macOS. Nothing outside this list depends on them.
+# The beam halo generator uses HepMC2's Fortran interface (IO_HEPEVT), whose library refers to
+# the HEPEVT common block and cannot be loaded on macOS without a generator that defines it.
+GeneratorInterface/BeamHaloGenerator
+# valgrind's client requests; conda-forge has no macOS build of valgrind.
+PerfTools/Callgrind
+# Memory-allocation monitors that interpose malloc through glibc's <malloc.h> and are loaded
+# with LD_PRELOAD: Linux-only by design. The four preload libraries are their only users.
+PerfTools/AllocMonitor
+PerfTools/AllocMonitorPreload
+PerfTools/MaxMemoryPreload
+PerfTools/PeriodicAllocMonitorPreload
+PerfTools/ThresholdAbortAllocMonitorPreload
