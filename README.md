@@ -72,12 +72,11 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 | `cmssw-geometry` (DD4hep detector description) | [recipes/cmssw-geometry](recipes/cmssw-geometry) | ✅ | ✅ | ✅ |
 | `cmssw-reco` (tracking, vertexing, muons) | [recipes/cmssw-reco](recipes/cmssw-reco) | ✅ | ✅ | ✅ |
 | `cmssw-reco-objects` (RAW unpacking, calorimetry, e/gamma, particle flow, jets) | [recipes/cmssw-reco-objects](recipes/cmssw-reco-objects) | ✅ | ✅ | ✅ |
-| `cmssw-sim-dqm` (DQM, validation, digitisation, fast simulation) | [recipes/cmssw-sim-dqm](recipes/cmssw-sim-dqm) | ✅ | ✅ | ⏳ |
+| `cmssw-sim-dqm` (DQM, validation, digitisation, fast simulation) | [recipes/cmssw-sim-dqm](recipes/cmssw-sim-dqm) | ✅ | ✅ | ✅ |
 | `cmssw-devel` (build your own packages) | [recipes/cmssw-devel](recipes/cmssw-devel) | ✅ | ✅ | ✅ |
 
 ✅ = builds locally with rattler-build (in Docker for Linux, natively for macOS) and passes the
-recipe tests. — = not needed: the existing feedstock already covers that platform. ⏳ = in
-progress.
+recipe tests. — = not needed: the existing feedstock already covers that platform.
 
 Every package now builds on all three platforms from the same sources. macOS builds against a
 **newer ROOT than the release uses** (6.40 instead of 6.36) because conda-forge's 6.36 is
@@ -191,8 +190,8 @@ unusable there; see [PLAN.md](PLAN.md).
 
 ## Where this stands
 
-**Seven CMSSW layers build and pass their tests**, on all three platforms except the last layer
-on macOS, which is in progress. Nothing has been submitted to conda-forge yet. They hold 1127 of
+**Seven CMSSW layers build and pass their tests on all three platforms**, but nothing has been
+submitted to conda-forge yet. They hold 1127 of
 the release's 1358 packages: about 9.8k of its 15.3k translation units (excluding tests), or
 **64% of the build**. That is everything reachable with the externals that already work: what
 is left needs externals that are unlicensed, broken on conda-forge, or not packaged yet (below).

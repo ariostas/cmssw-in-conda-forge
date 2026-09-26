@@ -342,9 +342,10 @@ latter returns a slice of 79 subsystems that does not deliver anything in partic
       CommonTools and the rest of Geometry. 238 packages, 2514 TU; builds and tests pass on
       all three platforms, from the same recipe revision (build 3).
 - [x] `cmssw-reco-objects`: RAW unpacking, calorimeter and muon local reconstruction, e/gamma,
-      particle flow, jets, b-tagging, calibration. 257 packages, about 2000 TU.
+      particle flow, jets, b-tagging, calibration. 257 packages, about 2000 TU; builds and tests
+      pass on all three platforms.
 - [x] `cmssw-sim-dqm`: DQM, validation, digitisation, fast simulation and the rest of what is
-      reachable. 392 packages, about 2300 TU.
+      reachable. 392 packages, about 2300 TU; builds and tests pass on all three platforms.
 - [ ] Data packages needed by reco (`cmssw-data-*`).
 - [ ] The externals ladder, cumulative in `reach.py`'s order (2026-09-25): the `utm` licence
       64% → 72%; ML runtimes (TensorFlow's headers, PyTorch, Triton) → 73%; the L1 ML models
@@ -1737,3 +1738,25 @@ fragments define. `cmssw-sim-dqm` constructs the tracking validation and the DQM
 the mixing module is left out because its digitisers name files from CMS's separate data
 repositories (`SimTracker/SiStripDigitizer/data/APVProbaList.txt`), which are still unpackaged.
 That is the next thing between these packages and running a full workflow.
+
+#### All three platforms (2026-09-26)
+
+Both layers build and pass their tests on linux-aarch64, linux-64 and osx-arm64, with
+`cmssw-fwlite` 9 and `cmssw-toolbox` 15 underneath:
+
+| | linux-aarch64 | linux-64 (emulated) | osx-arm64 |
+|---|---|---|---|
+| `cmssw-reco-objects` | 2813 s, 955 libraries | 5077 s, 955 | 9612 s, 958 |
+| `cmssw-sim-dqm` | 2951 s, 1400 libraries | 5943 s, 1400 | 8251 s, 1393 |
+
+macOS ran on one or two jobs, limited by free memory next to the Docker VM. It has three
+more libraries in `cmssw-reco-objects` (the `.so` aliases of python modules) and seven fewer
+in `cmssw-sim-dqm`: `skip-osx.txt` leaves out the malloc-interposing memory monitors
+(`PerfTools/AllocMonitor` and its four preload libraries, Linux-only by design), the valgrind
+profiler (no macOS valgrind) and the beam halo generator (HepMC2's Fortran interface, whose
+library refers to a common block only a Fortran generator defines, and which macOS will not
+load unresolved -- which is also why `hepmc` names `HepMCfio` only on Linux).
+
+The last layer's macOS patch is the usual libc++ list plus code that nothing at CMS has ever
+compiled on macOS: the macOS branch of `HLTrigger/Timer`'s `processor_model.cc` declares its
+result twice, `DQMServices/FileIO` uses glibc's `ulong`, and so on. Nine packages in all.
