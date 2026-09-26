@@ -298,8 +298,9 @@ outstanding part of this milestone.
 - [x] header-only: `alpaka`, `hls` (ap_types). `xtd` turned out not to be needed.
 - [x] `cms-md5` platforms, `cpu_features` osx-arm64 — local recipes in
       `cmssw-notes/feedstock-changes/`, both need a PR to the existing feedstock.
-      `classlib` turned out not to be needed by the layers built so far.
-- [ ] `utm`: blocked on its missing licence, not on packaging. `heppdt` 3.x not needed yet.
+      `classlib` did become needed (DQM) and is now a recipe of its own.
+- [ ] **Open: ask for a `utm` licence.** Blocked on its missing licence, not on packaging; see
+      "Open issues found" below for where and whom to ask. `heppdt` 3.x not needed yet.
 - [x] `tinyxml2`: no action needed, CMSSW compiles against conda-forge's 11.
 - [x] HepMC2: patch CMSSW (`SimDataFormats` weight container), not a CMS-ABI rebuild.
 - [x] **Decision point D1:** SCRAM route confirmed.
@@ -498,6 +499,18 @@ Setup: `condaforge/miniforge3` container, a conda env with conda-forge externals
     "© 2014-2025, Takashi Matsushita, Bernhard Arnold, Herbert Bergauer".
   - Action: ask the CMS L1 Global Trigger group to add an OSS license. It blocks `CondFormats/L1TObjects`,
   `CondFormats/RPCObjects` and `DataFormats/RPCDigi`.
+  - **Still open (2026-09-26), not yet asked.** The project takes issues and uses them (58 so far,
+    the latest in Dec 2025); none mentions a licence. Opening one needs a CERN GitLab login
+    (a CERN or lightweight account). The maintainers to tag: `@arnold` (Bernhard Arnold, most
+    commits, merges every MR) and `@tmatsush` (Takashi Matsushita). Herbert Bergauer, the third
+    copyright holder, has no issue or MR in the project, so his username still has to be found
+    from a logged-in account. `@muzaffar` (CMS build tooling) is an optional cc.
+  - What to ask for: an OSI-approved `LICENSE` file (Apache-2.0 would match CMSSW; LGPL, like
+    many CMS externals, would also do), ideally SPDX headers, and a tag that includes it. Point
+    out that the repository being public does not make it redistributable, and that it is the
+    largest single blocker for a conda CMSSW: 64% → 72% of the release, plus many plugins that
+    only need a header from `HLTrigger/HLTcore`. If it is CERN/CMS work, the choice may have to go
+    through CMS's process; offer to open the MR once a licence is agreed.
 - **HepMC2 ABI:** CMS's fork uses `unsigned long long` for `WeightContainer::size_type`.
   With stock conda-forge `hepmc2`, the symbols differ and the class checksum changes. We still
   need to validate that CMS files with `HepMCProduct` (GEN level) are readable via
