@@ -43,10 +43,13 @@ RecoParticleFlow/PFBlockProducer
 RecoTICL/Configuration
 RecoTauTag/Configuration
 
-# Packages whose own library builds but whose plugins need something blocked, directly or
-# through a header they include (analysis/scripts/include_graph.py): mostly the L1 ML models
-# (HLTrigger/HLTcore needs L1Trigger/L1TGlobal, which needs AXOL1TL and hls4ml), and ML
-# runtimes. --src-only is all or nothing per package, so all of their plugins go.
+# Packages whose own library builds but whose plugins cannot be built here, directly or
+# through a header they include (analysis/scripts/include_graph.py). Some need something
+# blocked: ML runtimes (TensorFlow, the Triton client), Oracle or clue. The others need
+# HLTrigger/HLTcore or the Stage-2 L1 formats, which are in cmssw-sim-dqm (HLTcore needs
+# DataFormats/L1TGlobal and FWCore/PrescaleService from there), and moving them up to it
+# would take them away from the configuration in the layers below that imports them.
+# --src-only is all or nothing per package, so all of their plugins go.
 CalibCalorimetry/EcalTPGTools
 CalibTracker/SiPixelQuality
 EventFilter/L1TRawToDigi

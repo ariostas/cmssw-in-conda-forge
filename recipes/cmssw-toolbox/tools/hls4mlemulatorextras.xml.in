@@ -1,0 +1,9 @@
+<tool name="hls4mlemulatorextras" version="1.1.7" path="@PREFIX@" revision="2">
+  <!-- cms-hls4ml-emulator-extras: the loader for the L1 trigger's hls4ml models. -->
+  <lib name="emulator_interface"/>
+  <use name="sockets"/>
+  <client>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+</tool>

@@ -7,7 +7,7 @@ package:
   version: ${{ version }}
 
 build:
-  number: 16
+  number: 18
   noarch: generic
   script:
     - mkdir -p ${PREFIX}/bin ${PREFIX}/share/cmssw-toolbox

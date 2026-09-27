@@ -1,0 +1,8 @@
+<tool name="cicada" version="1.4.0" path="@PREFIX@" revision="2">
+  <!-- cms-hls4ml-cicada: the models L1Trigger/L1TCaloLayer1 loads by name (CICADAModel_v*.so)
+       through hls4mlemulatorextras. Nothing links against them, so there is no <lib> to check. -->
+  <!-- requires: lib/CICADAModel_v2p2p0.so -->
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+</tool>

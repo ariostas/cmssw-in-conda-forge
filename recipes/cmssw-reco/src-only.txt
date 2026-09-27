@@ -39,9 +39,8 @@ TrackingTools/Configuration
 PhysicsTools/NanoAOD
 RecoTracker/DisplacedRegionalTracking
 
-# 2 source files, 4 plugin ones. Its plugins use HLTrigger/HLTcore, which needs
-# L1Trigger/L1TGlobal and so the L1 ML models (AXOL1TL, hls4ml). The dE/dx estimators come
-# back with those.
+# 2 source files, 4 plugin ones. Its plugins use HLTrigger/HLTcore, which is built in
+# cmssw-sim-dqm: it needs L1Trigger/L1TGlobal, and that the Stage-2 L1 formats there.
 RecoTracker/DeDx
 
 # 1 source file, 4 plugin ones. Its library is what HeterogeneousCore/AlpakaCore includes;

@@ -170,7 +170,7 @@ unusable there; see [PLAN.md](PLAN.md).
 
   It needed two new externals, `gbl` and `mille`, the track-refitting libraries used by
   alignment. The plugins that run a TensorFlow or PyTorch inference are left out (see below).
-- **The rest of reconstruction and the DQM/validation stack build.** `cmssw-reco-objects` (283
+- **The rest of reconstruction and the DQM/validation stack build.** `cmssw-reco-objects` (288
   packages) adds unpacking of the detector's raw data, calorimeter and muon local
   reconstruction, electrons and photons, particle flow, jets and b-tagging; its test constructs
   all of them, particle flow included:
@@ -180,7 +180,7 @@ unusable there; see [PLAN.md](PLAN.md).
   local reconstruction configuration built
   ```
 
-  `cmssw-sim-dqm` (418 packages, 1538 libraries) adds data quality monitoring, validation,
+  `cmssw-sim-dqm` (471 packages, 1671 libraries) adds data quality monitoring, validation,
   digitisation, fast simulation, alignment and calibration workflows and analysis tools. They
   needed one new external, `classlib`, and tool files for protobuf, onnxruntime, xgboost, hdf5,
   lhapdf and others that conda-forge already has.
@@ -190,17 +190,28 @@ unusable there; see [PLAN.md](PLAN.md).
   52 packages: the RPC chambers' formats, unpacking, rechits and digitisation, the legacy and
   Stage-2 L1 emulator and unpackers, and the conddb tools. None of this can be submitted until
   utm has a real licence.
-- 22 CMSSW source patches in total, plus one to cmssw-config. About half are needed only for
+- **The L1 trigger's ML models and the HLT, on an assumed licence too.** The L1 Global Trigger
+  emulator loads neural networks (AXOL1TL, CICADA) compiled from their hls4ml firmware code,
+  and the HLT framework (`HLTrigger/HLTcore`) needs that emulator. Those model repositories and
+  the CSC track finder emulation have no licence either, and are packaged on the same
+  assumption (`cms-hls4ml-*`, `cms-csctrackfinderemulation`). The loader's upstream copy
+  bundles two proprietary Xilinx headers, which are replaced by new Apache-2.0
+  implementations rather than shipped. `cmssw-sim-dqm`'s test runs the CICADA module, which
+  loads its model. They bring the HLT's own code, trigger DQM and validation, tracking DQM, MET
+  reconstruction and the Phase-2 L1 track trigger.
+- 25 CMSSW source patches in total, plus one to cmssw-config. About half are needed only for
   macOS, and most of those fix code that only compiled because libstdc++ is more permissive
   than libc++. All are meant for upstream.
 
 ## Where this stands
 
 **Seven CMSSW layers build and pass their tests on all three platforms**, but nothing has been
-submitted to conda-forge yet. They hold 1179 of
-the release's 1358 packages: about 11.0k of its 15.3k translation units (excluding tests), or
-**72% of the build**. 8 of those points depend on `utm`, which is used on an **assumed**
-licence (above); without it the figure is 64%. That is everything reachable: what is left
+submitted to conda-forge yet. They hold 1237 of
+the release's 1358 packages: about 12.4k of its 15.3k translation units (excluding tests), or
+**81% of the build**. 17 of those points depend on externals used on an **assumed** licence
+(above): 8 on `utm` and 9 on the L1 ML models and the CSC track finder emulation; without
+them the figure is 64%. That is nearly everything reachable (82%): the rest is plugins of
+packages that live in a lower layer than the HLT framework they need. What is left beyond
 needs externals that are broken on conda-forge or not packaged yet (below).
 "Reachable" counts the headers CMSSW includes without declaring them as dependencies; on the
 BuildFile graph alone the figure reads 63%, and two small patches (a dependency on `ktjet` that
@@ -217,7 +228,7 @@ nothing uses, and TensorFlow for a single e/gamma component) add three points.
 - CMSSW compiles against conda-forge's toolchain and externals (it has built with three
   different ROOT versions), including clang and libc++ on macOS.
 - Build cost: about 7.6 CPU-s per translation unit measured end to end (including dictionaries,
-  install and tests), so about 23 CPU-hours per architecture for the whole 72%. CPU is not the
+  install and tests), so about 26 CPU-hours per architecture for the whole 81%. CPU is not the
   constraint.
 
 **Not proven yet** (roughly by risk)
@@ -226,10 +237,9 @@ nothing uses, and TensorFlow for a single e/gamma component) add three points.
    peak at 4.3 GB each, and a default conda-forge runner has 7 GB. The reco layer therefore
    builds with one job there: about 2.2 hours of its 6-hour limit, which works but leaves little
    room for heavier layers. The layer builds size their job count from available memory.
-2. **Externals beyond today's 72%**, cumulative in order: the ML runtimes (73%), the L1 ML
-   models (86%; through `L1Trigger/L1TGlobal` and `HLTrigger/HLTcore` they also cost many
-   plugins in every layer), a few small unpackaged externals (90%), CMS's Geant4 extensions
-   (90%) and the event generators (94%).
+2. **Externals beyond today's 82%**, cumulative in order: the ML runtimes (86%, with the three
+   L1 models only Phase-2 particle flow uses), a few small unpackaged externals (90%), CMS's
+   Geant4 extensions (90%) and the event generators (94%).
 3. **Data packages.** 8.6 GB of CMS data files (one repository is 2.9 GB) versus what
    conda-forge accepts. They are now the next thing in the way: the digitisers cannot even be
    configured without them, so nothing that simulates or reconstructs from RAW can run yet.
@@ -239,8 +249,8 @@ nothing uses, and TensorFlow for a single e/gamma component) add three points.
    previous FWLite feedstock in 2022, so automation and upstreaming matter more than the initial
    build.
 
-The licences of two dependencies, utm and coral, are social rather than technical problems, and
-they gate conditions tooling and L1 reconstruction from RAW.
+The licences of utm, coral and the L1 ML models are social rather than technical problems, and
+they gate conditions tooling, L1 reconstruction from RAW and the HLT.
 
 **Known issues / open questions**
 
@@ -248,12 +258,17 @@ they gate conditions tooling and L1 reconstruction from RAW.
   ships prebuilt Darwin modules that only work with the macOS SDK they were built with, so cling
   fails on system headers for any user. ROOT 6.38 generates them from the active SDK. macOS can
   move back once conda-forge's 6.36.x carries that fix, or CMSSW moves to a newer ROOT.
-- Two dependencies have **no licence** and cannot go to conda-forge until that is resolved:
+- Several dependencies have **no licence** and cannot go to conda-forge until that is resolved:
   - [utm](https://gitlab.cern.ch/cms-l1t-utm/utm), the CMS L1 trigger menu library, needed by
     `CondFormats/L1TObjects` and through it the `conddb` tools, `DataFormats/RPCDigi`, the L1
     unpackers and the L1 emulator. It is packaged here (`cms-l1t-utm`) and those packages are
     built, on the **assumption that its authors will release it under Apache-2.0. They have
     not.** The request has not been made yet.
+  - The L1 trigger's ML models ([cms-hls4ml](https://github.com/cms-hls4ml)) and
+    [CSCTrackFinderEmulation](https://github.com/cms-externals/CSCTrackFinderEmulation), needed
+    by the L1 Global Trigger emulator and through it the HLT. Packaged and used on the same
+    **assumption**; not asked yet either. Some model versions also contain hls4ml code under
+    GPL-3.0-or-later, which is a real licence and declared as such.
   - `coral`, the LCG relational abstraction layer used for conditions access. It is built here
     and works, but neither the CMS fork nor the upstream repository has a licence file or
     licence headers.
@@ -277,6 +292,9 @@ they gate conditions tooling and L1 reconstruction from RAW.
 - `cmssw-devel` covers the layers up to `cmssw-conditions`. It does not yet pull in the
   development packages of the geometry and reco externals (dd4hep, geant4, fastjet, ...), so
   rebuilding a package from those layers needs them installed by hand.
+- The release's build configuration names the Fortran compiler `cmssw-fwlite` was built with, by
+  a path that only existed during that build. The layers override it, but a user's `scram b`
+  of a package with Fortran sources fails until `cmssw-fwlite` is rebuilt with a fix.
 - CMS's HepMC2 fork changes an ABI-relevant type. conda-forge's stock `hepmc2` is used instead,
   with a new dictionary class version. Reading GEN-level `HepMCProduct` data still needs validation.
 - Fireworks (event display) is not included.
@@ -287,8 +305,9 @@ they gate conditions tooling and L1 reconstruction from RAW.
 1. Submit the dependency recipes (`alpaka`, `hls-arbitrary-precision-types`, `mille`, `gbl`,
    `classlib`, `frontier-client`, and PRs to the `cms-md5` and `cpu_features` feedstocks for the missing
    platforms) and upstream the CMSSW patches; they gate everything else.
-2. Ask the utm and CORAL authors for a licence (pure lead time). utm is already used on an
-   assumed Apache-2.0 licence; if its authors choose otherwise, the 8 points it brings come out.
+2. Ask the utm, CORAL and L1 ML model authors for a licence (pure lead time). utm and the L1
+   models are already used on an assumed Apache-2.0 licence; if their authors choose otherwise,
+   the 17 points they bring come out.
 3. The data packages, starting with those the digitisers and a RECO step read, so that a
    standard workflow can run end to end.
 4. Fix conda-forge's TensorFlow headers; then the ML runtimes, simulation and generators, and

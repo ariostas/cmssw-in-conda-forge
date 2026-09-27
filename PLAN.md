@@ -306,6 +306,13 @@ outstanding part of this milestone.
       recipe's licence file and `LicenseRef-ASSUMED-Apache-2.0` say so. It and the utm-dependent
       packages in `cmssw-reco-objects`/`cmssw-sim-dqm` must not be submitted until upstream adds
       a licence; if they decline, those packages come out again (see the progress log).
+- [ ] **Open: ask for licences for the L1 ML models** (`cms-hls4ml/*`) and
+      `CSCTrackFinderEmulation`; see "Open issues found".
+- [x] The L1 ML models CMSSW needs outside Phase-2 particle flow, and the CSC track finder
+      emulation, packaged (2026-09-26) **on the same kind of ASSUMED licence**:
+      `cms-hls4ml-emulator-extras`, `cms-hls4ml-axol1tl`, `cms-hls4ml-cicada`,
+      `cms-csctrackfinderemulation`, plus `conifer-cpp` (really Apache-2.0). The two Xilinx
+      headers upstream bundles are replaced, not shipped.
 - [x] `tinyxml2`: no action needed, CMSSW compiles against conda-forge's 11.
 - [x] HepMC2: patch CMSSW (`SimDataFormats` weight container), not a CMS-ABI rebuild.
 - [x] **Decision point D1:** SCRAM route confirmed.
@@ -333,10 +340,13 @@ outstanding part of this milestone.
 
 ### M5: reconstruction, then L1/HLT and ML — **the next work**
 
-**Everything reachable is now packaged, on one ASSUMPTION**: 1179 of 1358 packages, about
-11.0k TU, **72%** of the build. The assumption is that `utm` will be released under
-Apache-2.0; it has **no licence** today, and the 8 points from 64% to 72% depend on it (see
-2026-09-26 in the progress log, and M2). Without utm it was 1127 packages, 9.8k TU, 64% (36%
+**Nearly everything reachable is now packaged, on ASSUMED licences**: 1237 of 1358 packages,
+about 12.4k TU, **81%** of the build (82% is reachable; the difference is plugins of packages
+in lower layers that need `HLTrigger/HLTcore`, which can only be built in `cmssw-sim-dqm`).
+The assumption is that `utm`, the L1 ML models and `CSCTrackFinderEmulation` will be released
+under Apache-2.0; **none of them has a licence** today. The 8 points from 64% to 72% depend on
+utm, the 9 from 72% to 81% on the L1 ML models and the CSC emulation (see 2026-09-26 in the
+progress log, and M2). Without utm it was 1127 packages, 9.8k TU, 64% (36%
 before `cmssw-reco-objects` and `cmssw-sim-dqm`, 20% before `cmssw-reco`). The figure counts
 undeclared `#include`s as dependencies since 2026-09-25; on the BuildFile graph alone it read
 63%, and before geant4 and `gbl`/`mille` 54%. It was briefly recorded as 67% on the mistaken
@@ -352,21 +362,21 @@ latter returns a slice of 79 subsystems that does not deliver anything in partic
       all three platforms, from the same recipe revision (build 3).
 - [x] `cmssw-reco-objects`: RAW unpacking, calorimeter and muon local reconstruction, e/gamma,
       particle flow, jets, b-tagging, calibration, and (on the assumed utm licence) RPC and the
-      legacy L1 trigger. 283 packages, about 2600 TU; builds and tests pass on all three
-      platforms.
+      legacy L1 trigger, and the Phase-2 L1 track trigger. 288 packages, about 2700 TU; builds
+      and tests pass on all three platforms.
 - [x] `cmssw-sim-dqm`: DQM, validation, digitisation, fast simulation and the rest of what is
-      reachable, including (on the assumed utm licence) the Stage-2 L1 emulator and the conddb
-      tools. 418 packages, about 2800 TU; builds and tests pass on all three platforms.
+      reachable, including (on assumed licences) the Stage-2 L1 emulator, the conddb tools, the
+      L1 Global Trigger emulator and the HLT framework with everything built on it. 471
+      packages, about 4100 TU; builds and tests pass on all three platforms.
 - [ ] Data packages needed by reco (`cmssw-data-*`).
-- [ ] The externals ladder, cumulative in `reach.py`'s order (2026-09-26): 72% with utm
-      (packaged, licence ASSUMED, see above); ML runtimes (TensorFlow's headers, PyTorch,
-      Triton) → 73%; the L1 ML models → 86%; small unpackaged externals → 90%; CMS's Geant4
-      extensions → 90%; generators → 94%. The L1 ML models are now the step that matters most:
-      `HLTrigger/HLTcore` needs `L1Trigger/L1TGlobal`, which needs AXOL1TL and hls4ml, and
-      through it they cost most of the plugins the last two layers build without. (This was
-      put down to utm until utm was actually unblocked; HLTcore needs both.) The TensorFlow
-      step is a conda-forge feedstock fix (its C++ headers are incomplete) and would also bring
-      the DeepSC superclustering and `RecoTracker_cff` back.
+- [ ] The externals ladder, cumulative in `reach.py`'s order (2026-09-26): 82% reachable with
+      utm and the L1 ML models (packaged, licences ASSUMED, see above); ML runtimes
+      (TensorFlow's headers, PyTorch, Triton, with the three L1 models only Phase-2 particle
+      flow uses: L1METML, NNPuppiTauModel, TOoLLiP) → 86%; small unpackaged externals → 90%;
+      CMS's Geant4 extensions → 90%; generators → 94%. The TensorFlow step is now the one that
+      matters most. It is a conda-forge feedstock fix (its C++ headers are incomplete) and would
+      also bring the DeepSC superclustering, `RecoTracker_cff`, the Stage-2 L1 unpacker's
+      plugins and the Phase-2 L1 particle flow back.
 - [ ] Target: run a standard RECO step from RAW (e.g. a relval workflow `runTheMatrix.py -l ...`).
 
 ### M6: simulation and generators (group 6)
@@ -523,6 +533,38 @@ Setup: `condaforge/miniforge3` container, a conda env with conda-forge externals
     largest single blocker for a conda CMSSW: 64% → 72% of the release, plus many plugins that
     only need a header from `HLTrigger/HLTcore`. If it is CERN/CMS work, the choice may have to go
     through CMS's process; offer to open the MR once a licence is agreed.
+- **The L1 trigger's ML models and the CSC track finder emulation have no licence either**
+  (found 2026-09-26). The same situation as utm, on GitHub:
+  - No licence file or headers in any of the `cms-hls4ml` repositories CMSSW uses
+    (`hls4mlEmulatorExtras`, `AXOL1TL`, `CICADA`, `L1METML`, `NNPuppiTauModel`, `TOoLLiP`) or in
+    `cms-externals/CSCTrackFinderEmulation`. Only `conifer` (thesps/conifer) has one, Apache-2.0.
+  - Worse, and not something a licence from CMS can fix: `hls4mlEmulatorExtras` ships two
+    Xilinx headers, `ap_types/hls_stream.h` and `ap_types/ap_shift_reg.h`, whose header reads
+    "confidential and proprietary information of Xilinx" and "this disclaimer is not a
+    license". `TOoLLiP`'s `TOoLLiP_tmp_v` has its own copies. hls4ml itself carries the same
+    files in its templates. `recipes/cms-hls4ml-emulator-extras` does not ship them: it has
+    its own Apache-2.0 `hls::stream` and `ap_shift_reg`, written from the documented interface.
+    None of the AXOL1TL or CICADA code that is compiled instantiates either class (checked by
+    compiling every model against versions of the headers that fail when instantiated), so the
+    replacement cannot change a result.
+  - Model versions generated with older hls4ml include its `nnet_utils` with GPL-3.0-or-later
+    headers (from rfnoc-hls-neuralnet, Copyright 2017 EJ Kreinar); current hls4ml has dropped
+    them. That is a real licence and fine for conda-forge; the model packages say
+    `GPL-3.0-or-later` alongside the assumed Apache-2.0.
+  - Action, **not yet taken**: a GitHub issue on each `cms-hls4ml` repository (or one on
+    `hls4mlEmulatorExtras` asking for an org-wide decision) and one on
+    `cms-externals/CSCTrackFinderEmulation`, asking for a `LICENSE`; and on
+    `hls4mlEmulatorExtras`, suggesting it drop the Xilinx headers for open ones.
+- **The release names a Fortran compiler that no longer exists** (found 2026-09-26). The
+  compiler variables in `cmssw-fwlite`'s `.SCRAM/<arch>/MakeData/variables.mk` are absolute paths
+  from its build. C and C++ point into the host prefix and are relocated on install; `FC` (and
+  the LLVM tools' `clang`) point into the *build* prefix, which is not. Layers now rewrite `FC`
+  in their developer area (`cmssw-build-layer`), but a user's `scram b` of a package with
+  Fortran sources still fails with `gfortran: No such file or directory`. Fix in
+  `cmssw-fwlite` by taking the Fortran compiler from the host prefix like the others (and
+  giving `cmssw-devel` the matching `gfortran`), or by relocating these paths at activation;
+  either needs every layer rebuilt, so it waits for the next full rebuild. `cmssw-devel`'s
+  test should build one Fortran file.
 - **HepMC2 ABI:** CMS's fork uses `unsigned long long` for `WeightContainer::size_type`.
   With stock conda-forge `hepmc2`, the symbols differ and the class checksum changes. We still
   need to validate that CMS files with `HepMCProduct` (GEN level) are readable via
@@ -1896,3 +1938,122 @@ macOS has seven fewer libraries in `cmssw-sim-dqm` for the same reason as before
 Both tests now also check the new plugins: the RPC and legacy L1 unpackers, whose cfis import
 ones generated from the plugins' parameter descriptions; the RPC rechits; the Stage-2 emulator;
 RPC DQM; the mixing module; and conddb's `EmptyIOVSource`.
+
+### 2026-09-26: the L1 ML models on assumed licences, and the layers reach 81%
+
+**This also rests on assumptions that have not been granted.** The L1 trigger's ML models and
+the CSC track finder emulation have no licence, like utm (see "Open issues found"; the requests
+have not been made). They are packaged on the assumption that CMS will release them under
+Apache-2.0, marked the same way as `cms-l1t-utm`: an `ASSUMED-LICENSE.txt`, a
+`LicenseRef-ASSUMED-Apache-2.0` licence and a warning at the top of each recipe. If that falls
+through, the five externals go back into `reach.py`'s `BLOCKED` (the lines are there, commented
+out) and the packages listed below come out of the two layers.
+
+#### What "86%" was
+
+The ladder's "L1 ML models → 86%" was cumulative over the ML runtimes step before it. On their
+own the L1 models reach 82%: `L1Trigger/Phase2L1ParticleFlow`, the only user of L1METML,
+NNPuppiTauModel and TOoLLiP, also needs TensorFlow. So those three wait for the TensorFlow step,
+and this step packages what everything else needs:
+
+| recipe | upstream | licence |
+|---|---|---|
+| `cms-hls4ml-emulator-extras` 1.1.7 | cms-hls4ml/hls4mlEmulatorExtras | ASSUMED Apache-2.0, own Xilinx replacements Apache-2.0 |
+| `cms-hls4ml-axol1tl` 6.0.4 | cms-hls4ml/AXOL1TL | ASSUMED Apache-2.0 and GPL-3.0-or-later |
+| `cms-hls4ml-cicada` 1.4.0 | cms-hls4ml/CICADA | ASSUMED Apache-2.0 and GPL-3.0-or-later |
+| `cms-csctrackfinderemulation` 1.2 | cms-externals/CSCTrackFinderEmulation | ASSUMED Apache-2.0 |
+| `conifer-cpp` 1.7 | thesps/conifer (the C++ header only) | Apache-2.0 |
+
+- **The models are shared libraries loaded by name.** `hls4mlEmulator::ModelLoader`
+  `dlopen()`s `<model>.so`; the model packages put them in `lib/` next to
+  `libemulator_interface`, where a bare-name `dlopen()` finds them through the loader's own
+  rpath, on Linux and macOS alike (checked with a toy loader on macOS before relying on it).
+  They keep upstream's `.so` on macOS. Each model package's test loads every version it ships
+  that way.
+- **The Xilinx headers.** Upstream `hls4mlEmulatorExtras` ships `hls_stream.h` and
+  `ap_shift_reg.h` under a proprietary Xilinx licence. The recipe installs its own
+  implementations instead (in `recipes/cms-hls4ml-emulator-extras/ap_types/`, Apache-2.0,
+  written from the documented interface). No compiled AXOL1TL or CICADA source instantiates
+  either class: every model file was compiled against versions of the two headers that
+  `static_assert` when instantiated, and none did. So the replacement cannot change a result.
+  The package's test runs a toy model through both.
+- **GPL in the models.** Older model versions contain hls4ml's `nnet_utils` from before hls4ml
+  dropped the GPL-3.0-or-later headers it inherited from rfnoc-hls-neuralnet. The model
+  packages declare it and ship the GPL text.
+- **CSCTrackFinderEmulation** is 54 MB of C++ generated from the legacy CSC track finder's
+  firmware, plus the lookup tables it reads through `$CSC_TRACK_FINDER_DATA_DIR`. An activation
+  script sets it (and the tool file sets it for `cmsenv`); a patch makes an unset variable an
+  exception instead of `std::string(nullptr)`. Its headers are under
+  `include/cms-csctrackfinderemulation/`, so that no `L1Trigger/` tree lands in `include/`.
+- **Tool files** for all five, plus `rootxmlio` and `jemalloc` (conda-forge has 5.4.0), which
+  `preflight.py` found missing for `DQM/TrackerCommon` and `HLTrigger/Tools`. The model tools
+  have no headers or libraries for `cmssw-generate-toolbox` to check, so they name a file in a
+  `<!-- requires: ... -->` comment, which the generator now checks.
+
+#### Where the packages went
+
+`HLTrigger/HLTcore` needs `DataFormats/L1TGlobal` and `FWCore/PrescaleService`, both in
+`cmssw-sim-dqm`, so it and nearly everything that depends on it go there:
+
+- **`cmssw-sim-dqm` (+53):** `L1Trigger/L1TGlobal`, `HLTrigger/HLTcore`, the HLT's JetMET code,
+  the trigger DQM and validation (`DQMOffline/Trigger`, `HLTriggerOffline/*`,
+  `Validation/HLTrigger`), tracking and pixel DQM, MET reconstruction (`RecoMET/*`, which
+  needs `L1Trigger/CSCTrackFinder` through the beam-halo code), `L1Trigger/CSCTrackFinder`, the
+  tracklet track finder, and more. 32 of its src-only packages now have plugins too, most of
+  them `HLTrigger/*`, alignment and calibration producers, and `L1Trigger/L1TCaloLayer1`
+  (CICADA).
+- **`cmssw-reco-objects` (+5):** the Phase-2 L1 track trigger (`L1Trigger/TrackTrigger`,
+  `TrackerDTC`, `TrackerTFP`, `TrackFindingTMTT`, `SimTracker/TrackTriggerAssociation`), which
+  needed only conifer and which that layer's `L1TrackTrigger_cff` imports.
+
+Six src-only packages in `cmssw-reco-objects` and `RecoTracker/DeDx` in `cmssw-reco` would need
+HLTcore, so their plugins stay out (about 100 TU). Pulling HLTcore down instead would take 13
+packages with it, among them the Stage-2 calorimeter emulator and the LHE interface (hdf5), for
+a gain of under one point; not worth it.
+
+#### Build failures, one of them old
+
+- `DQMServices/Components` is now built in full, and its `fastHadd` tool ignores two protobuf
+  results that newer protobuf marks `[[nodiscard]]`: patch 0005, the same fix as 0001.
+- `DQM/SiPixelPhase1Common`'s plugin library needs `SiPixelPhase1Harvester`'s destructor thunks
+  from the package library, where the implicit (inline) destructor had them hidden by
+  `-fvisibility-inlines-hidden`: patch 0006 defines it out of line.
+- **Fortran was only working by accident.** Every Fortran compile in the layer failed with
+  `gfortran: No such file or directory`, because this session had deleted old rattler-build
+  work directories. The release's `MakeData/variables.mk` names the Fortran compiler (and the
+  LLVM tools' clang) `cmssw-fwlite` was built with, inside that build's `build_env`: C and C++
+  come from the host prefix and are relocated, these are not. `scram project` copies them into
+  every developer area, and setting the compiler tools up again does not change them, so every
+  layer since had been using fwlite's build directory. `cmssw-build-layer` now rewrites `FC` in
+  the area to its own build's (toolbox build 18). User areas still get the dead path; that is
+  now an open issue, to be fixed in `cmssw-fwlite` at the next full rebuild.
+- **macOS, patch 0007**: seven files in packages that are built for the first time, all of
+  kinds 0004 already fixes elsewhere. `std::numbers` without `<numbers>`
+  (`HLTriggerOffline/Scouting`); `setiosflags()` unqualified (the SiStrip and tracking DQM
+  clients); glibc's `ulong` (the tracklet producer); multimap iterators declared with a
+  different key constness than the map (`DPGAnalysis/SiStripTools`, now `auto`);
+  `<ext/alloc_traits.h>` and `stdc++fs` (`Alignment/OfflineValidation`, whose plugins and
+  tools were src-only until now); and `fastHadd`'s `<sys/prctl.h>`, which only Linux has (its
+  worker processes are no longer killed with their parent on macOS). A grep of the 85 new or
+  newly full packages for the patterns 0004 knows found all of them but the multimap one,
+  three before the build got there; it is worth running before every macOS layer build.
+
+#### Results
+
+`cmssw-toolbox` 18, the five new recipes build 0, `cmssw-reco-objects` 2, `cmssw-sim-dqm` 2
+with patches 0005–0007
+(`cmssw-reco-objects` on aarch64 and macOS was built with toolbox 17, whose only difference is
+the Fortran override, which that layer does not need):
+
+| | linux-aarch64 | linux-64 (emulated) | osx-arm64 |
+|---|---|---|---|
+| `cmssw-reco-objects` | 2149 s, 1003 libraries (was 993) | 4626 s, 1003 | about 9800 s, 1006 (was 996) |
+| `cmssw-sim-dqm` | 4780 s, 1671 libraries (was 1538) | 11552 s, 1671 | 19528 s, 1664 (was 1531) |
+
+macOS has seven fewer libraries in `cmssw-sim-dqm`, as before (`skip-osx.txt`).
+
+The result is **1237 packages, 12.4k TU, 81.3%** (82% reachable). `cmssw-reco-objects`' test
+checks the track trigger's plugins; `cmssw-sim-dqm`'s checks `L1TGlobalProducer`,
+`HLTPrescaler`, the tracklet producer, the CSC track finder, `CSCHaloDataProducer` and CICADA,
+and its `cmsRun` test now constructs `simCaloStage2Layer1Summary`, which loads
+`CICADAModel_v2p1p2.so` by name.

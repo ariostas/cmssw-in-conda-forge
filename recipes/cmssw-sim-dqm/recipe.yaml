@@ -40,9 +40,28 @@ source:
       # - DQM/TrackerRemapper links libstdc++fs, which std::filesystem has not needed since
       #   GCC 9 and which libc++ does not have.
       - patches/0004-Build-on-macOS.patch
+      # The same protobuf [[nodiscard]] as 0001, in DQMServices/Components' fastHadd, which is
+      # built since the L1 ML models made DQMServices/Components buildable in full.
+      - patches/0005-DQMServices-Components-check-the-results-of-protobuf-writes-in-fastHadd.patch
+      # SiPixelPhase1Harvester's destructor was implicit, so inline, and its virtual thunks
+      # hidden in the library by -fvisibility-inlines-hidden, while the plugin registering
+      # the class expects them there: an undefined reference with conda-forge's GCC.
+      - patches/0006-DQM-SiPixelPhase1Common-define-the-harvester-destructor-in-the-library.patch
+      # More of the same as 0004, in packages the L1 ML models made buildable:
+      # - HLTriggerOffline/Scouting uses std::numbers without <numbers>, which libstdc++
+      #   reaches through another standard header and libc++ does not;
+      # - DQMServices/Components' fastHadd includes <sys/prctl.h> to have its worker processes
+      #   killed with their parent, which only Linux can do;
+      # - DQM/SiStripMonitorClient and DQM/TrackingMonitorClient call setiosflags()
+      #   unqualified, and L1Trigger/TrackFindingTracklet uses `ulong` (see 0004);
+      # - DPGAnalysis/SiStripTools takes equal_range() of multimaps keyed on `const uint32_t`
+      #   into iterators of maps keyed on `uint32_t` (see 0004);
+      # - Alignment/OfflineValidation includes <ext/alloc_traits.h>, which it does not use,
+      #   and its tools link stdc++fs (see 0004).
+      - patches/0007-Build-the-newly-buildable-DQM-and-HLT-packages-on-macOS.patch
 
 build:
-  number: 1
+  number: 2
   skip:
     - win
     - osx and x86_64
@@ -156,6 +175,15 @@ requirements:
     - cms-l1t-utm
     - xrootd
     # new in this layer
+    # The L1 trigger's ML models, which L1Trigger/L1TGlobal (and through it HLTrigger/HLTcore)
+    # and L1Trigger/L1TCaloLayer1 load at run time, and the CSC track finder emulation.
+    # ASSUMED LICENCE: none of them has a licence yet; see their recipes.
+    - cms-hls4ml-emulator-extras
+    - cms-hls4ml-axol1tl
+    - cms-hls4ml-cicada
+    - cms-csctrackfinderemulation
+    # the allocator HLTrigger/Tools' hltDiff links
+    - jemalloc
     # WebDAV/HTTP file access (FWStorage/DavixAdaptor)
     - davix
     # HDF5 conditions and LHE files (CondCore/CondHDF5ESSource, GeneratorInterface/LHEInterface)
@@ -190,6 +218,10 @@ requirements:
     - libxgboost * cpu_*
     - cms-l1t-utm
     # new in this layer
+    - cms-hls4ml-emulator-extras
+    - cms-hls4ml-axol1tl
+    - cms-hls4ml-cicada
+    - cms-csctrackfinderemulation
     - davix
     - hdf5
     - highfive
@@ -214,6 +246,15 @@ tests:
       - edmPluginDump | grep -q RPCMonitorDigi
       - edmPluginDump | grep -q DataMixingModule
       - edmPluginDump | grep -q EmptyIOVSource
+      # the L1 Global Trigger emulator, the HLT framework and what depends on it, the CSC
+      # track finder and MET, which need the L1 ML models and the CSC track finder emulation
+      # (ASSUMED licences)
+      - edmPluginDump | grep -q L1TGlobalProducer
+      - edmPluginDump | grep -q HLTPrescaler
+      - edmPluginDump | grep -q L1FPGATrackProducer
+      - edmPluginDump | grep -q CSCTFTrackProducer
+      - edmPluginDump | grep -q CSCHaloDataProducer
+      - edmPluginDump | grep -q L1TCaloSummary_CICADA_vXp1p2
       - cmsRun test/simdqm.py
     files:
       recipe:
@@ -232,9 +273,15 @@ about:
     tools (CondCore/Utilities). Those need the L1 trigger menu library (cms-l1t-utm), which
     is used on the ASSUMPTION that it will be released under Apache-2.0: it has no licence yet.
 
-    Plugins that need the HLT framework (HLTrigger/HLTcore), and through it the L1 trigger's
-    ML models, are left out, as are those that need event generators or CMS's own Geant4
-    extensions.
+    It also has the L1 Global Trigger emulator and with it the HLT framework
+    (HLTrigger/HLTcore), the HLT's own code, trigger DQM and validation, and MET
+    reconstruction. Those need the L1 trigger's ML models (cms-hls4ml-axol1tl,
+    cms-hls4ml-cicada, cms-hls4ml-emulator-extras) and the CSC track finder emulation
+    (cms-csctrackfinderemulation), which are also used on the ASSUMPTION that they will be
+    released under Apache-2.0: they have no licence yet.
+
+    Plugins that need TensorFlow or PyTorch, event generators or CMS's own Geant4 extensions
+    are left out.
   license: Apache-2.0
   license_file: cmssw/LICENSE
   repository: https://github.com/cms-sw/cmssw

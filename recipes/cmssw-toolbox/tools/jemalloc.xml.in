@@ -1,0 +1,9 @@
+<tool name="jemalloc" version="5.4.0" path="@PREFIX@" revision="3">
+  <!-- linked into HLTrigger/Tools' hltDiff as its allocator -->
+  <lib name="jemalloc"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <use name="root_cxxdefaults"/>
+</tool>

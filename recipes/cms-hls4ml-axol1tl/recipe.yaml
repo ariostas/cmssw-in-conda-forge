@@ -1,0 +1,89 @@
+# !!! ASSUMED LICENCE !!!
+# AXOL1TL has no licence (2026-09-26). This recipe assumes that CMS will release it under
+# Apache-2.0, which they have NOT done; see ASSUMED-LICENSE.txt and the open item in PLAN.md.
+# It exists so that the CMSSW layers that need the L1 trigger's ML models can be built and
+# tested in the meantime. Do not submit it to conda-forge until upstream has added a licence,
+# and then replace ASSUMED-LICENSE.txt with that file.
+context:
+  version: "6.0.4"
+
+package:
+  name: cms-hls4ml-axol1tl
+  version: ${{ version }}
+
+source:
+  - url: https://github.com/cms-hls4ml/AXOL1TL/archive/refs/tags/v${{ version }}.tar.gz
+    sha256: 650dc8f3bfc069d4eff0dfa0c55ff70854ec2261589ffb80e0dda85aa7dbca7a
+  # the model code includes hls4ml files under GPL-3.0-or-later, which do not come with its text
+  - url: https://www.gnu.org/licenses/gpl-3.0.txt
+    sha256: 3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986
+    file_name: gpl-3.0.txt
+    target_directory: licenses
+
+build:
+  number: 0
+  skip:
+    - win
+  script:
+    env:
+      MODEL_PREFIX: GTADModel
+    file: build.sh
+  # The models keep upstream's .so on macOS too: they are loaded with dlopen() by file name,
+  # which the loader forms as <model>.so.
+
+requirements:
+  build:
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+    - make
+  host:
+    - cms-hls4ml-emulator-extras
+    - hls-arbitrary-precision-types
+  run:
+    - cms-hls4ml-emulator-extras
+
+tests:
+  - package_contents:
+      files:
+        - lib/GTADModel_v1.so
+        - lib/GTADModel_v3.so
+        - lib/GTADModel_v4.so
+        - lib/GTADModel_v5.so
+        - lib/GTADModel_v6.so
+  - files:
+      recipe:
+        - load-model.cpp
+    requirements:
+      run:
+        - ${{ compiler('cxx') }}
+    script:
+      - ${CXX} ${CXXFLAGS} -std=c++17 -I${PREFIX}/include/hls4ml load-model.cpp -o load-model ${LDFLAGS} -L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib -lemulator_interface
+      # by bare name, as CMSSW does: the loader finds them next to itself
+      - ./load-model GTADModel_v1
+      - ./load-model GTADModel_v3
+      - ./load-model GTADModel_v4
+      - ./load-model GTADModel_v5
+      - ./load-model GTADModel_v6
+
+about:
+  homepage: https://github.com/cms-hls4ml/AXOL1TL
+  summary: AXOL1TL, the CMS Level-1 Global Trigger's anomaly detection network (emulator)
+  description: |
+    AXOL1TL is the autoencoder the CMS Level-1 Global Trigger uses to select anomalous
+    events. This package is its bit-accurate C++ emulation, built from the model's hls4ml
+    firmware code, one shared library per model version (GTADModel_v*), which CMSSW's
+    L1Trigger/L1TGlobal loads at run time through cms-hls4ml-emulator-extras.
+
+    ASSUMED LICENCE: AXOL1TL has no licence. This package assumes it will be released
+    under Apache-2.0, which has not happened; see ASSUMED-LICENSE.txt. Some model versions
+    include hls4ml's neural-network library as it was then, whose files are GPL-3.0-or-later.
+  # LicenseRef: the Apache-2.0 part is an assumption, not a licence upstream has granted
+  license: LicenseRef-ASSUMED-Apache-2.0 AND GPL-3.0-or-later
+  license_file:
+    - ASSUMED-LICENSE.txt
+    - licenses/gpl-3.0.txt
+  repository: https://github.com/cms-hls4ml/AXOL1TL
+
+extra:
+  recipe-maintainers:
+    - ariostas

@@ -1,0 +1,11 @@
+<tool name="csctrackfinderemulation" version="1.2" path="@PREFIX@" revision="2">
+  <!-- cms-csctrackfinderemulation. Its headers, which CMSSW includes as
+       L1Trigger/CSCTrackFinder/src/core_*/vpp_generated.h, are in a directory of their own. -->
+  <lib name="CSCTrackFinderEmulation"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include/cms-csctrackfinderemulation"/>
+  </client>
+  <!-- the lookup tables; the package's activation script sets the same -->
+  <runtime name="CSC_TRACK_FINDER_DATA_DIR" default="$TOOL_BASE/share/cms-csctrackfinderemulation/"/>
+</tool>

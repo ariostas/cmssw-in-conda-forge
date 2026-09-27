@@ -1,0 +1,76 @@
+# !!! ASSUMED LICENCE !!!
+# hls4mlEmulatorExtras has no licence (2026-09-26). This recipe assumes that CMS will release it
+# under Apache-2.0, which they have NOT done; see ASSUMED-LICENSE.txt and the open item in
+# PLAN.md. It exists so that the CMSSW layers that need the L1 trigger's ML models can be built
+# and tested in the meantime. Do not submit it to conda-forge until upstream has added a
+# licence, and then replace ASSUMED-LICENSE.txt with that file.
+context:
+  version: "1.1.7"
+
+package:
+  name: cms-hls4ml-emulator-extras
+  version: ${{ version }}
+
+source:
+  url: https://github.com/cms-hls4ml/hls4mlEmulatorExtras/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: 71c01d8e3036a528800a9e745ade3aeaf8380b9422f81faa8d14464fa0bb6532
+
+build:
+  number: 0
+  skip:
+    - win
+  script: build.sh
+
+requirements:
+  build:
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+  run:
+    # the ap_types headers are written on top of ap_fixed.h and ap_int.h
+    - hls-arbitrary-precision-types
+
+tests:
+  - package_contents:
+      lib:
+        - emulator_interface
+      include:
+        - hls4ml/emulator.h
+        - ap_types/hls_stream.h
+        - ap_types/ap_shift_reg.h
+        - ap_types/hls_math.h
+        - ap_types/utils/x_hls_utils.h
+  - files:
+      recipe:
+        - test/
+    requirements:
+      run:
+        - ${{ compiler('cxx') }}
+        - hls-arbitrary-precision-types
+    script:
+      - bash test/run.sh
+
+about:
+  homepage: https://github.com/cms-hls4ml/hls4mlEmulatorExtras
+  summary: Loader and HLS headers for the CMS Level-1 trigger's hls4ml model emulators
+  description: |
+    The CMS Level-1 trigger runs neural networks on FPGAs, translated to firmware with hls4ml.
+    CMSSW emulates them bit-accurately in software by loading each model's C++ simulation as a
+    shared library. This package is the interface those libraries implement and the loader
+    for them (libemulator_interface), plus the HLS headers their code needs besides ap_fixed.
+
+    ASSUMED LICENCE: hls4mlEmulatorExtras has no licence. This package assumes it will be
+    released under Apache-2.0, which has not happened; see ASSUMED-LICENSE.txt.
+
+    Upstream bundles two Xilinx headers (hls_stream.h and ap_shift_reg.h) that are not under
+    an open licence. This package does not ship them: it has its own implementations of
+    hls::stream and ap_shift_reg, written for conda-forge under Apache-2.0.
+  # LicenseRef: the upstream part is an assumption, not a licence upstream has granted. The
+  # replacement ap_types/hls_stream.h and ap_types/ap_shift_reg.h are Apache-2.0.
+  license: LicenseRef-ASSUMED-Apache-2.0 AND Apache-2.0
+  license_file:
+    - ASSUMED-LICENSE.txt
+  repository: https://github.com/cms-hls4ml/hls4mlEmulatorExtras
+
+extra:
+  recipe-maintainers:
+    - ariostas

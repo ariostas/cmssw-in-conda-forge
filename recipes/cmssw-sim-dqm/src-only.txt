@@ -62,33 +62,14 @@ Validation/Tools
 Validation/TrackerConfiguration
 
 # Packages whose own library builds but whose plugins need something blocked, directly or
-# through a header they include. Most of them reach HLTrigger/HLTcore, whose library needs
-# L1Trigger/L1TGlobal and so the L1 ML models (AXOL1TL, hls4ml); for many the only thing they
-# want from it is HLTrigger/HLTcore/interface/defaultModuleLabel.h. The rest need ML runtimes,
-# generators (pythia6, photospp), CMS's Geant4 extensions (SimG4CMS) or Fireworks.
-Alignment/CommonAlignmentProducer
-Alignment/OfflineValidation
-Calibration/EcalAlCaRecoProducers
-Calibration/HcalAlCaRecoProducers
-Calibration/HcalCalibAlgos
-Calibration/IsolatedParticles
-CaloOnlineTools/EcalTools
-CondFormats/PCLConfig
-DPGAnalysis/MuonTools
+# through a header they include: ML runtimes (TensorFlow, PyTorch), generators (pythia6,
+# photospp, hector), CMS's Geant4 extensions (SimG4CMS), the GPU runtimes or Fireworks.
 DPGAnalysis/Phase2L1TNanoAOD
-DPGAnalysis/SiStripTools
 DQM/BeamMonitor
-DQM/DataScouting
-DQM/HLTEvF
 DQM/HcalTasks
-DQM/SiPixelPhase1Track
-DQM/SiTrackerPhase2
-DQMOffline/ParticleFlow
-DQMServices/Components
 FastSimulation/CTPPSFastTrackingProducer
 FastSimulation/CTPPSRecHitProducer
 FastSimulation/CTPPSSimHitProducer
-FastSimulation/Muons
 Fireworks/Eve
 Fireworks/GenParticle
 Fireworks/MTD
@@ -98,26 +79,13 @@ GeneratorInterface/ExhumeInterface
 GeneratorInterface/GenExtensions
 GeneratorInterface/GenFilters
 GeneratorInterface/PhotosInterface
-HLTrigger/Egamma
-HLTrigger/HLTanalyzers
-HLTrigger/HLTfilters
-HLTrigger/JSONMonitoring
-HLTrigger/Muon
-HLTrigger/NGTScouting
-HLTrigger/Tools
-HLTrigger/btau
 HLTrigger/special
-HLTriggerOffline/Higgs
-HLTriggerOffline/Scouting
-L1Trigger/L1TCaloLayer1
-MuonAnalysis/MomentumScaleCalibration
 OnlineDB/SiStripO2O
 PhysicsTools/BPHNano
-PhysicsTools/PatUtils
-PhysicsTools/RecoUtils
 PhysicsTools/Scouting
+RecoMET/METPUSubtraction
 RecoML/AnomalyDetection
-SimCalorimetry/HGCalAssociatorProducers
+RecoMuon/TrackerSeedGenerator
 SimG4Core/PrintGeomInfo
 SimGeneral/CaloAnalysis
 SimPPS/PPSSimTrackProducer

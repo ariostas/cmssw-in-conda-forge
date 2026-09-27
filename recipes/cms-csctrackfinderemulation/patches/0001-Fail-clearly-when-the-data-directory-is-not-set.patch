@@ -1,0 +1,18 @@
+diff --git a/include/FWCore/ParameterSet/interface/FileInPath_wrapper.cpp b/include/FWCore/ParameterSet/interface/FileInPath_wrapper.cpp
+index bc7dbe1..7283923 100644
+--- a/include/FWCore/ParameterSet/interface/FileInPath_wrapper.cpp
++++ b/include/FWCore/ParameterSet/interface/FileInPath_wrapper.cpp
+@@ -1,8 +1,12 @@
+ #include "FWCore/ParameterSet/interface/FileInPath_wrapper.h"
+ #include <cstdlib>
++#include <stdexcept>
+ 
+ std::string FileInPath_wrapper(const char *r)
+ {
+-  std::string fullPath(getenv("CSC_TRACK_FINDER_DATA_DIR"));
++  const char* dir = getenv("CSC_TRACK_FINDER_DATA_DIR");
++  if (dir == nullptr)
++    throw std::runtime_error("CSC_TRACK_FINDER_DATA_DIR is not set: cannot find " + std::string(r));
++  std::string fullPath(dir);
+   return fullPath+r;
+ }

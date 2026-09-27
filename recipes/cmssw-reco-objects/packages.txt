@@ -14,11 +14,11 @@
 # (Configuration.StandardSequences.Accelerators_cff imports them), SimCalorimetry/
 # EcalSimProducers and TauAnalysis/MCEmbeddingTools (the ECAL rechit fragments import them).
 #
-# Left out because they cannot be built: the MET producers, whose beam-halo code includes
-# L1Trigger/CSCTrackFinder and so needs the L1 ML models; the Phase-2 and Stage-2 parts of the
-# L1 emulator, for the same reason or because they need cmssw-sim-dqm's L1 data formats; and
-# whatever needs TensorFlow or the Triton client (RecoEcal/EgammaClusterAlgos, and with it
-# the PF superclusters). Undeclared includes count as dependencies here: reach.py merges
+# Left out: the MET producers, whose beam-halo code includes L1Trigger/CSCTrackFinder, which
+# needs cmssw-sim-dqm's L1 muon track finders (so the MET packages are built there); the
+# Stage-2 parts of the L1 emulator, which need cmssw-sim-dqm's L1 data formats; and whatever
+# needs TensorFlow or the Triton client (RecoEcal/EgammaClusterAlgos, and with it the PF
+# superclusters). Undeclared includes count as dependencies here: reach.py merges
 # analysis/scripts/include_graph.py's output.
 #
 # The L1 trigger menu library (cms-l1t-utm) is used on an ASSUMPTION: that its authors will
@@ -28,6 +28,10 @@
 # configuration producers: every package utm makes buildable whose dependencies are all in
 # this layer or below, apart from the DQM, validation and conditions-tool ones, which went to
 # cmssw-sim-dqm with the rest of their subsystems.
+#
+# conifer (conifer-cpp, Apache-2.0) brought in the Phase-2 L1 track trigger (L1Trigger/
+# TrackTrigger, TrackerDTC, TrackerTFP, TrackFindingTMTT and SimTracker/
+# TrackTriggerAssociation), which Configuration/StandardSequences' L1TrackTrigger_cff imports.
 Alignment/Geners
 CalibCalorimetry/CaloMiscalibTools
 CalibCalorimetry/CaloTPG
@@ -187,6 +191,10 @@ L1Trigger/RPCTrigger
 L1Trigger/RegionalCaloTrigger
 L1Trigger/Skimmer
 L1Trigger/TextToDigi
+L1Trigger/TrackFindingTMTT
+L1Trigger/TrackTrigger
+L1Trigger/TrackerDTC
+L1Trigger/TrackerTFP
 L1TriggerConfig/CSCTFConfigProducers
 L1TriggerConfig/DTTPGConfig
 L1TriggerConfig/DTTPGConfigProducers
@@ -309,5 +317,6 @@ SimCalorimetry/EcalSimAlgos
 SimCalorimetry/EcalSimProducers
 SimCalorimetry/HcalSimAlgos
 SimGeneral/NoiseGenerators
+SimTracker/TrackTriggerAssociation
 TBDataFormats/EcalTBObjects
 TauAnalysis/MCEmbeddingTools

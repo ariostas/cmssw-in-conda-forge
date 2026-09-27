@@ -1,0 +1,7 @@
+<tool name="conifer" version="1.7" path="@PREFIX@" revision="3">
+  <!-- conifer's C++ backend header, conifer.h; conda-forge's package is conifer-cpp. -->
+  <client>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <use name="json"/>
+</tool>

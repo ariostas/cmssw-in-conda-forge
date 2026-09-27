@@ -13,6 +13,14 @@
 # brought into this layer (2026-09-26) is the Stage-2 L1 emulator (calorimeter, muon
 # track finders), the RPC digitiser, DQM and validation, and the conddb tools
 # (CondCore/Utilities) with the payload inspectors that could move with them.
+#
+# The L1 trigger's ML models (cms-hls4ml-axol1tl, cms-hls4ml-cicada, with their loader
+# cms-hls4ml-emulator-extras) and the CSC track finder emulation (cms-csctrackfinderemulation)
+# are used on the same kind of ASSUMPTION: none of them has a licence yet. They brought in
+# (2026-09-26) the L1 Global Trigger emulator (L1Trigger/L1TGlobal) and with it the HLT
+# framework (HLTrigger/HLTcore), and so the HLT, trigger DQM and validation, tracking DQM,
+# MET reconstruction and the L1 track trigger's tracklet algorithm. HLTcore has to be in
+# this layer, not lower: it needs DataFormats/L1TGlobal and FWCore/PrescaleService.
 Alignment/APEEstimation
 Alignment/CommonAlignmentMonitor
 Alignment/CommonAlignmentProducer
@@ -38,6 +46,7 @@ Calibration/LumiAlCaRecoProducers
 Calibration/PPSAlCaRecoProducer
 Calibration/TkAlCaRecoProducers
 CaloOnlineTools/EcalTools
+CommonTools/TriggerUtils
 CondCore/AlignmentPlugins
 CondCore/CondHDF5ESSource
 CondCore/GeometryPlugins
@@ -71,6 +80,7 @@ CondTools/SiPhase2Tracker
 CondTools/SiPixel
 CondTools/SiStrip
 CondTools/Utilities
+Configuration/Skimming
 DPGAnalysis/HGCalNanoAOD
 DPGAnalysis/HcalNanoAOD
 DPGAnalysis/HcalTools
@@ -78,6 +88,7 @@ DPGAnalysis/L1TNanoAOD
 DPGAnalysis/MuonTools
 DPGAnalysis/Phase2L1TNanoAOD
 DPGAnalysis/SiStripTools
+DPGAnalysis/Skims
 DQM/BeamMonitor
 DQM/CSCMonitorModule
 DQM/CTPPS
@@ -95,9 +106,11 @@ DQM/HLXMonitor
 DQM/HcalCommon
 DQM/HcalTasks
 DQM/Integration
+DQM/L1TMonitor
 DQM/L1TMonitorClient
 DQM/MuonMonitor
 DQM/PFTasks
+DQM/Physics
 DQM/PhysicsObjectsMonitoring
 DQM/PixelLumi
 DQM/RCTMonitor
@@ -110,6 +123,7 @@ DQM/SiPixelMonitorDigi
 DQM/SiPixelMonitorRawData
 DQM/SiPixelMonitorRecHit
 DQM/SiPixelMonitorTrack
+DQM/SiPixelPhase1Common
 DQM/SiPixelPhase1Config
 DQM/SiPixelPhase1Summary
 DQM/SiPixelPhase1Track
@@ -118,22 +132,39 @@ DQM/SiStripCommissioningClients
 DQM/SiStripCommissioningSources
 DQM/SiStripCommissioningSummary
 DQM/SiStripMonitorApproximateCluster
+DQM/SiStripMonitorClient
+DQM/SiStripMonitorCluster
 DQM/SiStripMonitorDigi
 DQM/SiStripMonitorHardware
 DQM/SiStripMonitorPedestals
 DQM/SiStripMonitorSummary
+DQM/SiStripMonitorTrack
 DQM/SiTrackerPhase2
+DQM/TrackerCommon
+DQM/TrackerMonitorTrack
 DQM/TrackerRemapper
+DQM/TrackingMonitor
+DQM/TrackingMonitorClient
+DQM/TrackingMonitorSource
+DQM/TrigXMonitor
+DQM/TrigXMonitorClient
+DQMOffline/Alignment
 DQMOffline/CalibCalo
 DQMOffline/CalibMuon
 DQMOffline/CalibTracker
 DQMOffline/Configuration
 DQMOffline/EGamma
 DQMOffline/Ecal
+DQMOffline/HLTScouting
 DQMOffline/Hcal
+DQMOffline/JetMET
+DQMOffline/Lumi
+DQMOffline/Muon
+DQMOffline/MuonDPG
 DQMOffline/PFTau
 DQMOffline/ParticleFlow
 DQMOffline/RecoB
+DQMOffline/Trigger
 DQMServices/Components
 DQMServices/Demo
 DQMServices/Examples
@@ -207,17 +238,27 @@ GeometryReaders/XMLIdealGeometryESSource
 HLTrigger/Configuration
 HLTrigger/Egamma
 HLTrigger/HLTanalyzers
+HLTrigger/HLTcore
 HLTrigger/HLTfilters
 HLTrigger/JSONMonitoring
+HLTrigger/JetMET
 HLTrigger/Muon
 HLTrigger/NGTScouting
 HLTrigger/Timer
 HLTrigger/Tools
 HLTrigger/btau
 HLTrigger/special
+HLTriggerOffline/B2G
+HLTriggerOffline/Btag
 HLTriggerOffline/Common
+HLTriggerOffline/Egamma
+HLTriggerOffline/Exotica
+HLTriggerOffline/HeavyFlavor
 HLTriggerOffline/Higgs
+HLTriggerOffline/JetMET
+HLTriggerOffline/Muon
 HLTriggerOffline/SMP
+HLTriggerOffline/SUSYBSM
 HLTriggerOffline/Scouting
 HLTriggerOffline/Tau
 HeavyFlavorAnalysis/Onia2MuMu
@@ -243,16 +284,22 @@ IORawData/SiPixelInputSources
 IgTools/IgProf
 JetMETAnalysis/Configuration
 JetMETAnalysis/METSkims
+L1Trigger/CSCTrackFinder
 L1Trigger/DTTrackFinder
 L1Trigger/HardwareValidation
 L1Trigger/L1TCaloLayer1
 L1Trigger/L1TCalorimeter
 L1Trigger/L1TCommon
+L1Trigger/L1TGlobal
 L1Trigger/L1TMuon
 L1Trigger/L1TMuonBarrel
 L1Trigger/L1TMuonOverlapPhase1
 L1Trigger/L1TMuonOverlapPhase2
+L1Trigger/L1TNtuples
 L1Trigger/L1TTwinMux
+L1Trigger/TrackFindingTracklet
+L1TriggerConfig/L1GtConfigProducers
+L1TriggerConfig/L1TConfigProducers
 L1TriggerOffline/L1Analyzer
 L1TriggerScouting/NanoAOD
 L1TriggerScouting/OnlineProcessing
@@ -283,9 +330,14 @@ PhysicsTools/PythonAnalysis
 PhysicsTools/RecoAlgos
 PhysicsTools/RecoUtils
 PhysicsTools/Scouting
+PhysicsTools/TagAndProbe
 PhysicsTools/TruthInfo
+RecoMET/METAlgorithms
+RecoMET/METPUSubtraction
+RecoMET/METProducers
 RecoML/AnomalyDetection
 RecoML/Topology
+RecoMuon/TrackerSeedGenerator
 RecoRomanPot/Configuration
 RecoTBCalo/EcalSimpleTBAnalysis
 RecoTBCalo/EcalTBAnalysisCoreTools
@@ -398,6 +450,7 @@ Validation/Geometry
 Validation/GlobalHits
 Validation/GlobalRecHits
 Validation/HGCalValidation
+Validation/HLTrigger
 Validation/HcalDigis
 Validation/HcalRecHits
 Validation/L1T
@@ -425,9 +478,17 @@ Validation/RecoMuon
 Validation/RecoParticleFlow
 Validation/RecoPixelVertexing
 Validation/RecoTrack
+Validation/RecoVertex
 Validation/SiPixelPhase1ConfigV
+Validation/SiPixelPhase1DigisV
+Validation/SiPixelPhase1HitsV
+Validation/SiPixelPhase1RecHitsV
+Validation/SiPixelPhase1TrackClustersV
+Validation/SiPixelPhase1TrackingParticleV
+Validation/SiTrackerPhase2V
 Validation/Tools
 Validation/TrackerConfiguration
 Validation/TrackerDigis
 Validation/TrackerHits
+Validation/TrackerRecHits
 Validation/TrackingMCTruth

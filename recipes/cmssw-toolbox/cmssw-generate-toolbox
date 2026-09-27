@@ -49,6 +49,11 @@ def missing_paths(text, prefix):
             missing.append(path[len(prefix) + 1:] if path.startswith(prefix) else path)
         elif name == "LIBDIR":
             libdirs.append(path)
+    # A tool with neither headers nor libraries to check (the L1 trigger's ML models, which are
+    # only ever dlopen()ed) names a file of its package instead, in a comment.
+    for path in re.findall(r"<!--\s*requires:\s*(\S+)\s*-->", text):
+        if not os.path.exists(os.path.join(prefix, path)):
+            missing.append(path)
     # Only tools that say where their libraries are can be checked; the ones that do not
     # (resolv, sockets, the ROOT libraries, ...) get theirs from the compiler's own search
     # path. A versioned library counts: conda-forge often splits the unversioned link-time

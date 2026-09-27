@@ -61,6 +61,14 @@ cd "${DEV}"
 for tool in "${WORK}"/toolbox/tools/selected/*.xml; do
   scram setup "${tool}"
 done
+# The compiler variables in MakeData/variables.mk come from the release as `scram project`
+# copies them, and setting up the compiler tools again does not change them. The C and C++
+# compilers are in the host prefix, which conda relocates; the Fortran compiler is in the
+# prefix cmssw-fwlite was *built* in, which is gone once that build is. Use this build's.
+if [ -n "${FC:-}" ]; then
+  fc=$(command -v "${FC%% *}" || echo "${FC%% *}")
+  sed -i -E "s|^((gcc_)?FC):=.*$|\1:=${fc}|" "${DEV}/.SCRAM/${SCRAM_ARCH}/MakeData/variables.mk"
+fi
 
 # 3. the sources of this layer
 cd "${DEV}/src"

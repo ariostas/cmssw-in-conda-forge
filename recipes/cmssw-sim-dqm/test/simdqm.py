@@ -1,7 +1,7 @@
 # Build the validation and DQM output modules from their configuration fragments. As in the
 # reconstruction layers' tests nothing is run: constructing the configuration needs every
 # cfi it imports and every plugin it names to be registered, but no input data and no
-# conditions.
+# conditions. The one exception is CICADA, whose model is loaded as its module is built.
 #
 # The mixing module and its digitisers are not loaded: their parameters name files from CMS's
 # separate data repositories (SimTracker/SiStripDigitizer/data/APVProbaList.txt, from
@@ -22,9 +22,15 @@ process.load("Validation.RecoTrack.MultiTrackValidator_cfi")
 process.dqmOut = cms.OutputModule("DQMRootOutputModule", fileName=cms.untracked.string("dqm.root"))
 process.out = cms.EndPath(process.dqmOut)
 
+# The L1 calorimeter trigger's anomaly score, which loads its hls4ml model (CICADAModel_*.so,
+# from cms-hls4ml-cicada) by name when it is constructed. On a path, so that it is.
+process.load("L1Trigger.L1TCaloLayer1.simCaloStage2Layer1Summary_cfi")
+process.cicada = cms.Path(process.simCaloStage2Layer1Summary)
+
 producers = process.producers_()
 analyzers = process.analyzers_()
 print(len(producers), "producers,", len(analyzers), "analyzers")
 # DQMEDAnalyzer() makes an EDProducer: DQM modules produce their histograms as products
 assert "multiTrackValidator" in producers, "multiTrackValidator missing from the configuration"
+assert "simCaloStage2Layer1Summary" in producers, "CICADA missing from the configuration"
 print("validation configuration built")

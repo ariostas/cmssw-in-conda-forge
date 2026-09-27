@@ -22,6 +22,10 @@ first, and add to its progress log (section 6) when something significant is lea
     refitting for alignment; `classlib` is CMS's socket/IO library, used by DQM).
   - `cms-l1t-utm`: the L1 trigger menu library (`utm`; the name `utm` is taken on conda-forge).
     It has **no licence**; the recipe assumes Apache-2.0 (see below).
+  - The L1 trigger's ML models, which CMSSW loads with `dlopen()` by name: `cms-hls4ml-emulator-
+    extras` (the loader and HLS headers), `cms-hls4ml-axol1tl`, `cms-hls4ml-cicada`; with
+    `cms-csctrackfinderemulation` (the legacy CSC track finder) and `conifer-cpp` (BDT header,
+    Apache-2.0). All but conifer have **no licence** and assume Apache-2.0, like utm.
   - The CMSSW layers, each built on the previous one and all installed into **one** release
     directory: `cmssw-fwlite` (the base release) → `cmssw-framework` (`cmsRun`, IOPool,
     services, storage) → `cmssw-conditions` (CondCore/CondFormats) → `cmssw-geometry`
@@ -173,6 +177,13 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
 - SCRAM compiles with the compiler in the **host** prefix, which `root_base` brings in for its
   interpreter, not the one in the build prefix; and `root_base` 6.36 pins the host sysroot to
   glibc 2.17. So a layer cannot move to a newer glibc by setting `c_stdlib_version`.
+- The installed release's `MakeData/variables.mk` names the compilers `cmssw-fwlite` was built
+  with. C and C++ are in the host prefix and get relocated; the Fortran compiler (and the LLVM
+  tools' clang) are in fwlite's *build* prefix, a path that only exists while that build's work
+  directory does. `scram project` copies those variables, and `scram setup` of the compiler
+  tools does not change them, so `cmssw-build-layer` rewrites `FC` to its own build's. A user's
+  developer area still gets the dead path (open issue in PLAN.md). This went unnoticed for
+  weeks because the old work directories were never deleted.
 - A missing tool file is only a `****WARNING: Invalid tool <name>` at configure time; the build
   then dies much later with undefined references, because the tool's libraries were silently
   dropped from the link line. Grep a layer's log for `Invalid tool` even when it succeeds.
@@ -199,9 +210,15 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
   `.SCRAM/<arch>/MakeData/DirCache/*.mk`, `.SCRAM/<arch>/{BuildFiles,tools,InstalledTools}`,
   `config/toolbox/<arch>/tools/selected`. `.SCRAM/<arch>/DirCache.json` is not needed by a
   developer area, and `MakeData/Tools.mk` and `edmplugins` are regenerated in each area.
+- The L1 ML models are not linked: `hls4mlEmulator::ModelLoader` (in `libemulator_interface`)
+  `dlopen()`s `<model>.so` by bare name, and nothing sets `LD_LIBRARY_PATH` for it. It works
+  because a bare-name `dlopen()` searches the *calling library's* rpath, on glibc (`RUNPATH`)
+  and on macOS (`LC_RPATH`) alike, and the loader and the models are both in `$PREFIX/lib`.
+  Their SCRAM tool files have nothing for the generator to check, so they name a file in a
+  `<!-- requires: lib/... -->` comment instead.
 - The CMSSW 20_1 data formats use `io_v1` namespaces with `using` aliases (e.g. `pat::Muon`). FWLite
   `Handle`s and TClass lookups need the `io_v1` name.
-- Two dependencies have **no license** and cannot go to conda-forge until that is resolved:
+- Several dependencies have **no license** and cannot go to conda-forge until that is resolved:
   - `utm` (CMS L1 trigger menu). It is needed by `CondFormats/L1TObjects`, and through it
     `CondCore/Utilities` (the `conddb` tools), `DataFormats/RPCDigi`, the L1 unpackers and the
     `L1Trigger/*` emulator, so it is on the critical path for reconstruction from RAW.
@@ -211,6 +228,13 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
     `LicenseRef-ASSUMED-Apache-2.0` licence; keep it that way, and do not submit it or the two
     layers until upstream adds a real licence. If they decline, put `utm` back in `reach.py`'s
     `BLOCKED` and take its packages out of those two layers.
+  - The L1 ML models (`cms-hls4ml/*` on GitHub) and `CSCTrackFinderEmulation`. **Since
+    2026-09-26 they are packaged on the same ASSUMPTION as utm** (`LicenseRef-ASSUMED-Apache-2.0`,
+    `ASSUMED-LICENSE.txt`) and used by `cmssw-sim-dqm`; the same rules apply. Separately,
+    upstream `hls4mlEmulatorExtras` bundles two proprietary Xilinx headers (`hls_stream.h`,
+    `ap_shift_reg.h`): never ship those. `recipes/cms-hls4ml-emulator-extras/ap_types/` has
+    Apache-2.0 replacements. L1METML, NNPuppiTauModel and TOoLLiP are not packaged: only
+    Phase-2 particle flow uses them, and it also needs TensorFlow.
   - `coral` (the LCG relational abstraction layer, needed for conditions). Neither the CMS fork
     nor the upstream LCG repository has a license file or license headers.
 - macOS: `DataFormats/Math/interface/SIMDVec.h` enables the SIMD geometry vectors only when

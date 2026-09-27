@@ -1,0 +1,54 @@
+context:
+  # the version CMSSW 20_1 uses (cmsdist conifer.spec)
+  version: "1.7"
+
+package:
+  # the C++ emulation header only; `conifer` is left for the python package it comes from
+  name: conifer-cpp
+  version: ${{ version }}
+
+source:
+  url: https://github.com/thesps/conifer/archive/v${{ version }}.tar.gz
+  sha256: 395d4c4f1267d14bf8deead8cc0d10caf5a523e75e34ee8053c8b208ca67a927
+
+build:
+  number: 0
+  noarch: generic
+  script:
+    - mkdir -p ${PREFIX}/include
+    - cp conifer/backends/cpp/include/conifer.h ${PREFIX}/include/
+
+requirements:
+  run:
+    # conifer.h reads the model from JSON
+    - nlohmann_json
+
+tests:
+  - package_contents:
+      include:
+        - conifer.h
+  - files:
+      recipe:
+        - test.cpp
+    requirements:
+      run:
+        - ${{ compiler('cxx') }}
+        - nlohmann_json
+    script:
+      - ${CXX} ${CXXFLAGS} -std=c++17 -I${PREFIX}/include test.cpp -o conifer-test
+      - ./conifer-test
+
+about:
+  homepage: https://ssummers.web.cern.ch/conifer/
+  summary: C++ emulation of conifer's boosted decision tree firmware
+  description: |
+    conifer translates boosted decision trees (from scikit-learn, xgboost, TMVA, ONNX, ...)
+    into FPGA firmware. This package is its C++ backend header, which evaluates such a
+    model bit-accurately in software; the CMS Level-1 trigger emulator uses it.
+  license: Apache-2.0
+  license_file: LICENSE
+  repository: https://github.com/thesps/conifer
+
+extra:
+  recipe-maintainers:
+    - ariostas

@@ -1,0 +1,71 @@
+# !!! ASSUMED LICENCE !!!
+# CSCTrackFinderEmulation has no licence (2026-09-26). This recipe assumes that CMS will release
+# it under Apache-2.0, which they have NOT done; see ASSUMED-LICENSE.txt and the open item in
+# PLAN.md. It exists so that the CMSSW layers that need it can be built and tested in the
+# meantime. Do not submit it to conda-forge until upstream has added a licence, and then
+# replace ASSUMED-LICENSE.txt with that file.
+context:
+  version: "1.2"
+  # the commit cmsdist builds (CSCTrackFinderEmulation.spec); there is no tag
+  commit: 8c0287fde4739d96fd3fd4a03e5ce5e6b986052e
+
+package:
+  name: cms-csctrackfinderemulation
+  version: ${{ version }}
+
+source:
+  url: https://github.com/cms-externals/CSCTrackFinderEmulation/archive/${{ commit }}.tar.gz
+  sha256: 2c15f0ab3ddf94f383717854a62874674c280f1aa481423a0a47601f5faa6dcb
+  patches:
+    # The data directory comes from getenv(), which was passed straight to std::string: with
+    # the variable unset, the emulator crashed on its first event.
+    - patches/0001-Fail-clearly-when-the-data-directory-is-not-set.patch
+
+build:
+  number: 0
+  skip:
+    - win
+  script: build.sh
+
+requirements:
+  build:
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+    - make
+
+tests:
+  - package_contents:
+      lib:
+        - CSCTrackFinderEmulation
+      files:
+        - include/cms-csctrackfinderemulation/L1Trigger/CSCTrackFinder/src/core_2014_05_15/vpp_generated.h
+        - share/cms-csctrackfinderemulation/L1Trigger/CSCTrackFinder/data/core_2014_05_15/comp_dphi_5.dat
+  - files:
+      recipe:
+        - test.cpp
+    requirements:
+      run:
+        - ${{ compiler('cxx') }}
+    script:
+      - ${CXX} ${CXXFLAGS} test.cpp -o csctf-test ${LDFLAGS} -L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib -lCSCTrackFinderEmulation
+      - ./csctf-test
+
+about:
+  homepage: https://github.com/cms-externals/CSCTrackFinderEmulation
+  summary: Emulation of the CMS Level-1 CSC track finder's sector processor firmware
+  description: |
+    The legacy (Run 1 and 2) CMS Level-1 cathode strip chamber track finder, as C++ generated
+    from its firmware model with the VPP library, one version per firmware release, with the
+    lookup tables they read. CMSSW's L1Trigger/CSCTrackFinder uses it to emulate the trigger.
+
+    ASSUMED LICENCE: CSCTrackFinderEmulation has no licence. This package assumes it will be
+    released under Apache-2.0, which has not happened; see ASSUMED-LICENSE.txt.
+  # LicenseRef: an assumption, not a licence upstream has granted
+  license: LicenseRef-ASSUMED-Apache-2.0
+  license_file:
+    - ASSUMED-LICENSE.txt
+  repository: https://github.com/cms-externals/CSCTrackFinderEmulation
+
+extra:
+  recipe-maintainers:
+    - ariostas

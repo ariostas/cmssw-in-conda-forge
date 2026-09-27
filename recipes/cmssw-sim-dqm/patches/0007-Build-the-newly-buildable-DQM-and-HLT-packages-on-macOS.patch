@@ -1,0 +1,192 @@
+diff --git a/Alignment/OfflineValidation/bin/BuildFile.xml b/Alignment/OfflineValidation/bin/BuildFile.xml
+index b565094c9..c77db553a 100644
+--- a/Alignment/OfflineValidation/bin/BuildFile.xml
++++ b/Alignment/OfflineValidation/bin/BuildFile.xml
+@@ -8,7 +8,6 @@
+ <use name="rootcore"/>
+ <use name="rootgraphics"/>
+ <use name="rootmath"/>
+-<lib name="stdc++fs" />
+ <bin name="DMRmerge" file="DMRmerge.cc,Options.cc" />
+ <bin name="DMRtrends" file="DMRtrends.cc,Options.cc" />
+ <bin name="GCP" file="GCP.cc,Options.cc" />
+diff --git a/Alignment/OfflineValidation/plugins/DMRChecker.cc b/Alignment/OfflineValidation/plugins/DMRChecker.cc
+index 85da82756..174cd5618 100644
+--- a/Alignment/OfflineValidation/plugins/DMRChecker.cc
++++ b/Alignment/OfflineValidation/plugins/DMRChecker.cc
+@@ -35,7 +35,6 @@
+ #include <cstdint>
+ #include <cstdlib>
+ #include <ctime>
+-#include <ext/alloc_traits.h>
+ #include <fmt/printf.h>
+ #include <iomanip>
+ #include <iostream>
+diff --git a/DPGAnalysis/SiStripTools/plugins/TrackerDpgAnalysis.cc b/DPGAnalysis/SiStripTools/plugins/TrackerDpgAnalysis.cc
+index 6b3665822..dac792da5 100644
+--- a/DPGAnalysis/SiStripTools/plugins/TrackerDpgAnalysis.cc
++++ b/DPGAnalysis/SiStripTools/plugins/TrackerDpgAnalysis.cc
+@@ -1153,14 +1153,11 @@ std::vector<double> TrackerDpgAnalysis::onTrackAngles(edm::Handle<edmNew::DetSet
+        DSViter++) {
+     edmNew::DetSet<SiStripCluster>::const_iterator begin = DSViter->begin();
+     edmNew::DetSet<SiStripCluster>::const_iterator end = DSViter->end();
+-    std::pair<std::multimap<uint32_t, std::pair<LocalPoint, double> >::const_iterator,
+-              std::multimap<uint32_t, std::pair<LocalPoint, double> >::const_iterator>
+-        range = onTrackPositions.equal_range(DSViter->id());
++    auto range = onTrackPositions.equal_range(DSViter->id());
+     const GeomDetUnit* gdu = static_cast<const GeomDetUnit*>(tracker_->idToDet(DSViter->id()));
+     for (edmNew::DetSet<SiStripCluster>::const_iterator iter = begin; iter != end; ++iter) {
+       angle = 0.;
+-      for (std::multimap<uint32_t, std::pair<LocalPoint, double> >::const_iterator cl = range.first; cl != range.second;
+-           ++cl) {
++      for (auto cl = range.first; cl != range.second; ++cl) {
+         if (fabs(gdu->topology().measurementPosition(cl->second.first).x() - iter->barycenter()) < 2) {
+           angle = cl->second.second;
+         }
+@@ -1212,12 +1209,10 @@ std::vector<int> TrackerDpgAnalysis::onTrack(edm::Handle<edmNew::DetSetVector<Si
+        DSViter++) {
+     edmNew::DetSet<SiStripCluster>::const_iterator begin = DSViter->begin();
+     edmNew::DetSet<SiStripCluster>::const_iterator end = DSViter->end();
+-    std::pair<std::multimap<uint32_t, std::pair<int, int> >::const_iterator,
+-              std::multimap<uint32_t, std::pair<int, int> >::const_iterator>
+-        range = onTrackPositions.equal_range(DSViter->id());
++    auto range = onTrackPositions.equal_range(DSViter->id());
+     for (edmNew::DetSet<SiStripCluster>::const_iterator iter = begin; iter != end; ++iter) {
+       thetrackid = -1;
+-      for (std::multimap<uint32_t, std::pair<int, int> >::const_iterator cl = range.first; cl != range.second; ++cl) {
++      for (auto cl = range.first; cl != range.second; ++cl) {
+         if (fabs(cl->second.first - iter->barycenter()) < 2) {
+           thetrackid = cl->second.second;
+         }
+@@ -1290,11 +1285,9 @@ std::vector<std::pair<double, double> > TrackerDpgAnalysis::onTrackAngles(
+     for (edmNew::DetSet<SiPixelCluster>::const_iterator iter = begin; iter != end; ++iter) {
+       alpha = 0.;
+       beta = 0.;
+-      std::pair<std::multimap<uint32_t, std::pair<LocalPoint, std::pair<double, double> > >::const_iterator,
+-                std::multimap<uint32_t, std::pair<LocalPoint, std::pair<double, double> > >::const_iterator>
+-          range = onTrackPositions.equal_range(DSViter->id());
++      auto range = onTrackPositions.equal_range(DSViter->id());
+       const GeomDetUnit* gdu = static_cast<const GeomDetUnit*>(tracker_->idToDet(DSViter->id()));
+-      for (std::multimap<uint32_t, std::pair<LocalPoint, std::pair<double, double> > >::const_iterator cl = range.first;
++      for (auto cl = range.first;
+            cl != range.second;
+            ++cl) {
+         if (fabs(gdu->topology().measurementPosition(cl->second.first).x() - iter->x()) < 2 &&
+@@ -1345,10 +1338,8 @@ std::vector<int> TrackerDpgAnalysis::onTrack(edm::Handle<edmNew::DetSetVector<Si
+     edmNew::DetSet<SiPixelCluster>::const_iterator end = DSViter->end();
+     for (edmNew::DetSet<SiPixelCluster>::const_iterator iter = begin; iter != end; ++iter) {
+       thetrackid = -1;
+-      std::pair<std::multimap<uint32_t, std::pair<std::pair<float, float>, int> >::const_iterator,
+-                std::multimap<uint32_t, std::pair<std::pair<float, float>, int> >::const_iterator>
+-          range = onTrackPositions.equal_range(DSViter->id());
+-      for (std::multimap<uint32_t, std::pair<std::pair<float, float>, int> >::const_iterator cl = range.first;
++      auto range = onTrackPositions.equal_range(DSViter->id());
++      for (auto cl = range.first;
+            cl != range.second;
+            ++cl) {
+         if ((fabs(cl->second.first.first - iter->x()) < 2) && (fabs(cl->second.first.second - iter->y()) < 2)) {
+diff --git a/DQM/SiStripMonitorClient/src/SiStripActionExecutor.cc b/DQM/SiStripMonitorClient/src/SiStripActionExecutor.cc
+index 0d1412d4f..732392309 100644
+--- a/DQM/SiStripMonitorClient/src/SiStripActionExecutor.cc
++++ b/DQM/SiStripMonitorClient/src/SiStripActionExecutor.cc
+@@ -212,18 +212,18 @@ void SiStripActionExecutor::printShiftHistoParameters(DQMStore& dqm_store,
+     str_val << " ====================================" << std::endl;
+ 
+     str_val << std::setprecision(2);
+-    str_val << setiosflags(std::ios::fixed);
++    str_val << std::setiosflags(std::ios::fixed);
+     for (auto const& path_name : path_names) {
+       if (path_name.empty())
+         continue;
+       MonitorElement* me = dqm_store.get(path_name);
+       std::ostringstream entry_str, mean_str, rms_str;
+       entry_str << std::setprecision(2);
+-      entry_str << setiosflags(std::ios::fixed);
++      entry_str << std::setiosflags(std::ios::fixed);
+       mean_str << std::setprecision(2);
+-      mean_str << setiosflags(std::ios::fixed);
++      mean_str << std::setiosflags(std::ios::fixed);
+       rms_str << std::setprecision(2);
+-      rms_str << setiosflags(std::ios::fixed);
++      rms_str << std::setiosflags(std::ios::fixed);
+       entry_str << std::setw(7) << me->getEntries();
+       mean_str << std::setw(7) << me->getMean();
+       rms_str << std::setw(7) << me->getRMS();
+diff --git a/DQM/TrackingMonitorClient/src/TrackingActionExecutor.cc b/DQM/TrackingMonitorClient/src/TrackingActionExecutor.cc
+index 8713ba2eb..057716aa4 100644
+--- a/DQM/TrackingMonitorClient/src/TrackingActionExecutor.cc
++++ b/DQM/TrackingMonitorClient/src/TrackingActionExecutor.cc
+@@ -150,7 +150,7 @@ void TrackingActionExecutor::printShiftHistoParameters(DQMStore::IBooker& ibooke
+     str_val << " ====================================" << std::endl;
+ 
+     str_val << std::setprecision(2);
+-    str_val << setiosflags(std::ios::fixed);
++    str_val << std::setiosflags(std::ios::fixed);
+     for (std::vector<std::string>::iterator im = it->second.begin(); im != it->second.end(); im++) {
+       const std::string& path_name = (*im);
+       if (path_name.empty())
+@@ -158,11 +158,11 @@ void TrackingActionExecutor::printShiftHistoParameters(DQMStore::IBooker& ibooke
+       MonitorElement* me = igetter.get(path_name);
+       std::ostringstream entry_str, mean_str, rms_str;
+       entry_str << std::setprecision(2);
+-      entry_str << setiosflags(std::ios::fixed);
++      entry_str << std::setiosflags(std::ios::fixed);
+       mean_str << std::setprecision(2);
+-      mean_str << setiosflags(std::ios::fixed);
++      mean_str << std::setiosflags(std::ios::fixed);
+       rms_str << std::setprecision(2);
+-      rms_str << setiosflags(std::ios::fixed);
++      rms_str << std::setiosflags(std::ios::fixed);
+       entry_str << std::setw(7) << me->getEntries();
+       mean_str << std::setw(7) << me->getMean();
+       rms_str << std::setw(7) << me->getRMS();
+diff --git a/DQMServices/Components/bin/fastHadd.cc b/DQMServices/Components/bin/fastHadd.cc
+index c7327c0a8..a106e4d51 100644
+--- a/DQMServices/Components/bin/fastHadd.cc
++++ b/DQMServices/Components/bin/fastHadd.cc
+@@ -102,7 +102,9 @@ PATH=/afs/cern.ch/work/r/rovere/protocolbuf/bin
+ #include <TKey.h>
+ #include <TClass.h>
+ 
++#ifdef __linux__
+ #include <sys/prctl.h>
++#endif
+ #include <sys/wait.h>
+ #include <csignal>
+ 
+@@ -437,7 +439,10 @@ void addFilesWithFork(int parent_fd,
+ 
+     int child_pid = ::fork();
+     if (child_pid == 0) {
++#ifdef __linux__
++      // no equivalent on macOS: a child outlives a parent that dies
+       ::prctl(PR_SET_PDEATHSIG, SIGKILL);
++#endif
+       ::close(fd[0]);  // close read end
+ 
+       addFilesWithFork(fd[1], child_id, fork_total, filenames);
+diff --git a/HLTriggerOffline/Scouting/plugins/ScoutingMuonPropertiesAnalyzer.cc b/HLTriggerOffline/Scouting/plugins/ScoutingMuonPropertiesAnalyzer.cc
+index 9cb6c777e..52a0a830b 100644
+--- a/HLTriggerOffline/Scouting/plugins/ScoutingMuonPropertiesAnalyzer.cc
++++ b/HLTriggerOffline/Scouting/plugins/ScoutingMuonPropertiesAnalyzer.cc
+@@ -15,6 +15,7 @@
+ #include <algorithm>
+ #include <cmath>
+ #include <map>
++#include <numbers>
+ #include <string>
+ #include <vector>
+ #include "TLorentzVector.h"
+diff --git a/L1Trigger/TrackFindingTracklet/plugins/L1FPGATrackProducer.cc b/L1Trigger/TrackFindingTracklet/plugins/L1FPGATrackProducer.cc
+index 5e238ff8f..8dd03e8d2 100644
+--- a/L1Trigger/TrackFindingTracklet/plugins/L1FPGATrackProducer.cc
++++ b/L1Trigger/TrackFindingTracklet/plugins/L1FPGATrackProducer.cc
+@@ -514,7 +514,7 @@ void L1FPGATrackProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSe
+         //Loop over the 9 words in the 36 bit stub word
+         for (unsigned int i = 0; i < 9; i++) {
+           std::bitset<4> bits(stubword.substr(i * 4, 4));
+-          ulong val = bits.to_ulong();
++          unsigned long val = bits.to_ulong();
+           stubwordhex += ((val < 10) ? ('0' + val) : ('A' + val - 10));
+         }
+ 

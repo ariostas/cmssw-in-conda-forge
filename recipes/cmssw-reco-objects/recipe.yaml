@@ -49,7 +49,7 @@ source:
       - patches/0005-L1-trigger-build-with-libc.patch
 
 build:
-  number: 1
+  number: 2
   skip:
     - win
     - osx and x86_64
@@ -163,6 +163,8 @@ requirements:
     # everything above them: RPC formats, the L1 unpackers and emulator. ASSUMED LICENCE: utm
     # has none yet; see recipes/cms-l1t-utm.
     - cms-l1t-utm
+    # boosted decision trees in the Phase-2 L1 track trigger (L1Trigger/TrackTrigger)
+    - conifer-cpp
   run:
     - cms-scram
     - cmssw-reco ==${{ version }}
@@ -185,6 +187,7 @@ requirements:
     - onnxruntime-cpp * *_cpu
     - libxgboost * cpu_*
     - cms-l1t-utm
+    - conifer-cpp
   ignore_run_exports:
     from_package:
       - libclang
@@ -208,6 +211,9 @@ tests:
       - edmPluginDump | grep -q L1GlobalTriggerRawToDigi
       - edmPluginDump | grep -q GctRawToDigi
       - edmPluginDump | grep -qw L1GlobalTrigger
+      # the Phase-2 L1 track trigger, which needs conifer
+      - edmPluginDump | grep -q TTStubBuilder_Phase2TrackerDigi_
+      - edmPluginDump | grep -q trackerTFP::ProducerCTB
       - edmPluginDump | grep -q CaloTowersCreator
       - edmPluginDump | grep -q FastjetJetProducer
       - edmPluginDump | grep -q PFProducer
@@ -230,12 +236,13 @@ about:
     It also has the RPC chambers' data formats, unpacking and local reconstruction, and the
     L1 trigger's conditions formats, legacy unpackers and emulator. Those need the L1 trigger
     menu library (cms-l1t-utm), which is used on the ASSUMPTION that it will be released
-    under Apache-2.0: it has no licence yet.
+    under Apache-2.0: it has no licence yet. And it has the Phase-2 L1 track trigger.
 
     Left out for want of an external: the DeepSC superclustering and other models that need
     TensorFlow or the Triton inference client, whose conda-forge C++ headers are incomplete
-    or which are not packaged; and the MET producers (whose beam-halo code includes the L1
-    CSC track finder) and the HLT-derived plugins, which reach the L1 trigger's ML models.
+    or which are not packaged. The MET producers (whose beam-halo code includes the L1 CSC
+    track finder) and the plugins that need the HLT framework are in cmssw-sim-dqm, with
+    the Stage-2 L1 data formats they depend on.
   license: Apache-2.0
   license_file: cmssw/LICENSE
   repository: https://github.com/cms-sw/cmssw

@@ -1,0 +1,8 @@
+<tool name="axol1tl" version="6.0.4" path="@PREFIX@" revision="2">
+  <!-- cms-hls4ml-axol1tl: the models L1Trigger/L1TGlobal loads by name (GTADModel_v*.so) through
+       hls4mlemulatorextras. Nothing links against them, so there is no <lib> to check. -->
+  <!-- requires: lib/GTADModel_v6.so -->
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+</tool>

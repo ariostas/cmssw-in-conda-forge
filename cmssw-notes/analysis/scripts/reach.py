@@ -75,15 +75,23 @@ BLOCKED = {
     "tfaot-model-test-simple": "ML runtimes",
     "pytorch": "ML runtimes",
     "triton-inference-client": "ML runtimes",
-    "AXOL1TL": "L1 ML models",
-    "CICADA": "L1 ML models",
+    # The L1 trigger's ML models that anything but L1Trigger/Phase2L1ParticleFlow needs are NOT
+    # blocked any more (2026-09-26): AXOL1TL, CICADA and hls4mlEmulatorExtras are packaged
+    # (recipes/cms-hls4ml-*), and so is CSCTrackFinderEmulation (recipes/cms-
+    # csctrackfinderemulation), on the ASSUMPTION that CMS will release them under Apache-2.0.
+    # They have not; none of them has a licence yet. Put them back here if that falls through:
+    #   "AXOL1TL": "L1 ML models",
+    #   "CICADA": "L1 ML models",
+    #   "hls4mLEmulatorExtras": "L1 ML models",
+    #   "hls4mlEmulatorExtras": "L1 ML models",
+    #   "CSCTrackFinderEmulation": "L1 ML models",
+    # conifer has a licence (Apache-2.0) and is packaged as conifer-cpp.
+    #
+    # Only Phase2L1ParticleFlow uses these three, and it needs TensorFlow too, so they wait for
+    # the ML runtimes (same licence situation: cms-hls4ml repositories without a licence).
     "L1METML": "L1 ML models",
     "NNPuppiTauModel": "L1 ML models",
     "TOoLLiP": "L1 ML models",
-    "conifer": "L1 ML models",
-    "hls4mLEmulatorExtras": "L1 ML models",
-    "hls4mlEmulatorExtras": "L1 ML models",
-    "CSCTrackFinderEmulation": "L1 ML models",
     "herwig7": "generators",
     "thepeg": "generators",
     "sherpa": "generators",

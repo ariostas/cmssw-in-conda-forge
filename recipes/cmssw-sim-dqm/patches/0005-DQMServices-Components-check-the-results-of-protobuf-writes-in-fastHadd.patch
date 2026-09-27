@@ -1,0 +1,23 @@
+diff --git a/DQMServices/Components/bin/fastHadd.cc b/DQMServices/Components/bin/fastHadd.cc
+index c7327c0a8..51d480782 100644
+--- a/DQMServices/Components/bin/fastHadd.cc
++++ b/DQMServices/Components/bin/fastHadd.cc
+@@ -187,11 +187,15 @@ void writeMessageFD(const dqmstorepb::ROOTFilePB &dqmstore_output_msg, int out_f
+   options.format = GzipOutputStream::GZIP;
+   options.compression_level = 2;
+   GzipOutputStream gzip_stream(&out_stream, options);
+-  dqmstore_output_msg.SerializeToZeroCopyStream(&gzip_stream);
++  bool ok = dqmstore_output_msg.SerializeToZeroCopyStream(&gzip_stream);
+ 
+   // make sure we flush before close
+-  gzip_stream.Close();
+-  out_stream.Close();
++  ok &= gzip_stream.Close();
++  ok &= out_stream.Close();
++  if (!ok) {
++    std::cout << "Fatal Error writing the output file" << std::endl;
++    exit(ERR_NOFILE);
++  }
+ }
+ 
+ void writeMessage(const dqmstorepb::ROOTFilePB &dqmstore_output_msg, const std::string &output_filename) {
