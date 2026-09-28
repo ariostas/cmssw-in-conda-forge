@@ -17,10 +17,6 @@ source:
       # ONNX Runtime installs its public headers flat under include/onnxruntime/;
       # conda-forge's onnxruntime-cpp keeps the source tree's core/session/ layout.
       - patches/0002-PhysicsTools-ONNXRuntime-accept-the-source-tree-header-layout.patch
-      # The DeepSC supercluster evaluator is the only part of RecoEcal/EgammaCoreTools that
-      # uses TensorFlow, whose conda-forge C++ headers do not compile. Leaving those two files
-      # out makes the library -- and e/gamma and particle flow above it -- buildable.
-      - patches/0003-RecoEcal-EgammaCoreTools-leave-out-DeepSC-which-needs-TensorFlow.patch
       # Code that only compiles with libstdc++ or on targets with 16-byte vector alignment:
       # - RecoTracker/LSTCore reads its geometry with std::ifstream without <fstream>;
       # - RecoTracker/LST calls std::ranges::size on TrajectorySeed's hit range, which is not a
@@ -47,9 +43,13 @@ source:
       #   first instance, so std::call_once does the same;
       # - L1Trigger/RPCTrigger constructs a std::map iterator from nullptr.
       - patches/0005-L1-trigger-build-with-libc.patch
+      # The L1 packages TensorFlow brings in (2026-09-27) use std::pair (L1Trigger/L1TMuonEndCap)
+      # and std::numbers (L1Trigger/L1TTrackMatch) without including <utility> and <numbers>,
+      # which libstdc++ happens to include for them and libc++ does not.
+      - patches/0006-L1-trigger-include-utility-and-numbers-for-libc.patch
 
 build:
-  number: 2
+  number: 3
   skip:
     - win
     - osx and x86_64
@@ -137,9 +137,10 @@ requirements:
     # library, not `fastjet`, which is the python bindings.
     # Build 5 is the last one that ships the headers. Build 6 (2026-09-22) moved them to a new
     # fastjet-cxx-devel, which requires cgal-cpp; every current cgal-cpp requires eigen-abi
-    # 5.0.1, lwtnn requires eigen-abi 3.4.0, and so the solver falls back to cgal-cpp 5.x and
-    # the long-gone boost-cpp and cannot resolve. Take fastjet-cxx-devel once lwtnn (or
-    # cgal-cpp) is built against a matching eigen.
+    # 5.0.1, conda-forge's lwtnn requires eigen-abi 3.4.0, and so the solver falls back to
+    # cgal-cpp 5.x and the long-gone boost-cpp and cannot resolve. The local lwtnn rebuild
+    # (cmssw-notes/feedstock-changes/lwtnn) is on Eigen 5, so fastjet-cxx-devel can be taken
+    # once that is upstream.
     - fastjet-cxx ==3.5.1 *_5
     - fastjet-contrib
     # particle properties, for SimGeneral/HepPDTRecord
@@ -165,9 +166,19 @@ requirements:
     - cms-l1t-utm
     # boosted decision trees in the Phase-2 L1 track trigger (L1Trigger/TrackTrigger)
     - conifer-cpp
+    # the L1 trigger's ML models: their loader, which the endcap muon track finder
+    # (L1Trigger/L1TMuonEndCap) uses, and AXOL1TL, the anomaly detection the L1 Global
+    # Trigger emulator (L1Trigger/L1TGlobal) runs. ASSUMED LICENCE, like utm's; see the
+    # recipes.
+    - cms-hls4ml-emulator-extras
+    - cms-hls4ml-axol1tl
   run:
     - cms-scram
-    - cmssw-reco ==${{ version }}
+    # The exact build of the layer below this one was built against: a layer links that
+    # layer's libraries, and a newer build can add some (cmssw-reco's build 4 has
+    # PhysicsTools/TensorFlow). With only the version pinned, the solver took cmssw-reco
+    # build 3 under cmssw-reco-objects build 3, which needs the newer one's libraries.
+    - ${{ pin_compatible("cmssw-reco", exact=True) }}
     - python
     - root_base
     - coral
@@ -188,6 +199,8 @@ requirements:
     - libxgboost * cpu_*
     - cms-l1t-utm
     - conifer-cpp
+    - cms-hls4ml-emulator-extras
+    - cms-hls4ml-axol1tl
   ignore_run_exports:
     from_package:
       - libclang
@@ -211,6 +224,17 @@ tests:
       - edmPluginDump | grep -q L1GlobalTriggerRawToDigi
       - edmPluginDump | grep -q GctRawToDigi
       - edmPluginDump | grep -qw L1GlobalTrigger
+      # the Stage-2 unpacker and the Stage-2 L1 packages it needs, moved here from
+      # cmssw-sim-dqm once TensorFlow made the endcap muon track finder buildable
+      - edmPluginDump | grep -qw L1TRawToDigi
+      - edmPluginDump | grep -q L1TStage2Layer2Producer
+      - edmPluginDump | grep -q L1TMuonEndCapTrackProducer
+      - edmPluginDump | grep -q L1GTAlgoBlockProducer
+      # the L1 Global Trigger emulator and the HLT framework, which the HLT, e/gamma HLT
+      # producers, luminosity and Type-1 MET corrections need; the emulator's anomaly
+      # detection model is cms-hls4ml-axol1tl (ASSUMED licence)
+      - edmPluginDump | grep -q L1TGlobalProducer
+      - edmPluginDump | grep -q HLTPrescaler
       # the Phase-2 L1 track trigger, which needs conifer
       - edmPluginDump | grep -q TTStubBuilder_Phase2TrackerDigi_
       - edmPluginDump | grep -q trackerTFP::ProducerCTB
@@ -236,13 +260,15 @@ about:
     It also has the RPC chambers' data formats, unpacking and local reconstruction, and the
     L1 trigger's conditions formats, legacy unpackers and emulator. Those need the L1 trigger
     menu library (cms-l1t-utm), which is used on the ASSUMPTION that it will be released
-    under Apache-2.0: it has no licence yet. And it has the Phase-2 L1 track trigger.
+    under Apache-2.0: it has no licence yet. It has the Stage-2 L1 unpackers, with the
+    Stage-2 data formats and the parts of the emulator they need, the L1 Global Trigger
+    emulator and the HLT framework (HLTrigger/HLTcore), and the Phase-2 L1 track trigger.
+    The L1 Global Trigger emulator needs the L1 trigger's ML models (cms-hls4ml-axol1tl),
+    which are used on the same ASSUMPTION.
 
-    Left out for want of an external: the DeepSC superclustering and other models that need
-    TensorFlow or the Triton inference client, whose conda-forge C++ headers are incomplete
-    or which are not packaged. The MET producers (whose beam-halo code includes the L1 CSC
-    track finder) and the plugins that need the HLT framework are in cmssw-sim-dqm, with
-    the Stage-2 L1 data formats they depend on.
+    Left out for want of an external: the models that need the Triton inference client
+    (and with it the PF superclusters). The MET producers (whose beam-halo code includes the
+    L1 CSC track finder) are in cmssw-sim-dqm.
   license: Apache-2.0
   license_file: cmssw/LICENSE
   repository: https://github.com/cms-sw/cmssw

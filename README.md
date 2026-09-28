@@ -157,7 +157,7 @@ unusable there; see [PLAN.md](PLAN.md).
 
   This needed taking conda-forge's in-flight boost 1.90 migration, which the whole stack is now
   built against.
-- **Reconstruction builds.** `cmssw-reco` (238 CMSSW packages, a 42 MB package) adds local
+- **Reconstruction builds.** `cmssw-reco` (239 CMSSW packages) adds local
   reconstruction in the tracker, the Kalman-filter track finding and fitting chain, primary and
   secondary vertexing, muon reconstruction and identification, and the rest of the detector
   geometry. Its test loads every library of the release and constructs the core tracking,
@@ -169,18 +169,19 @@ unusable there; see [PLAN.md](PLAN.md).
   ```
 
   It needed two new externals, `gbl` and `mille`, the track-refitting libraries used by
-  alignment. The plugins that run a TensorFlow or PyTorch inference are left out (see below).
-- **The rest of reconstruction and the DQM/validation stack build.** `cmssw-reco-objects` (288
+  alignment. The plugins that run a TensorFlow model are built; those that run a PyTorch one
+  are left out (see below).
+- **The rest of reconstruction and the DQM/validation stack build.** `cmssw-reco-objects` (300
   packages) adds unpacking of the detector's raw data, calorimeter and muon local
   reconstruction, electrons and photons, particle flow, jets and b-tagging; its test constructs
   all of them, particle flow included:
 
   ```
-  155 producers, 68 ES producers
+  161 producers, 68 ES producers
   local reconstruction configuration built
   ```
 
-  `cmssw-sim-dqm` (471 packages, 1671 libraries) adds data quality monitoring, validation,
+  `cmssw-sim-dqm` (474 packages, 1734 libraries) adds data quality monitoring, validation,
   digitisation, fast simulation, alignment and calibration workflows and analysis tools. They
   needed one new external, `classlib`, and tool files for protobuf, onnxruntime, xgboost, hdf5,
   lhapdf and others that conda-forge already has.
@@ -198,21 +199,29 @@ unusable there; see [PLAN.md](PLAN.md).
   bundles two proprietary Xilinx headers, which are replaced by new Apache-2.0
   implementations rather than shipped. `cmssw-sim-dqm`'s test runs the CICADA module, which
   loads its model. They bring the HLT's own code, trigger DQM and validation, tracking DQM, MET
-  reconstruction and the Phase-2 L1 track trigger.
-- 25 CMSSW source patches in total, plus one to cmssw-config. About half are needed only for
+  reconstruction and the Phase-2 L1 track trigger; with TensorFlow, the Phase-2 L1 particle
+  flow's three models (`cms-hls4ml-l1metml`, `-nnpuppitaumodel`, `-toollip`) too.
+- **TensorFlow.** conda-forge's `libtensorflow_cc` works, contrary to what this project
+  concluded at first: its XLA/TSL headers are there, under `include/tensorflow/third_party/xla`.
+  It needed Abseil/protobuf pins (it lags conda-forge's migrations), Eigen 5 (and with it a
+  rebuilt `lwtnn`, whose Eigen 5 build was failing for three small reasons), and version 2.19.1:
+  2.21 exports its bundled LLVM, which crashes next to ROOT's interpreter. It brings PAT, taus,
+  the mkFit and DeepCore TensorFlow plugins, the DeepSC superclustering, the Stage-2 L1
+  unpackers' plugins and the Phase-2 L1 particle flow.
+- 26 CMSSW source patches in total, plus one to cmssw-config. About half are needed only for
   macOS, and most of those fix code that only compiled because libstdc++ is more permissive
   than libc++. All are meant for upstream.
 
 ## Where this stands
 
 **Seven CMSSW layers build and pass their tests on all three platforms**, but nothing has been
-submitted to conda-forge yet. They hold 1237 of
-the release's 1358 packages: about 12.4k of its 15.3k translation units (excluding tests), or
-**81% of the build**. 17 of those points depend on externals used on an **assumed** licence
-(above): 8 on `utm` and 9 on the L1 ML models and the CSC track finder emulation; without
-them the figure is 64%. That is nearly everything reachable (82%): the rest is plugins of
-packages that live in a lower layer than the HLT framework they need. What is left beyond
-needs externals that are broken on conda-forge or not packaged yet (below).
+submitted to conda-forge yet. They hold 1253 of
+the release's 1358 packages: about 13.1k of its 15.3k translation units (excluding tests), or
+**86% of the build**. About 20 of those points depend on externals used on an **assumed**
+licence (above): `utm`, the L1 ML models and the CSC track finder emulation; without them
+66% would be reachable. That is nearly everything reachable (86.3%): the rest is plugins of
+a few packages that live in a layer that cannot build them. What is left beyond needs
+externals that are not packaged yet (below).
 "Reachable" counts the headers CMSSW includes without declaring them as dependencies; on the
 BuildFile graph alone the figure reads 63%, and two small patches (a dependency on `ktjet` that
 nothing uses, and TensorFlow for a single e/gamma component) add three points.
@@ -228,7 +237,7 @@ nothing uses, and TensorFlow for a single e/gamma component) add three points.
 - CMSSW compiles against conda-forge's toolchain and externals (it has built with three
   different ROOT versions), including clang and libc++ on macOS.
 - Build cost: about 7.6 CPU-s per translation unit measured end to end (including dictionaries,
-  install and tests), so about 26 CPU-hours per architecture for the whole 81%. CPU is not the
+  install and tests), so about 28 CPU-hours per architecture for the whole 86%. CPU is not the
   constraint.
 
 **Not proven yet** (roughly by risk)
@@ -237,15 +246,16 @@ nothing uses, and TensorFlow for a single e/gamma component) add three points.
    peak at 4.3 GB each, and a default conda-forge runner has 7 GB. The reco layer therefore
    builds with one job there: about 2.2 hours of its 6-hour limit, which works but leaves little
    room for heavier layers. The layer builds size their job count from available memory.
-2. **Externals beyond today's 82%**, cumulative in order: the ML runtimes (86%, with the three
-   L1 models only Phase-2 particle flow uses), a few small unpackaged externals (90%), CMS's
-   Geant4 extensions (90%) and the event generators (94%).
+2. **Externals beyond today's 86%**, cumulative in order: PyTorch, Triton and CMS's XLA AOT
+   runtime (under half a point), a few small unpackaged externals (90%), CMS's Geant4
+   extensions (90%) and the event generators (94%).
 3. **Data packages.** 8.6 GB of CMS data files (one repository is 2.9 GB) versus what
    conda-forge accepts. They are now the next thing in the way: the digitisers cannot even be
    configured without them, so nothing that simulates or reconstructs from RAW can run yet.
 4. Maintenance: every ROOT/boost/python migration forces a coordinated rebuild of all layers, and
    upstream packages change under the stack. For example, fastjet split its headers into a new
-   package mid-build, and that package cannot be installed next to lwtnn. This is what ended the
+   package mid-build, which could not be installed next to conda-forge's lwtnn, and TensorFlow
+   lags conda-forge's Abseil/protobuf migrations, so the stack has to follow it. This is what ended the
    previous FWLite feedstock in 2022, so automation and upstreaming matter more than the initial
    build.
 
@@ -272,11 +282,15 @@ they gate conditions tooling, L1 reconstruction from RAW and the HLT.
   - `coral`, the LCG relational abstraction layer used for conditions access. It is built here
     and works, but neither the CMS fork nor the upstream repository has a licence file or
     licence headers.
-- **TensorFlow and PyTorch plugins are left out.** conda-forge has a `libtensorflow_cc`, but its
-  C++ headers are incomplete (`xla/tsl/framework/allocator.h` is missing) and do not compile.
-  This also costs the DeepSC superclustering, whose TensorFlow files are patched out of
-  `RecoEcal/EgammaCoreTools` so that e/gamma and particle flow build; the PF superclusters
-  themselves also need the Triton client.
+- **TensorFlow is pinned to 2.19.1, and to its Abseil and protobuf.** conda-forge's TensorFlow
+  exports the symbols of the LLVM it bundles, and 2.21's crash next to ROOT's interpreter (on
+  Linux when loaded through `gSystem->Load()`, on macOS when loaded first); 2.19.1's do not.
+  It is also one to three migrations behind conda-forge's Abseil/protobuf (linux-aarch64 is no
+  longer built at all), and everything in the stack has to follow it. Both are for the
+  TensorFlow feedstock to fix. The layers also need a rebuilt `lwtnn` (on Eigen 5), which is a
+  change for its feedstock.
+- **PyTorch plugins are left out**, and so are the PF superclusters and the tau plugins, which
+  need the Triton client.
 - conda-forge's xrootd 6 headers use `statx` on Linux, which needs glibc 2.28, but the package
   does not say so, and `root_base` 6.36 keeps the build at 2.17. The one plugin package that
   includes them (`IORawData/DTCommissioning`) is built without its plugins.
@@ -287,8 +301,8 @@ they gate conditions tooling, L1 reconstruction from RAW and the HLT.
   Linux-only packages (the malloc-interposing memory monitors, the valgrind profiler and the
   beam halo generator) are left out on macOS.
 - `cmssw-reco` pins `fastjet-cxx` to build 5, the last one that ships its headers. Build 6
-  moved them into `fastjet-cxx-devel`, which needs a CGAL that needs eigen 5, while lwtnn needs
-  eigen 3.4.
+  moved them into `fastjet-cxx-devel`, which needs a CGAL that needs eigen 5, while
+  conda-forge's lwtnn needs eigen 3.4; the local lwtnn rebuild removes the conflict.
 - `cmssw-devel` covers the layers up to `cmssw-conditions`. It does not yet pull in the
   development packages of the geometry and reco externals (dd4hep, geant4, fastjet, ...), so
   rebuilding a package from those layers needs them installed by hand.
@@ -310,8 +324,9 @@ they gate conditions tooling, L1 reconstruction from RAW and the HLT.
    the 17 points they bring come out.
 3. The data packages, starting with those the digitisers and a RECO step read, so that a
    standard workflow can run end to end.
-4. Fix conda-forge's TensorFlow headers; then the ML runtimes, simulation and generators, and
-   automation for new CMSSW releases and conda-forge migrations.
+4. Upstream the TensorFlow (hidden LLVM symbols, current pins, linux-aarch64) and lwtnn (Eigen 5)
+   fixes; then simulation and generators, and automation for new CMSSW releases and
+   conda-forge migrations.
 
 See [PLAN.md](PLAN.md) for details.
 

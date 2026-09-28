@@ -17,10 +17,11 @@ if [ ${#RECIPES[@]} -eq 0 ]; then
            recipes/hls-arbitrary-precision-types cmssw-notes/feedstock-changes/cms-md5
            recipes/frontier-client recipes/coral recipes/classlib recipes/cms-l1t-utm
            recipes/conifer-cpp recipes/cms-hls4ml-emulator-extras recipes/cms-hls4ml-axol1tl
-           recipes/cms-hls4ml-cicada recipes/cms-csctrackfinderemulation
+           recipes/cms-hls4ml-cicada recipes/cms-hls4ml-l1metml recipes/cms-hls4ml-nnpuppitaumodel
+           recipes/cms-hls4ml-toollip recipes/cms-csctrackfinderemulation
            recipes/cmssw-fwlite recipes/cmssw-framework recipes/cmssw-conditions
-           recipes/cmssw-geometry recipes/mille recipes/gbl recipes/cmssw-reco
-           recipes/cmssw-reco-objects recipes/cmssw-sim-dqm recipes/cmssw-devel)
+           recipes/cmssw-geometry recipes/mille recipes/gbl cmssw-notes/feedstock-changes/lwtnn
+           recipes/cmssw-reco recipes/cmssw-reco-objects recipes/cmssw-sim-dqm recipes/cmssw-devel)
 fi
 
 WORK=$(mkdir -p "${WORK:-/work}" && cd "${WORK:-/work}" && pwd)
@@ -55,6 +56,11 @@ fi
 for recipe in "${RECIPES[@]}"; do
   name=$(basename "${recipe}")
   rm -rf "${PKG_CACHE}/${name}-"*
+  # The same goes for the output channel's index: rattler-build only adds files it does not
+  # know yet, so a package rebuilt under the same file name keeps its first build's entry,
+  # dependencies and checksum included, and the next recipe solves against those. Drop it and
+  # let rattler-build index the directory again.
+  rm -f "${OUT}"/*/repodata.json "${OUT}"/*/repodata_from_packages.json
   echo ">> building ${recipe} (log: ${WORK}/logs/${name}-${CONFIG}.log)"
   start=$(date +%s)
   # explicit -m disables the auto-discovery of the recipe's variants.yaml, add it last so it wins

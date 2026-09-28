@@ -1,0 +1,9 @@
+<tool name="toollip" version="3.1.0" path="@PREFIX@" revision="1">
+  <!-- cms-hls4ml-toollip: the models L1Trigger/Phase2L1ParticleFlow loads by name
+       (TOoLLiP_*.so) through hls4mlemulatorextras. Nothing links against them, so there is no <lib>
+       to check. -->
+  <!-- requires: lib/TOoLLiP_v1.so -->
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+</tool>

@@ -34,13 +34,12 @@ TrackingTools/Configuration
 # small and clearly bounded.
 
 # No library at all (0 translation units in src/): the layer wants their headers and python.
-# NanoAOD's plugins are table producers that belong to a later, analysis-facing layer;
-# DisplacedRegionalTracking's seeding producer runs a TensorFlow model.
+# NanoAOD's plugins are table producers that belong to a later, analysis-facing layer.
 PhysicsTools/NanoAOD
-RecoTracker/DisplacedRegionalTracking
 
 # 2 source files, 4 plugin ones. Its plugins use HLTrigger/HLTcore, which is built in
-# cmssw-sim-dqm: it needs L1Trigger/L1TGlobal, and that the Stage-2 L1 formats there.
+# cmssw-reco-objects: it needs L1Trigger/L1TGlobal, and that the Stage-2 L1 formats and the
+# L1 trigger's ML models.
 RecoTracker/DeDx
 
 # 1 source file, 4 plugin ones. Its library is what HeterogeneousCore/AlpakaCore includes;

@@ -1,0 +1,9 @@
+<tool name="l1metml" version="1.0.1" path="@PREFIX@" revision="1">
+  <!-- cms-hls4ml-l1metml: the models L1Trigger/Phase2L1ParticleFlow loads by name
+       (L1METML_v*.so) through hls4mlemulatorextras. Nothing links against them, so there is no <lib>
+       to check. -->
+  <!-- requires: lib/L1METML_v1.so -->
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+</tool>

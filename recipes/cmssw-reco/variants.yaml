@@ -38,3 +38,22 @@ libboost_headers:
   - "1.90"
 libboost_python_devel:
   - "1.90"
+
+# conda-forge's libtensorflow_cc is behind the global pinning's Abseil and protobuf (20260526 and
+# 7.35.1). The 2.19.1 the layers use (see cmssw-reco) is built against 20260107 and 6.33.5 on
+# linux-64 and osx-arm64; linux-aarch64, which the feedstock no longer builds, has it only
+# against 20250512 and 6.31.1. Everything in the stack that links either has to agree with
+# it, so take its versions. Drop this block once the feedstock catches up with the migrations
+# (and builds linux-aarch64 again).
+libabseil:
+  - if: aarch64
+    then: "20250512"
+    else: "20260107"
+libprotobuf:
+  - if: aarch64
+    then: "6.31.1"
+    else: "6.33.5"
+libgrpc:
+  - if: aarch64
+    then: "1.73"
+    else: "1.78"

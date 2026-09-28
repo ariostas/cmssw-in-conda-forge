@@ -16,10 +16,16 @@
 #
 # Left out: the MET producers, whose beam-halo code includes L1Trigger/CSCTrackFinder, which
 # needs cmssw-sim-dqm's L1 muon track finders (so the MET packages are built there); the
-# Stage-2 parts of the L1 emulator, which need cmssw-sim-dqm's L1 data formats; and whatever
-# needs TensorFlow or the Triton client (RecoEcal/EgammaClusterAlgos, and with it the PF
-# superclusters). Undeclared includes count as dependencies here: reach.py merges
-# analysis/scripts/include_graph.py's output.
+# Stage-2 L1 emulator beyond what the unpackers need (below); and whatever needs the Triton
+# client (RecoEcal/EgammaClusterAlgos, and with it the PF superclusters). Undeclared includes
+# count as dependencies here: reach.py merges analysis/scripts/include_graph.py's output.
+#
+# TensorFlow (2026-09-27) made L1Trigger/L1TMuonEndCap buildable, the last thing the Stage-2
+# unpacker's plugins (EventFilter/L1TRawToDigi) were missing. Those plugins can only be built
+# in this layer, which owns the package, so what they need was moved down from
+# cmssw-sim-dqm: DataFormats/L1TCalorimeter and L1TGlobal, L1Trigger/L1TCalorimeter,
+# L1TCommon, L1TMuon and L1TMuonEndCap. It also brought L1Trigger/DemonstratorTools,
+# L1TTrackMatch and VertexFinder, which belong with the Phase-2 L1 track trigger.
 #
 # The L1 trigger menu library (cms-l1t-utm) is used on an ASSUMPTION: that its authors will
 # release it under Apache-2.0. It has no licence yet (see recipes/cms-l1t-utm). The packages
@@ -110,7 +116,9 @@ DataFormats/HGCalDigi
 DataFormats/HeavyIonEvent
 DataFormats/L1Scouting
 DataFormats/L1ScoutingRawData
+DataFormats/L1TCalorimeter
 DataFormats/L1TCalorimeterPhase2
+DataFormats/L1TGlobal
 DataFormats/LTCDigi
 DataFormats/ProtonReco
 DataFormats/RPCDigi
@@ -147,7 +155,9 @@ EventFilter/RctRawToDigi
 EventFilter/ScalersRawToDigi
 EventFilter/SiStripChannelChargeFilter
 EventFilter/Utilities
+FWCore/PrescaleService
 Geometry/HGCalMapping
+HLTrigger/HLTcore
 HeterogeneousCore/Common
 HeterogeneousCore/ROCmCore
 JetMETCorrections/Algorithms
@@ -173,6 +183,7 @@ L1Trigger/DTTriggerPhase2
 L1Trigger/DTTriggerServerPhi
 L1Trigger/DTTriggerServerTheta
 L1Trigger/DTUtilities
+L1Trigger/DemonstratorTools
 L1Trigger/GlobalCaloTrigger
 L1Trigger/GlobalMuonTrigger
 L1Trigger/GlobalTrigger
@@ -180,9 +191,15 @@ L1Trigger/GlobalTriggerAnalyzer
 L1Trigger/L1CaloTrigger
 L1Trigger/L1ExtraFromDigis
 L1Trigger/L1GctAnalyzer
+L1Trigger/L1TCalorimeter
+L1Trigger/L1TCommon
 L1Trigger/L1TGEM
+L1Trigger/L1TGlobal
 L1Trigger/L1THGCalUtilities
+L1Trigger/L1TMuon
+L1Trigger/L1TMuonEndCap
 L1Trigger/L1TMuonOverlap
+L1Trigger/L1TTrackMatch
 L1Trigger/L1TZDC
 L1Trigger/Phase2L1GT
 L1Trigger/Phase2L1Taus
@@ -195,6 +212,7 @@ L1Trigger/TrackFindingTMTT
 L1Trigger/TrackTrigger
 L1Trigger/TrackerDTC
 L1Trigger/TrackerTFP
+L1Trigger/VertexFinder
 L1TriggerConfig/CSCTFConfigProducers
 L1TriggerConfig/DTTPGConfig
 L1TriggerConfig/DTTPGConfigProducers

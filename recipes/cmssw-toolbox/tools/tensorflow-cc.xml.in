@@ -1,10 +1,24 @@
-<tool name="tensorflow-cc" version="2.19.1" path="@PREFIX@" revision="1">
+<tool name="tensorflow-cc" version="2.19.1" path="@PREFIX@" revision="2">
   <!--
-    conda-forge's libtensorflow_cc, which is 2.19.1 where CMS builds 2.17.0. CMSSW only uses
-    the stable core of the C++ API (tensorflow::Session, Tensor, NamedTensor and
-    tensorflow::run), which has not changed across those releases.
+    conda-forge's libtensorflow_cc 2.19.1 (see cmssw-reco for why not 2.21.0); CMS builds
+    2.17.0. CMSSW only uses the stable core of the C++ API (tensorflow::Session, Tensor,
+    NamedTensor and tensorflow::run), which has not changed across those releases.
+
+    TensorFlow's headers need Eigen 3.4.90 or later (ml_dtypes uses Eigen::numext
+    functions 3.4.0 does not have), which conda-forge ships as Eigen 5. CMS's own TensorFlow is
+    built against the same Eigen snapshot as the rest of CMSSW.
+
+    conda-forge links Abseil dynamically, where CMS's build has it inside the TensorFlow
+    libraries, so the Abseil code TensorFlow's headers instantiate has to be linked by whoever
+    includes them: absl::Status, the hash tables' seed and hashing, and the logging behind
+    TensorFlow's CHECK macros. Found from the undefined symbols of every object file that
+    uses TensorFlow in cmssw-reco, with Abseil 20250512 and 20260107 alike.
   -->
   <lib name="tensorflow_cc"/>
+  <lib name="absl_status"/>
+  <lib name="absl_hash"/>
+  <lib name="absl_log_internal_check_op"/>
+  <lib name="absl_log_internal_message"/>
   <use name="tensorflow-framework"/>
   <use name="eigen"/>
 </tool>

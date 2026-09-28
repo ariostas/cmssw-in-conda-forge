@@ -1,0 +1,9 @@
+<tool name="nnpuppitaumodel" version="1.0.1" path="@PREFIX@" revision="1">
+  <!-- cms-hls4ml-nnpuppitaumodel: the models L1Trigger/Phase2L1ParticleFlow loads by name
+       (NNPuppiTauModel_v*.so) through hls4mlemulatorextras. Nothing links against them, so there is no <lib>
+       to check. -->
+  <!-- requires: lib/NNPuppiTauModel_v1.so -->
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+  </client>
+</tool>

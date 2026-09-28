@@ -31,4 +31,5 @@ repos:
       # verify github syntaxes
       - id: check-github-workflows
       - id: check-dependabot
-exclude: ^(broken-)?recipes/.*$
+# patches keep the single space of their blank context lines, which the whitespace hooks strip
+exclude: ^((broken-)?recipes/.*|.*\.patch)$

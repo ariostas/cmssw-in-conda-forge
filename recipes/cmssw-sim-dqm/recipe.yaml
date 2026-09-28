@@ -59,9 +59,13 @@ source:
       # - Alignment/OfflineValidation includes <ext/alloc_traits.h>, which it does not use,
       #   and its tools link stdc++fs (see 0004).
       - patches/0007-Build-the-newly-buildable-DQM-and-HLT-packages-on-macOS.patch
+      # PhysicsTools/PatAlgos (built since TensorFlow, 2026-09-27) uses __gnu_cxx::is_sorted from
+      # libstdc++'s <ext/algorithm>, which libc++ does not have; std::is_sorted is the same
+      # algorithm, standardised in C++11 (cmssw-reco's 0004 does the same elsewhere).
+      - patches/0008-PhysicsTools-PatAlgos-use-std-is_sorted.patch
 
 build:
-  number: 2
+  number: 3
   skip:
     - win
     - osx and x86_64
@@ -149,9 +153,10 @@ requirements:
     # library, not `fastjet`, which is the python bindings.
     # Build 5 is the last one that ships the headers. Build 6 (2026-09-22) moved them to a new
     # fastjet-cxx-devel, which requires cgal-cpp; every current cgal-cpp requires eigen-abi
-    # 5.0.1, lwtnn requires eigen-abi 3.4.0, and so the solver falls back to cgal-cpp 5.x and
-    # the long-gone boost-cpp and cannot resolve. Take fastjet-cxx-devel once lwtnn (or
-    # cgal-cpp) is built against a matching eigen.
+    # 5.0.1, conda-forge's lwtnn requires eigen-abi 3.4.0, and so the solver falls back to
+    # cgal-cpp 5.x and the long-gone boost-cpp and cannot resolve. The local lwtnn rebuild
+    # (cmssw-notes/feedstock-changes/lwtnn) is on Eigen 5, so fastjet-cxx-devel can be taken
+    # once that is upstream.
     - fastjet-cxx ==3.5.1 *_5
     - fastjet-contrib
     # particle properties, for SimGeneral/HepPDTRecord
@@ -174,13 +179,16 @@ requirements:
     # ASSUMED LICENCE: utm has none yet; see recipes/cms-l1t-utm
     - cms-l1t-utm
     - xrootd
-    # new in this layer
-    # The L1 trigger's ML models, which L1Trigger/L1TGlobal (and through it HLTrigger/HLTcore)
-    # and L1Trigger/L1TCaloLayer1 load at run time, and the CSC track finder emulation.
-    # ASSUMED LICENCE: none of them has a licence yet; see their recipes.
     - cms-hls4ml-emulator-extras
     - cms-hls4ml-axol1tl
+    # new in this layer
+    # The L1 trigger's ML models that L1Trigger/L1TCaloLayer1 (CICADA) and the Phase-2 L1
+    # particle flow (MET, taus, long-lived particle jets) load at run time, and the CSC track
+    # finder emulation. ASSUMED LICENCE: none of them has a licence yet; see their recipes.
     - cms-hls4ml-cicada
+    - cms-hls4ml-l1metml
+    - cms-hls4ml-nnpuppitaumodel
+    - cms-hls4ml-toollip
     - cms-csctrackfinderemulation
     # the allocator HLTrigger/Tools' hltDiff links
     - jemalloc
@@ -198,7 +206,11 @@ requirements:
       then: valgrind
   run:
     - cms-scram
-    - cmssw-reco-objects ==${{ version }}
+    # The exact build of the layer below this one was built against: a layer links that
+    # layer's libraries, and a newer build can add some (cmssw-reco's build 4 has
+    # PhysicsTools/TensorFlow). With only the version pinned, the solver took cmssw-reco
+    # build 3 under cmssw-reco-objects build 3, which needs the newer one's libraries.
+    - ${{ pin_compatible("cmssw-reco-objects", exact=True) }}
     - python
     - root_base
     - coral
@@ -217,10 +229,13 @@ requirements:
     - onnxruntime-cpp * *_cpu
     - libxgboost * cpu_*
     - cms-l1t-utm
-    # new in this layer
     - cms-hls4ml-emulator-extras
     - cms-hls4ml-axol1tl
+    # new in this layer
     - cms-hls4ml-cicada
+    - cms-hls4ml-l1metml
+    - cms-hls4ml-nnpuppitaumodel
+    - cms-hls4ml-toollip
     - cms-csctrackfinderemulation
     - davix
     - hdf5
@@ -246,15 +261,25 @@ tests:
       - edmPluginDump | grep -q RPCMonitorDigi
       - edmPluginDump | grep -q DataMixingModule
       - edmPluginDump | grep -q EmptyIOVSource
-      # the L1 Global Trigger emulator, the HLT framework and what depends on it, the CSC
-      # track finder and MET, which need the L1 ML models and the CSC track finder emulation
-      # (ASSUMED licences)
-      - edmPluginDump | grep -q L1TGlobalProducer
-      - edmPluginDump | grep -q HLTPrescaler
+      # what depends on the HLT framework, the CSC track finder and MET, which need the L1 ML
+      # models and the CSC track finder emulation (ASSUMED licences)
       - edmPluginDump | grep -q L1FPGATrackProducer
       - edmPluginDump | grep -q CSCTFTrackProducer
       - edmPluginDump | grep -q CSCHaloDataProducer
       - edmPluginDump | grep -q L1TCaloSummary_CICADA_vXp1p2
+      # what TensorFlow and the Phase-2 L1 particle flow's models brought: PAT, tau
+      # validation, the Phase-2 L1 particle flow, muon and HGCal triggers, and CPPF
+      - edmPluginDump | grep -qw PATMuonProducer
+      - edmPluginDump | grep -qw PATJetProducer
+      - edmPluginDump | grep -q TauDQMHistPlotter
+      - edmPluginDump | grep -q L1MetPfProducer
+      - edmPluginDump | grep -q L1NNTauProducer
+      - edmPluginDump | grep -q TOoLLiPProducer
+      - edmPluginDump | grep -q Phase2L1TGMTKMTFProducer
+      - edmPluginDump | grep -q HGCalVFEProducer
+      - edmPluginDump | grep -q L1TMuonEndCapPhase2TrackProducer
+      - edmPluginDump | grep -q L1TMuonCPPFDigiProducer
+      - edmPluginDump | grep -q TSGForOIDNN
       - cmsRun test/simdqm.py
     files:
       recipe:
@@ -273,15 +298,14 @@ about:
     tools (CondCore/Utilities). Those need the L1 trigger menu library (cms-l1t-utm), which
     is used on the ASSUMPTION that it will be released under Apache-2.0: it has no licence yet.
 
-    It also has the L1 Global Trigger emulator and with it the HLT framework
-    (HLTrigger/HLTcore), the HLT's own code, trigger DQM and validation, and MET
-    reconstruction. Those need the L1 trigger's ML models (cms-hls4ml-axol1tl,
-    cms-hls4ml-cicada, cms-hls4ml-emulator-extras) and the CSC track finder emulation
+    It also has the HLT's own code, trigger DQM and validation, MET reconstruction, PAT, tau
+    reconstruction and validation, and the Phase-2 L1 particle flow. Those need the L1
+    trigger's ML models (cms-hls4ml-*, loaded at run time) and the CSC track finder emulation
     (cms-csctrackfinderemulation), which are also used on the ASSUMPTION that they will be
     released under Apache-2.0: they have no licence yet.
 
-    Plugins that need TensorFlow or PyTorch, event generators or CMS's own Geant4 extensions
-    are left out.
+    Plugins that need PyTorch or the Triton client, event generators or CMS's own Geant4
+    extensions are left out.
   license: Apache-2.0
   license_file: cmssw/LICENSE
   repository: https://github.com/cms-sw/cmssw

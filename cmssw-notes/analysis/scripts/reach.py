@@ -56,19 +56,19 @@ BLOCKED = {
     "g4hepemcore": "simulation (geant4)",
     "g4hepemstatic": "simulation (geant4)",
     "adept": "simulation (geant4)",
-    # conda-forge has libtensorflow_cc, but its C++ headers are incomplete and cannot be
-    # compiled against: tensorflow/core/framework/allocator.h includes
-    # "xla/tsl/framework/allocator.h", which the package does not ship in 2.18.0 or 2.19.1
-    # (include/xla/tsl holds only protobuf/). So anything that includes tensor.h, which is
-    # everything PhysicsTools/TensorFlow does, fails. Checking that session.h existed was
-    # not enough; the headers have to be compiled, not listed.
-    #
-    # This is worth fixing at the feedstock rather than working around: it would unblock
-    # RecoTracker's TensorFlow plugins, whose generated cfi the _cff fragments import
-    # unconditionally, and with them the full RecoTracker_cff.
-    "tensorflow": "ML runtimes",
-    "tensorflow-cc": "ML runtimes",
-    "tensorflow-runtime": "ML runtimes",
+    # TensorFlow is NOT blocked any more (2026-09-27). conda-forge's libtensorflow_cc was
+    # believed to have incomplete C++ headers: tensorflow/core/framework/allocator.h includes
+    # "xla/tsl/framework/allocator.h", and include/xla/tsl holds only protobuf/. The headers
+    # are all there, only in the source layout under include/tensorflow/third_party/xla,
+    # which the tensorflow tool file now puts on the include path. What does stand in the way
+    # is that TensorFlow lags conda-forge's Abseil/protobuf migrations, and on linux-aarch64
+    # is only built up to 2.19.1; the layers from cmssw-reco up pin Abseil and protobuf to
+    # TensorFlow's, per platform (their variants.yaml).
+    #   "tensorflow": "ML runtimes",
+    #   "tensorflow-cc": "ML runtimes",
+    #   "tensorflow-runtime": "ML runtimes",
+    # The XLA ahead-of-time runtime and its test models are CMS's own build of a part of
+    # TensorFlow that conda-forge does not ship; only PhysicsTools/TensorFlowAOT uses them.
     "tensorflow-xla-runtime": "ML runtimes",
     "tensorflow-xla_compiled_cpu_function": "ML runtimes",
     "tfaot-model-test-multi": "ML runtimes",
@@ -87,11 +87,12 @@ BLOCKED = {
     #   "CSCTrackFinderEmulation": "L1 ML models",
     # conifer has a licence (Apache-2.0) and is packaged as conifer-cpp.
     #
-    # Only Phase2L1ParticleFlow uses these three, and it needs TensorFlow too, so they wait for
-    # the ML runtimes (same licence situation: cms-hls4ml repositories without a licence).
-    "L1METML": "L1 ML models",
-    "NNPuppiTauModel": "L1 ML models",
-    "TOoLLiP": "L1 ML models",
+    # Only Phase2L1ParticleFlow uses these three, and it needs TensorFlow too, so they waited
+    # for it; since 2026-09-27 they are packaged too (recipes/cms-hls4ml-{l1metml,
+    # nnpuppitaumodel,toollip}), on the same ASSUMPTION:
+    #   "L1METML": "L1 ML models",
+    #   "NNPuppiTauModel": "L1 ML models",
+    #   "TOoLLiP": "L1 ML models",
     "herwig7": "generators",
     "thepeg": "generators",
     "sherpa": "generators",

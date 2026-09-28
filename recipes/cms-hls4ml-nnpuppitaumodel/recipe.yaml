@@ -1,0 +1,71 @@
+# !!! ASSUMED LICENCE !!!
+# NNPuppiTauModel has no licence (2026-09-27). This recipe assumes that CMS will release it under
+# Apache-2.0, which they have NOT done; see ASSUMED-LICENSE.txt and the open item in PLAN.md.
+# It exists so that the CMSSW layers that need the L1 trigger's ML models can be built and
+# tested in the meantime. Do not submit it to conda-forge until upstream has added a licence,
+# and then replace ASSUMED-LICENSE.txt with that file.
+context:
+  version: "1.0.1"
+
+package:
+  name: cms-hls4ml-nnpuppitaumodel
+  version: ${{ version }}
+
+source:
+  url: https://github.com/cms-hls4ml/NNPuppiTauModel/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: 806d02786e036fbd0a4181b9bf341e217196ca2a9caab66f1e0b1eafde7e789a
+
+build:
+  number: 0
+  skip:
+    - win
+  script:
+    file: build.sh
+  # The models keep upstream's .so on macOS too: they are loaded with dlopen() by file name,
+  # which the loader forms as <model>.so.
+
+requirements:
+  build:
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+    - make
+  host:
+    - cms-hls4ml-emulator-extras
+    - hls-arbitrary-precision-types
+  run:
+    - cms-hls4ml-emulator-extras
+
+tests:
+  - package_contents:
+      files:
+        - lib/NNPuppiTauModel_v1.so
+  - files:
+      recipe:
+        - load-model.cpp
+    requirements:
+      run:
+        - ${{ compiler('cxx') }}
+    script:
+      - ${CXX} ${CXXFLAGS} -std=c++17 -I${PREFIX}/include/hls4ml load-model.cpp -o load-model ${LDFLAGS} -L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib -lemulator_interface
+      # by bare name, as CMSSW does: the loader finds them next to itself
+      - ./load-model NNPuppiTauModel_v1
+
+about:
+  homepage: https://github.com/cms-hls4ml/NNPuppiTauModel
+  summary: NNPuppiTau, the CMS Phase-2 Level-1 trigger's tau identification network (emulator)
+  description: |
+    NNPuppiTau is the neural network the CMS Phase-2 Level-1 trigger uses to identify
+    hadronic tau decays among PUPPI particle-flow candidates. This package is its
+    bit-accurate C++ emulation, built from the model's hls4ml firmware code, which CMSSW's
+    L1Trigger/Phase2L1ParticleFlow loads at run time through cms-hls4ml-emulator-extras.
+
+    ASSUMED LICENCE: NNPuppiTauModel has no licence. This package assumes it will be released under
+    Apache-2.0, which has not happened; see ASSUMED-LICENSE.txt.
+  # LicenseRef: the Apache-2.0 is an assumption, not a licence upstream has granted
+  license: LicenseRef-ASSUMED-Apache-2.0
+  license_file: ASSUMED-LICENSE.txt
+  repository: https://github.com/cms-hls4ml/NNPuppiTauModel
+
+extra:
+  recipe-maintainers:
+    - ariostas

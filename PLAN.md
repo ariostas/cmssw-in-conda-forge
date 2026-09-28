@@ -313,6 +313,12 @@ outstanding part of this milestone.
       `cms-hls4ml-emulator-extras`, `cms-hls4ml-axol1tl`, `cms-hls4ml-cicada`,
       `cms-csctrackfinderemulation`, plus `conifer-cpp` (really Apache-2.0). The two Xilinx
       headers upstream bundles are replaced, not shipped.
+- [x] The three Phase-2 particle flow models (2026-09-27), on the same ASSUMED licence:
+      `cms-hls4ml-l1metml`, `cms-hls4ml-nnpuppitaumodel`, `cms-hls4ml-toollip`.
+- [x] TensorFlow: conda-forge's `libtensorflow_cc` works (2026-09-27); the tool files only
+      needed its XLA/TSL include directories. The layers pin Abseil/protobuf to its versions.
+- [ ] `lwtnn` on Eigen 5: local recipe in `cmssw-notes/feedstock-changes/lwtnn`, needs a PR to
+      lwtnn (two patches) and to its feedstock (C++17, drop the Eigen 3.4 pin).
 - [x] `tinyxml2`: no action needed, CMSSW compiles against conda-forge's 11.
 - [x] HepMC2: patch CMSSW (`SimDataFormats` weight container), not a CMS-ABI rebuild.
 - [x] **Decision point D1:** SCRAM route confirmed.
@@ -340,13 +346,15 @@ outstanding part of this milestone.
 
 ### M5: reconstruction, then L1/HLT and ML — **the next work**
 
-**Nearly everything reachable is now packaged, on ASSUMED licences**: 1237 of 1358 packages,
-about 12.4k TU, **81%** of the build (82% is reachable; the difference is plugins of packages
-in lower layers that need `HLTrigger/HLTcore`, which can only be built in `cmssw-sim-dqm`).
-The assumption is that `utm`, the L1 ML models and `CSCTrackFinderEmulation` will be released
-under Apache-2.0; **none of them has a licence** today. The 8 points from 64% to 72% depend on
-utm, the 9 from 72% to 81% on the L1 ML models and the CSC emulation (see 2026-09-26 in the
-progress log, and M2). Without utm it was 1127 packages, 9.8k TU, 64% (36%
+**Nearly everything reachable is now packaged, on ASSUMED licences**: 1253 of 1358 packages,
+about 13.1k TU, **86%** of the build (86.3% is reachable; the difference is plugins of
+packages kept src-only in a layer that cannot build them, among them the conditions tools,
+`L1CaloTrigger` and `RecoTracker/DeDx`). The assumption is that `utm`, the
+L1 ML models and `CSCTrackFinderEmulation` will be released under Apache-2.0; **none of them
+has a licence** today. The 8 points from 64% to 72% depend on utm, the 9 from 72% to 81% on
+the L1 ML models and the CSC emulation (see 2026-09-26 in the progress log, and M2); the 5
+from 81% to 86% on TensorFlow (2026-09-27), and the part of them that needs the three Phase-2
+particle flow models on the same assumption. Without utm it was 1127 packages, 9.8k TU, 64% (36%
 before `cmssw-reco-objects` and `cmssw-sim-dqm`, 20% before `cmssw-reco`). The figure counts
 undeclared `#include`s as dependencies since 2026-09-25; on the BuildFile graph alone it read
 63%, and before geant4 and `gbl`/`mille` 54%. It was briefly recorded as 67% on the mistaken
@@ -358,25 +366,24 @@ not with the greedy `--layers` partition: asked for the same number of translati
 latter returns a slice of 79 subsystems that does not deliver anything in particular.
 
 - [x] `cmssw-reco`: RecoTracker, RecoVertex, RecoMuon, TrackingTools, RecoLocalTracker,
-      CommonTools and the rest of Geometry. 238 packages, 2514 TU; builds and tests pass on
-      all three platforms, from the same recipe revision (build 3).
+      CommonTools and the rest of Geometry, and the TensorFlow interface. 239 packages, 2548
+      TU; builds and tests pass on all three platforms (build 4).
 - [x] `cmssw-reco-objects`: RAW unpacking, calorimeter and muon local reconstruction, e/gamma,
-      particle flow, jets, b-tagging, calibration, and (on the assumed utm licence) RPC and the
-      legacy L1 trigger, and the Phase-2 L1 track trigger. 288 packages, about 2700 TU; builds
-      and tests pass on all three platforms.
+      particle flow, jets, b-tagging, calibration, and (on assumed licences) RPC, the legacy
+      and Stage-2 L1 unpackers, the L1 Global Trigger emulator and the HLT framework, and the
+      Phase-2 L1 track trigger. 300 packages, about 3200 TU; builds and tests pass on all
+      three platforms.
 - [x] `cmssw-sim-dqm`: DQM, validation, digitisation, fast simulation and the rest of what is
       reachable, including (on assumed licences) the Stage-2 L1 emulator, the conddb tools, the
-      L1 Global Trigger emulator and the HLT framework with everything built on it. 471
-      packages, about 4100 TU; builds and tests pass on all three platforms.
+      HLT's code, PAT, taus and the Phase-2 L1 particle flow. 474 packages, about 4300 TU;
+      builds and tests pass on all three platforms.
 - [ ] Data packages needed by reco (`cmssw-data-*`).
-- [ ] The externals ladder, cumulative in `reach.py`'s order (2026-09-26): 82% reachable with
-      utm and the L1 ML models (packaged, licences ASSUMED, see above); ML runtimes
-      (TensorFlow's headers, PyTorch, Triton, with the three L1 models only Phase-2 particle
-      flow uses: L1METML, NNPuppiTauModel, TOoLLiP) → 86%; small unpackaged externals → 90%;
-      CMS's Geant4 extensions → 90%; generators → 94%. The TensorFlow step is now the one that
-      matters most. It is a conda-forge feedstock fix (its C++ headers are incomplete) and would
-      also bring the DeepSC superclustering, `RecoTracker_cff`, the Stage-2 L1 unpacker's
-      plugins and the Phase-2 L1 particle flow back.
+- [x] TensorFlow (2026-09-27): conda-forge's works; it needed include paths, Abseil/protobuf
+      pins, Eigen 5 (and so a rebuilt lwtnn), and version 2.19.1 rather than 2.21, which crashes
+      next to ROOT's interpreter. 82% → 86%.
+- [ ] The externals ladder, cumulative in `reach.py`'s order (2026-09-27): 86% reachable today;
+      PyTorch, Triton and CMS's XLA AOT runtime add under half a point; small unpackaged
+      externals → 90%; CMS's Geant4 extensions → 90%; generators → 94%.
 - [ ] Target: run a standard RECO step from RAW (e.g. a relval workflow `runTheMatrix.py -l ...`).
 
 ### M6: simulation and generators (group 6)
@@ -536,7 +543,8 @@ Setup: `condaforge/miniforge3` container, a conda env with conda-forge externals
 - **The L1 trigger's ML models and the CSC track finder emulation have no licence either**
   (found 2026-09-26). The same situation as utm, on GitHub:
   - No licence file or headers in any of the `cms-hls4ml` repositories CMSSW uses
-    (`hls4mlEmulatorExtras`, `AXOL1TL`, `CICADA`, `L1METML`, `NNPuppiTauModel`, `TOoLLiP`) or in
+    (`hls4mlEmulatorExtras`, `AXOL1TL`, `CICADA`, `L1METML`, `NNPuppiTauModel`, `TOoLLiP`; all
+    six packaged on an ASSUMED Apache-2.0 since 2026-09-26/27) or in
     `cms-externals/CSCTrackFinderEmulation`. Only `conifer` (thesps/conifer) has one, Apache-2.0.
   - Worse, and not something a licence from CMS can fix: `hls4mlEmulatorExtras` ships two
     Xilinx headers, `ap_types/hls_stream.h` and `ap_types/ap_shift_reg.h`, whose header reads
@@ -544,9 +552,10 @@ Setup: `condaforge/miniforge3` container, a conda env with conda-forge externals
     license". `TOoLLiP`'s `TOoLLiP_tmp_v` has its own copies. hls4ml itself carries the same
     files in its templates. `recipes/cms-hls4ml-emulator-extras` does not ship them: it has
     its own Apache-2.0 `hls::stream` and `ap_shift_reg`, written from the documented interface.
-    None of the AXOL1TL or CICADA code that is compiled instantiates either class (checked by
-    compiling every model against versions of the headers that fail when instantiated), so the
-    replacement cannot change a result.
+    None of the model code that is compiled instantiates either class (checked for all six
+    repositories by compiling every model against versions of the headers that fail when
+    instantiated), so the replacement cannot change a result. `TOoLLiP_tmp_v`'s copies are
+    never included, and the recipe deletes them before building.
   - Model versions generated with older hls4ml include its `nnet_utils` with GPL-3.0-or-later
     headers (from rfnoc-hls-neuralnet, Copyright 2017 EJ Kreinar); current hls4ml has dropped
     them. That is a real licence and fine for conda-forge; the model packages say
@@ -555,6 +564,29 @@ Setup: `condaforge/miniforge3` container, a conda env with conda-forge externals
     `hls4mlEmulatorExtras` asking for an org-wide decision) and one on
     `cms-externals/CSCTrackFinderEmulation`, asking for a `LICENSE`; and on
     `hls4mlEmulatorExtras`, suggesting it drop the Xilinx headers for open ones.
+- **TensorFlow lags conda-forge's Abseil/protobuf migrations** (found 2026-09-27). 2.21.0
+  (linux-64, osx-arm64) is on Abseil 20260107 and protobuf 6.33.5, one migration behind the
+  global pinning; linux-aarch64 is not built by the feedstock any more and has only 2.19.1, on
+  20250512 and 6.31.1. The layers from `cmssw-reco` up pin those per platform in
+  `variants.yaml`. Fix at the feedstock (rebuild for the current pins, restore linux-aarch64);
+  a TensorFlow build is about three hours per variant on its CI. Until then, whatever else
+  goes into a CMSSW environment has to be available at TensorFlow's pins.
+- **TensorFlow exports the symbols of its bundled LLVM** (found 2026-09-27), on Linux and macOS,
+  and 2.21 crashes next to ROOT's interpreter (see the progress log), so the layers stay on
+  2.19.1, which does not. Fix at the TensorFlow feedstock (a version script / exported-symbols
+  list that keeps LLVM local); until then, check any TensorFlow update with ROOT's interpreter
+  started first and then `gSystem->Load()` of `libtensorflow_framework`, and the other order.
+- **lwtnn holds conda-forge on Eigen 3.4** (found 2026-09-27). Its feedstock pins `eigen-abi`
+  3.4 because the Eigen 5 rebuild failed; the causes are a `FindEigen3.cmake` that reads the
+  version from the wrong header, a missing `<cassert>` and a C++11 default. Local fix in
+  `cmssw-notes/feedstock-changes/lwtnn`; to upstream: the two patches to lwtnn/lwtnn, and
+  C++17 plus dropping the pin to the feedstock. Without it any environment with lwtnn gets
+  Eigen 3.4, which TensorFlow's headers cannot use.
+- **Layers below `cmssw-reco-objects` require the layer under them by version only** (found
+  2026-09-27), so a solver can combine a new build of one with an old build of the one below,
+  whose libraries it does not have (see the progress log). `cmssw-reco-objects` and
+  `cmssw-sim-dqm` pin the exact build with `pin_compatible(..., exact=True)`; do the same in
+  `cmssw-framework` to `cmssw-reco` and `cmssw-devel` at the next full rebuild.
 - **The release names a Fortran compiler that no longer exists** (found 2026-09-26). The
   compiler variables in `cmssw-fwlite`'s `.SCRAM/<arch>/MakeData/variables.mk` are absolute paths
   from its build. C and C++ point into the host prefix and are relocated on install; `FC` (and
@@ -1416,6 +1448,9 @@ is 22 subsystems, and the incidental ones are single genuine dependencies.
 
 #### TensorFlow: available, and unusable
 
+**Corrected 2026-09-27: it was usable.** The "missing" headers are in the package under
+`include/tensorflow/third_party/xla`; see the progress log of that day.
+
 conda-forge has `libtensorflow_cc`, and it ships `libtensorflow_cc`, `libtensorflow_framework`
 and `tensorflow/core/public/session.h`. On that basis it was unblocked, the layer was rebuilt
 around it and reachability was recorded as 67%. That was wrong. The headers do not compile:
@@ -2057,3 +2092,174 @@ checks the track trigger's plugins; `cmssw-sim-dqm`'s checks `L1TGlobalProducer`
 `HLTPrescaler`, the tracklet producer, the CSC track finder, `CSCHaloDataProducer` and CICADA,
 and its `cmsRun` test now constructs `simCaloStage2Layer1Summary`, which loads
 `CICADAModel_v2p1p2.so` by name.
+
+### 2026-09-27: TensorFlow after all, Eigen 5, and the layers reach 86%
+
+**The TensorFlow headers were never incomplete.** On 2026-09-21 `libtensorflow_cc` was declared
+unusable because `tensorflow/core/framework/allocator.h` includes
+`"xla/tsl/framework/allocator.h"` and `include/xla/tsl` holds only `protobuf/`. The file is in
+the package, under `include/tensorflow/third_party/xla/xla/tsl/`: conda-forge installs XLA and
+TSL in their source layout, and the feedstock's own C++ test compiles with
+`-I include/tensorflow/third_party/xla`. With that directory and
+`include/tensorflow/third_party/xla/third_party/tsl` on the include path, the feedstock's test
+program builds and runs, and all four library sources of `PhysicsTools/TensorFlow` (written for
+2.17) compile unchanged against 2.21. The lesson of that day ("listing headers is not evidence
+that they compile") had a twin: *not finding* a header where you look is not evidence it is
+missing either. `include/tensorflow/third_party` itself must **not** go on the path: it has
+TensorFlow's own copies of Eigen and Abseil, which would shadow conda-forge's in every file
+that uses TensorFlow.
+
+What does stand in the way is different, and none of it needs a TensorFlow build:
+
+| | TensorFlow | Abseil | protobuf |
+|---|---|---|---|
+| linux-64, osx-arm64 | 2.21.0, and 2.19.1 build 5 | 20260107 | 6.33.5 |
+| linux-aarch64 | 2.19.1 (the feedstock no longer builds it) | 20250512 | 6.31.1 |
+| global pinning, which the layers used | – | 20260526 | 7.35.1 |
+
+(The layers ended up on 2.19.1 everywhere, because 2.21 cannot share a process with ROOT's
+interpreter; see "Build failures" below.)
+
+- **Abseil and protobuf.** TensorFlow is one migration behind the global pinning (the feedstock's
+  open migration is to 20260107/6.33.5), and on linux-aarch64 three. Only `cmssw-reco-objects`
+  and `cmssw-sim-dqm` linked either so far (DQM's protobuf, ONNX Runtime), so the layers from
+  `cmssw-reco` up pin both, and gRPC, to TensorFlow's versions per platform in their
+  `variants.yaml`. A pixi solve of the whole stack on those pins works on all three platforms.
+  The proper fix is the feedstock catching up (and building linux-aarch64 again: a TensorFlow
+  build is about three hours per variant on its CI, so not something to do locally).
+- **Eigen.** TensorFlow's headers need Eigen 3.4.90 or later (`ml_dtypes` uses
+  `Eigen::numext` functions that 3.4.0 lacks). conda-forge's current Eigen is 5.0.1, and the
+  layers up to `cmssw-geometry` were built with it, but **from `cmssw-reco` up they had
+  quietly been on 3.4.0**: `lwtnn`, a `cmssw-reco` dependency, pins `eigen-abi` 3.4 through its
+  run exports, and the solver followed. So the stack was already split across two Eigen
+  versions (header-only, so it built; CMS itself uses a single Eigen snapshot, close to 5.0).
+  The lwtnn feedstock's Eigen 5 migration PR fails on every platform, and its maintainer's
+  verdict was that lwtnn does not support Eigen 5 yet. It does; three small things break the
+  build, none of them in lwtnn's code: its bundled `FindEigen3.cmake` reads the version from
+  `Macros.h`, which moved to `Eigen/Version` in Eigen 5; three headers use `assert` without
+  `<cassert>`, which Eigen 3.4 happened to include; and it defaults to C++11 where Eigen 5
+  needs C++14. `cmssw-notes/feedstock-changes/lwtnn` is the feedstock recipe with two patches
+  and `-DCMAKE_CXX_STANDARD=17`; its own test suite (including the lwtnn-examples build) passes.
+  The whole stack is on Eigen 5 again, and the `fastjet-cxx` build-5 pin, which existed only
+  because of the same conflict, can go once this is upstream.
+
+#### The three remaining L1 models
+
+`cms-hls4ml-l1metml` 1.0.1, `cms-hls4ml-nnpuppitaumodel` 1.0.1 and `cms-hls4ml-toollip` 3.1.0,
+the models only the Phase-2 L1 particle flow loads, on the **same ASSUMED Apache-2.0 licence**
+as the others. None has GPL files. The same check as before, compiling every model source
+against `hls_stream.h`/`ap_shift_reg.h` that `static_assert` when instantiated, passes for all
+twelve files (and `-H` confirmed that the poisoned headers were the ones included). TOoLLiP's
+`TOoLLiP_tmp_v` bundles its own Xilinx headers, two of them proprietary; the model code never
+includes that copy (it takes them from the include path), and the build deletes it first.
+Each package's test loads each model by bare name.
+
+#### Where the packages went
+
+`reach.py` puts TensorFlow and the three models at **86%** (13185 TU; +665 over the 82%
+before). The new packages, placed by what they need:
+
+- **`cmssw-reco` (+1):** `PhysicsTools/TensorFlow`, and the TensorFlow plugins patch 0002 had
+  skipped (mkFit's output converter, DeepCore seeding, the TensorFlow track classifier);
+  `RecoTracker/DisplacedRegionalTracking` is no longer src-only. Patch 0002 now only leaves out
+  `FinalTrackSelectors`' alpaka plugins, which run a PyTorch model.
+- **`cmssw-reco-objects` (+12):** the DeepSC superclustering is back in
+  `RecoEcal/EgammaCoreTools` (patch 0003 dropped). TensorFlow made `L1Trigger/L1TMuonEndCap`
+  buildable, the last thing the **Stage-2 L1 unpacker's plugins** (`EventFilter/
+  L1TRawToDigi`, 101 TU) were missing; they can only be built in this layer, which owns the
+  package, so what they need moved down from `cmssw-sim-dqm`: `DataFormats/L1TCalorimeter`,
+  `DataFormats/L1TGlobal`, `L1Trigger/L1TCalorimeter`, `L1TCommon`, `L1TMuon`, with
+  `L1TMuonEndCap` new. With `DataFormats/L1TGlobal` down, **`HLTrigger/HLTcore` could follow
+  with only two packages** (`FWCore/PrescaleService`, `L1Trigger/L1TGlobal`, so AXOL1TL moves
+  down too), where it would have taken 13 the day before; that gives five src-only packages
+  their plugins (Type-1 MET corrections, the e/gamma HLT producers and isolation, luminosity,
+  ZDC; 87 TU). `L1Trigger/Phase2L1GT` gets its plugins, and `DemonstratorTools`,
+  `L1TTrackMatch` and `VertexFinder` join the Phase-2 track trigger.
+- **`cmssw-sim-dqm` (+11, −8 moved down):** PAT (`PhysicsTools/PatAlgos`), tau reconstruction's
+  library (its plugins need the Triton client) and `Validation/RecoTau`, the Phase-2 L1
+  particle flow, HGCal trigger and GMT, the EMTF Phase-2 and CPPF emulators, L1 DQM and
+  `L1TriggerConfig/Utilities`; four src-only packages get their plugins.
+- Still out: `L1Trigger/L1CaloTrigger` and `L1THGCalUtilities` in `cmssw-reco-objects` (their
+  plugins need the Phase-2 particle flow and HGCal trigger, 18 TU), `RecoTracker/DeDx` in
+  `cmssw-reco` (HLTcore), and whatever needs PyTorch, Triton or the XLA AOT runtime, which is
+  CMS's own build of a part of TensorFlow and used only by `PhysicsTools/TensorFlowAOT`.
+
+`RecoTracker_cff` still cannot be loaded from `cmssw-reco`'s test: it reaches FastSimulation,
+jets and heavy ion through the era customisations, as before; the Stage-2 unpackers' cfis are
+now in `cmssw-reco-objects`' `cmsRun` test, and `cmssw-sim-dqm`'s constructs
+`TOoLLiPProducer`, which loads `TOoLLiP_v1.so` by name.
+
+#### Build failures
+
+- **Abseil at link time.** conda-forge links Abseil as shared libraries where CMS's TensorFlow
+  has it inside, so code including TensorFlow's headers must link the Abseil it instantiates.
+  The undefined symbols of every object file that uses TensorFlow, on 2.19.1 and on 2.21.0,
+  come from four libraries (`absl_status`, `absl_hash`, `absl_log_internal_check_op`,
+  `absl_log_internal_message`), now in the `tensorflow-cc` tool file.
+- **A layer can get the wrong build of the one below.** `cmssw-sim-dqm`'s environment had the
+  new `cmssw-reco-objects` (build 3) on top of the *old* `cmssw-reco` (build 3, no TensorFlow):
+  each layer required the one below by version only, and without TensorFlow the solver could
+  take a newer Abseil. `cmssw-reco-objects`' libraries then link a `libPhysicsToolsTensorFlow`
+  that is not installed, and SCRAM reported `Invalid tool PhysicsTools/TensorFlow` 24 times.
+  `cmssw-reco-objects` and `cmssw-sim-dqm` now require the exact build they were built
+  against (`pin_compatible(..., exact=True)`); the layers below still pin only the version,
+  which is an open issue until they are next rebuilt. The first fix did not take either,
+  because the local channel's index kept the first build's entry for a file rebuilt under the
+  same name (see CLAUDE.md); `build-local.sh` now drops the index before building.
+- **TensorFlow 2.21 and ROOT cannot share a process; 2.19.1 can.** Both TensorFlow builds
+  export the symbols of the LLVM they bundle for XLA (2.21: about 5600 on linux-64, 7000 on
+  macOS; 2.19.1: about 2100), and ROOT's `libCling` exports its own, of another version.
+  - macOS: the `cmssw-reco` build sat for seven hours at 99% CPU. `edmWriteConfigs` had
+    crashed loading `FinalTrackSelectors`' plugins (after LLVM warnings such as `'+btie' is
+    not a recognized feature`) and ROOT's crash handler never returned. Reproduced in plain
+    python: load `libtensorflow_cc` 2.21, then start ROOT's interpreter, and it crashes; the
+    other way round works. dyld binds each weak symbol to the first loaded image that defines
+    it, so `libCling` ran TensorFlow's LLVM. Loading `libCling` first (a `-Wl,-needed-lCling`
+    in the tool file) did work, TensorFlow inference included, and was briefly the fix.
+  - linux-64: `cmssw-reco-objects`' class version checks crashed in
+    `llvm::cl::Option::addArgument()` in `libCling`, loading `libL1TriggerVertexFinder` and
+    `libRecoEgammaEgammaTools` through `TSystem::Load`. Reproduced from C++ as well: after
+    ROOT's interpreter has started, `gSystem->Load()` of `libtensorflow_framework` 2.21
+    crashes, a plain `dlopen()` (what `cmsRun`'s plugin manager does) does not. ROOT's
+    dictionary autoloading goes through `TCling::Load` too, so this is not only a build
+    problem.
+  - linux-aarch64 never showed either: it has only 2.19.1. The same tests with 2.19.1 on
+    linux-64 and osx-arm64 (build 5 of it is on the same Abseil and protobuf as 2.21) pass in
+    both orders and through `gSystem.Load`. So `cmssw-reco` requires `libtensorflow_cc 2.19.1`
+    on every platform, and the macOS workaround was dropped. What changed between the two
+    LLVM versions to break it was not investigated; the fix belongs in the feedstock, which
+    should not export LLVM's symbols at all.
+- **macOS: libc++ once more**, in three of the newly built packages: `L1Trigger/L1TMuonEndCap`
+  uses `std::pair` and `L1Trigger/L1TTrackMatch` `std::numbers` without including `<utility>`
+  and `<numbers>` (`cmssw-reco-objects` 0006), and `PhysicsTools/PatAlgos` uses
+  `__gnu_cxx::is_sorted` from `<ext/algorithm>` (`cmssw-sim-dqm` 0008, the same fix as
+  `cmssw-reco`'s 0004). The first two came out of the build; the third out of a grep of the
+  packages new to `cmssw-sim-dqm` for the patterns earlier macOS patches fixed, before the
+  build got there.
+
+#### Results
+
+`cmssw-toolbox` 19, the three model recipes build 0, lwtnn build 4 (local), `cmssw-reco` 4,
+`cmssw-reco-objects` 3, `cmssw-sim-dqm` 3, all with TensorFlow 2.19.1:
+
+| | linux-aarch64 | linux-64 (emulated) | osx-arm64 |
+|---|---|---|---|
+| `cmssw-reco` | 2259 s, 640 libraries | 4375 s, 640 | 8636 s, 642 |
+| `cmssw-reco-objects` | 2836 s, 1056 | 6735 s, 1056 | 9670 s, 1059 (was 1006) |
+| `cmssw-sim-dqm` | 5819 s, 1734 (was 1671) | 10997 s, 1734 | 20515 s, 1727 (was 1664) |
+
+(Library counts are what each layer's test loads: its own and every layer's below; macOS has
+seven fewer in `cmssw-sim-dqm`, as before.) Builds and tests pass on all three platforms. The Linux
+builds predate patches 0006 and 0008, which only add an include and replace a GNU extension by
+its standard equivalent. linux-aarch64 also predates the removal of the short-lived macOS
+`tensorflow-cc` override, which Linux never used, and the `==2.19.1` pin, which is the only
+version it has.
+
+The layers now hold **1253 packages, 13.1k TU, 86.0%** of the build (86.3% reachable; before
+this step 81.3% of 82%). What is left between the two is plugins of 16 packages kept src-only
+in a layer that cannot build them, the conditions tools the largest. `cmssw-reco`'s test checks the five TensorFlow plugins;
+`cmssw-reco-objects`' constructs all six Stage-2 unpackers (161 producers) and checks
+`L1TGlobalProducer`, `HLTPrescaler`, the EMTF track producer and the Phase-2 GT; and
+`cmssw-sim-dqm`'s constructs `TOoLLiPProducer`, which loads `TOoLLiP_v1.so` by name. No test
+runs a TensorFlow inference inside CMSSW: every module that does needs a graph from CMS's data
+repositories, which are not packaged.

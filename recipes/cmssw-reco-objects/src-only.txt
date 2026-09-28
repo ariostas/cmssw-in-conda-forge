@@ -45,33 +45,25 @@ RecoTauTag/Configuration
 
 # Packages whose own library builds but whose plugins cannot be built here, directly or
 # through a header they include (analysis/scripts/include_graph.py). Some need something
-# blocked: ML runtimes (TensorFlow, the Triton client), Oracle or clue. The others need
-# HLTrigger/HLTcore or the Stage-2 L1 formats, which are in cmssw-sim-dqm (HLTcore needs
-# DataFormats/L1TGlobal and FWCore/PrescaleService from there), and moving them up to it
-# would take them away from the configuration in the layers below that imports them.
+# blocked: ML runtimes (the Triton client), Oracle or clue. The others need packages in
+# cmssw-sim-dqm (the Phase-2 L1 calorimeter trigger and particle flow, DQM), and moving them
+# up to it would take them away from the configuration in the layers below that imports
+# them.
 # --src-only is all or nothing per package, so all of their plugins go.
 CalibCalorimetry/EcalTPGTools
 CalibTracker/SiPixelQuality
-EventFilter/L1TRawToDigi
-JetMETCorrections/Type1MET
 L1Trigger/L1CaloTrigger
 L1Trigger/L1THGCalUtilities
-L1Trigger/Phase2L1GT
 RecoBTag/ONNXRuntime
-RecoEgamma/EgammaHLTProducers
-RecoEgamma/EgammaIsolationAlgos
 RecoEgamma/EgammaTools
 RecoLocalCalo/HGCalRecProducers
-RecoLuminosity/LumiProducer
 RecoParticleFlow/PFSimProducer
 
 # Their plugins could be built one layer up, but the packages cannot move there: python in
 # this layer imports them (L1Trigger/Configuration, RecoLocalMuon's and the PPS
 # configuration). CondTools/RunInfo's need the conddb library, CondCore/Utilities, which
-# includes the payload headers of every CondFormats package; L1Trigger/L1TZDC's need
-# L1Trigger/L1TCalorimeter.
+# includes the payload headers of every CondFormats package.
 CondTools/RunInfo
-L1Trigger/L1TZDC
 
 # Python only, for the local reconstruction configuration: ecalRecHit_cfi, the HCAL and DT
 # rechit fragments and others import its embedding customisations. Its plugins need pythia8

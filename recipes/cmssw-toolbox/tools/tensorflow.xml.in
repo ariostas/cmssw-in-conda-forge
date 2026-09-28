@@ -1,8 +1,20 @@
-<tool name="tensorflow" version="2.19.1" path="@PREFIX@" revision="1">
+<tool name="tensorflow" version="2.19.1" path="@PREFIX@" revision="2">
   <info url="https://www.tensorflow.org/"/>
+  <!--
+    conda-forge's libtensorflow_cc installs the TensorFlow headers under include/, but those of
+    XLA and TSL, which tensorflow/core includes as "xla/tsl/..." and "tsl/...", only in the
+    source layout, under include/tensorflow/third_party/xla. include/tsl and include/xla exist
+    but hold only a few generated files. Do not add include/tensorflow/third_party itself: it
+    also has TensorFlow's own copies of Eigen and Abseil, which would shadow conda-forge's.
+  -->
+  <!-- requires: include/tensorflow/third_party/xla/xla/tsl/framework/allocator.h -->
   <client>
     <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
     <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include/tensorflow/third_party/xla"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include/tensorflow/third_party/xla/third_party/tsl"/>
   </client>
   <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+  <runtime name="TF_CPP_MIN_LOG_LEVEL" value="3"/>
+  <flags SYSTEM_INCLUDE="1"/>
 </tool>

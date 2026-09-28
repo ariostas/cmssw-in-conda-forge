@@ -1,0 +1,5 @@
+# The CMSSW layers take conda-forge's boost 1.88 -> 1.90 migration early (see
+# recipes/cmssw-sim-dqm/variants.yaml), and lwtnn's run export pins boost, so build against 1.90
+# like the feedstock's current build does.
+libboost_devel:
+  - "1.90"

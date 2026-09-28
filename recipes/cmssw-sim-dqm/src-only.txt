@@ -62,9 +62,8 @@ Validation/Tools
 Validation/TrackerConfiguration
 
 # Packages whose own library builds but whose plugins need something blocked, directly or
-# through a header they include: ML runtimes (TensorFlow, PyTorch), generators (pythia6,
+# through a header they include: ML runtimes (PyTorch, the Triton client), generators (pythia6,
 # photospp, hector), CMS's Geant4 extensions (SimG4CMS), the GPU runtimes or Fireworks.
-DPGAnalysis/Phase2L1TNanoAOD
 DQM/BeamMonitor
 DQM/HcalTasks
 FastSimulation/CTPPSFastTrackingProducer
@@ -81,11 +80,9 @@ GeneratorInterface/GenFilters
 GeneratorInterface/PhotosInterface
 HLTrigger/special
 OnlineDB/SiStripO2O
-PhysicsTools/BPHNano
-PhysicsTools/Scouting
 RecoMET/METPUSubtraction
 RecoML/AnomalyDetection
-RecoMuon/TrackerSeedGenerator
+RecoTauTag/RecoTau
 SimG4Core/PrintGeomInfo
 SimGeneral/CaloAnalysis
 SimPPS/PPSSimTrackProducer

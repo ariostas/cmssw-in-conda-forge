@@ -19,8 +19,13 @@
 # are used on the same kind of ASSUMPTION: none of them has a licence yet. They brought in
 # (2026-09-26) the L1 Global Trigger emulator (L1Trigger/L1TGlobal) and with it the HLT
 # framework (HLTrigger/HLTcore), and so the HLT, trigger DQM and validation, tracking DQM,
-# MET reconstruction and the L1 track trigger's tracklet algorithm. HLTcore has to be in
-# this layer, not lower: it needs DataFormats/L1TGlobal and FWCore/PrescaleService.
+# MET reconstruction and the L1 track trigger's tracklet algorithm. Since 2026-09-27 the
+# first two are in cmssw-reco-objects, with the Stage-2 L1 packages the unpackers need.
+#
+# TensorFlow (2026-09-27), with the Phase-2 L1 particle flow's models (cms-hls4ml-l1metml,
+# -nnpuppitaumodel, -toollip; ASSUMED licence), brought in PAT (PhysicsTools/PatAlgos), tau
+# reconstruction and its validation, the Phase-2 L1 particle flow, HGCal trigger and muon
+# trigger, the EMTF Phase-2 and CPPF emulators, and L1 DQM.
 Alignment/APEEstimation
 Alignment/CommonAlignmentMonitor
 Alignment/CommonAlignmentProducer
@@ -158,6 +163,7 @@ DQMOffline/Ecal
 DQMOffline/HLTScouting
 DQMOffline/Hcal
 DQMOffline/JetMET
+DQMOffline/L1Trigger
 DQMOffline/Lumi
 DQMOffline/Muon
 DQMOffline/MuonDPG
@@ -172,8 +178,6 @@ DQMServices/FileIO
 DQMServices/FwkIO
 DQMServices/StreamerIO
 DataFormats/HcalCalibObjects
-DataFormats/L1TCalorimeter
-DataFormats/L1TGlobal
 DataFormats/PortableTestObjects
 DetectorDescription/OfflineDBLoader
 Documentation/CodingRules
@@ -182,7 +186,6 @@ Documentation/PhysicsTools
 Documentation/ReferenceManualScripts
 EgammaAnalysis/ElectronTools
 FWCore/Integration
-FWCore/PrescaleService
 FWCore/PythonFramework
 FWCore/ROOTTests
 FWCore/SharedMemory
@@ -238,7 +241,6 @@ GeometryReaders/XMLIdealGeometryESSource
 HLTrigger/Configuration
 HLTrigger/Egamma
 HLTrigger/HLTanalyzers
-HLTrigger/HLTcore
 HLTrigger/HLTfilters
 HLTrigger/JSONMonitoring
 HLTrigger/JetMET
@@ -288,18 +290,20 @@ L1Trigger/CSCTrackFinder
 L1Trigger/DTTrackFinder
 L1Trigger/HardwareValidation
 L1Trigger/L1TCaloLayer1
-L1Trigger/L1TCalorimeter
-L1Trigger/L1TCommon
-L1Trigger/L1TGlobal
-L1Trigger/L1TMuon
+L1Trigger/L1THGCal
 L1Trigger/L1TMuonBarrel
+L1Trigger/L1TMuonCPPF
+L1Trigger/L1TMuonEndCapPhase2
 L1Trigger/L1TMuonOverlapPhase1
 L1Trigger/L1TMuonOverlapPhase2
 L1Trigger/L1TNtuples
 L1Trigger/L1TTwinMux
+L1Trigger/Phase2L1GMT
+L1Trigger/Phase2L1ParticleFlow
 L1Trigger/TrackFindingTracklet
 L1TriggerConfig/L1GtConfigProducers
 L1TriggerConfig/L1TConfigProducers
+L1TriggerConfig/Utilities
 L1TriggerOffline/L1Analyzer
 L1TriggerScouting/NanoAOD
 L1TriggerScouting/OnlineProcessing
@@ -324,6 +328,7 @@ PhysicsTools/JetExamples
 PhysicsTools/JetMCAlgos
 PhysicsTools/KinFitter
 PhysicsTools/NanoAODTools
+PhysicsTools/PatAlgos
 PhysicsTools/PatFromScouting
 PhysicsTools/PatUtils
 PhysicsTools/PythonAnalysis
@@ -348,6 +353,8 @@ RecoTBCalo/HcalPlotter
 RecoTBCalo/HcalTBObjectUnpacker
 RecoTBCalo/HcalTBTools
 RecoTBCalo/ZDCTBAnalysis
+RecoTauTag/HLTProducers
+RecoTauTag/RecoTau
 SLHCUpgradeSimulations/Configuration
 SLHCUpgradeSimulations/Geometry
 SimCalorimetry/CastorSim
@@ -477,6 +484,7 @@ Validation/RecoMET
 Validation/RecoMuon
 Validation/RecoParticleFlow
 Validation/RecoPixelVertexing
+Validation/RecoTau
 Validation/RecoTrack
 Validation/RecoVertex
 Validation/SiPixelPhase1ConfigV

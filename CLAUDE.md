@@ -23,7 +23,8 @@ first, and add to its progress log (section 6) when something significant is lea
   - `cms-l1t-utm`: the L1 trigger menu library (`utm`; the name `utm` is taken on conda-forge).
     It has **no licence**; the recipe assumes Apache-2.0 (see below).
   - The L1 trigger's ML models, which CMSSW loads with `dlopen()` by name: `cms-hls4ml-emulator-
-    extras` (the loader and HLS headers), `cms-hls4ml-axol1tl`, `cms-hls4ml-cicada`; with
+    extras` (the loader and HLS headers), `cms-hls4ml-axol1tl`, `cms-hls4ml-cicada`,
+    `cms-hls4ml-l1metml`, `cms-hls4ml-nnpuppitaumodel`, `cms-hls4ml-toollip`; with
     `cms-csctrackfinderemulation` (the legacy CSC track finder) and `conifer-cpp` (BDT header,
     Apache-2.0). All but conifer have **no licence** and assume Apache-2.0, like utm.
   - The CMSSW layers, each built on the previous one and all installed into **one** release
@@ -53,8 +54,9 @@ first, and add to its progress log (section 6) when something significant is lea
     They read `_work/` and the CVMFS release.
   - `spike/`: scripts for hand-building SCRAM areas outside rattler-build.
   - `feedstock-changes/`: recipes whose real fix goes to an existing feedstock, not to
-    staged-recipes: `cms-md5` (needs more platforms) and `cpu_features` (the feedstock skips osx,
-    but it builds there unchanged and `cmssw-framework` cannot be built without it).
+    staged-recipes: `cms-md5` (needs more platforms), `cpu_features` (the feedstock skips osx,
+    but it builds there unchanged and `cmssw-framework` cannot be built without it) and `lwtnn`
+    (rebuilt on Eigen 5; conda-forge's pins Eigen 3.4, which TensorFlow cannot use).
   - `build-local.sh`: builds recipes in order into `/work/output` inside a container.
 - `_work/` (git-ignored): clones of cmsdist, cmssw-config, SCRAM and pkgtools, plus analysis outputs.
 
@@ -95,6 +97,12 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
   extracted package from rattler's package cache; `build-local.sh` deletes those first. A stale
   `cmssw-toolbox` there is silent and very confusing. The cache is in a different place on macOS
   (see below).
+- The same goes for the output channel's index: rattler-build only adds files it does not know
+  to `$WORK/output/<subdir>/repodata.json`, so a package rebuilt under the same file name keeps
+  its first build's entry, dependencies and sha256 included. A later recipe then solves against
+  the stale dependencies (this is how `cmssw-sim-dqm` got an old `cmssw-reco` under a new
+  `cmssw-reco-objects`). `build-local.sh` drops the index before building so that it is
+  regenerated; bump the build number when a rebuild changes a package's dependencies anyway.
 - `build-local.sh` takes a lock: two runs share the output directory and the per-recipe logs,
   and the interleaved logs look like impossible build errors.
 - Do not edit any bash script while it is running — `build-local.sh`, a recipe's `build.sh`, a
@@ -216,6 +224,22 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
   and on macOS (`LC_RPATH`) alike, and the loader and the models are both in `$PREFIX/lib`.
   Their SCRAM tool files have nothing for the generator to check, so they name a file in a
   `<!-- requires: lib/... -->` comment instead.
+- TensorFlow (`libtensorflow_cc`): conda-forge installs XLA's and TSL's headers in their source
+  layout, under `include/tensorflow/third_party/xla` and `.../xla/third_party/tsl`; the
+  `tensorflow` tool file adds both. `include/xla` and `include/tsl` exist but hold only a few
+  generated files, which is how it was once wrongly declared unusable. Never add
+  `include/tensorflow/third_party` itself: it has TensorFlow's own Eigen and Abseil. Its
+  headers need Eigen 5 (3.4.0 lacks functions `ml_dtypes` uses), and conda-forge's `lwtnn` pins
+  Eigen 3.4, hence the local lwtnn. TensorFlow also lags the Abseil/protobuf migrations, so the
+  layers from `cmssw-reco` up pin `libabseil`, `libprotobuf` and `libgrpc` to its versions per
+  platform (`variants.yaml`); linux-aarch64 has only 2.19.1. Anything new in the stack that
+  links Abseil or protobuf must exist at those pins. TensorFlow exports the symbols of its
+  bundled LLVM, and 2.21 crashes next to ROOT's (libCling's) LLVM: on Linux when loaded
+  through `gSystem->Load()` after the interpreter has started, on macOS when loaded before
+  it. 2.19.1 does not, so `cmssw-reco` pins it; test both orders before moving on. The
+  symptom is `'+btie' is not a recognized feature` or a crash in `llvm::cl::Option::
+  addArgument()`, and ROOT's crash handler can then hang for hours: a build that stops
+  logging is not necessarily still working.
 - The CMSSW 20_1 data formats use `io_v1` namespaces with `using` aliases (e.g. `pat::Muon`). FWLite
   `Handle`s and TClass lookups need the `io_v1` name.
 - Several dependencies have **no license** and cannot go to conda-forge until that is resolved:
@@ -230,11 +254,11 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
     `BLOCKED` and take its packages out of those two layers.
   - The L1 ML models (`cms-hls4ml/*` on GitHub) and `CSCTrackFinderEmulation`. **Since
     2026-09-26 they are packaged on the same ASSUMPTION as utm** (`LicenseRef-ASSUMED-Apache-2.0`,
-    `ASSUMED-LICENSE.txt`) and used by `cmssw-sim-dqm`; the same rules apply. Separately,
+    `ASSUMED-LICENSE.txt`) and used by `cmssw-reco-objects` and `cmssw-sim-dqm`; the same rules
+    apply. Separately,
     upstream `hls4mlEmulatorExtras` bundles two proprietary Xilinx headers (`hls_stream.h`,
     `ap_shift_reg.h`): never ship those. `recipes/cms-hls4ml-emulator-extras/ap_types/` has
-    Apache-2.0 replacements. L1METML, NNPuppiTauModel and TOoLLiP are not packaged: only
-    Phase-2 particle flow uses them, and it also needs TensorFlow.
+    Apache-2.0 replacements (TOoLLiP bundles its own copies, which its recipe deletes).
   - `coral` (the LCG relational abstraction layer, needed for conditions). Neither the CMS fork
     nor the upstream LCG repository has a license file or license headers.
 - macOS: `DataFormats/Math/interface/SIMDVec.h` enables the SIMD geometry vectors only when

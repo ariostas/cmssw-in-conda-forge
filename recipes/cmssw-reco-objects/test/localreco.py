@@ -5,8 +5,8 @@
 # input data and no conditions, but does need every plugin to be registered and every cfi
 # they import (some generated from the plugins' parameter descriptions during the build) to
 # be there. The fragments were chosen with a walk of their python imports that stays inside
-# this layer and the ones below it. The full RawToDigi_cff does not: it reaches the Stage-2
-# L1 unpackers, whose plugins need the L1 ML models.
+# this layer and the ones below it. The full RawToDigi_cff does not: it reaches the ECAL
+# trigger primitive emulator (SimCalorimetry), which is in cmssw-sim-dqm.
 
 import FWCore.ParameterSet.Config as cms
 
@@ -26,6 +26,11 @@ process.load("EventFilter.DTRawToDigi.dtunpacker_cfi")
 process.load("EventFilter.RPCRawToDigi.rpcUnpacker_cfi")
 process.load("EventFilter.L1GlobalTriggerRawToDigi.l1GtUnpack_cfi")
 process.load("EventFilter.GctRawToDigi.l1GctHwDigis_cfi")
+# the Stage-2 L1 unpackers: global trigger, calorimeter, muon trigger and the three muon
+# track finders
+for cfi in ("gtStage2Digis", "caloStage2Digis", "gmtStage2Digis", "emtfStage2Digis",
+            "bmtfDigis", "omtfStage2Digis"):
+    process.load("EventFilter.L1TRawToDigi.%s_cfi" % cfi)
 # local reconstruction
 process.load("RecoLocalCalo.Configuration.ecalLocalRecoSequence_cff")
 process.load("RecoLocalCalo.Configuration.hcalLocalReco_cff")
@@ -44,7 +49,9 @@ producers = process.producers_()
 print(len(producers), "producers,", len(process.es_producers_()), "ES producers")
 
 for name in ("ecalDigis", "hcalDigis", "muonCSCDigis", "muonDTDigis", "rpcunpacker",
-             "l1GtUnpack", "l1GctHwDigis", "ecalMultiFitUncalibRecHit", "hbhereco", "towerMaker",
+             "l1GtUnpack", "l1GctHwDigis", "gtStage2Digis", "caloStage2Digis",
+             "gmtStage2Digis", "emtfStage2Digis", "bmtfDigis", "omtfStage2Digis",
+             "ecalMultiFitUncalibRecHit", "hbhereco", "towerMaker",
              "csc2DRecHits", "dt1DRecHits", "rpcRecHits", "particleFlowTmp", "ak4CaloJets"):
     assert name in producers, "%s missing from the configuration" % name
 

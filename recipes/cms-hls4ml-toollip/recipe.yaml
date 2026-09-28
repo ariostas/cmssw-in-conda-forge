@@ -1,0 +1,78 @@
+# !!! ASSUMED LICENCE !!!
+# TOoLLiP has no licence (2026-09-27). This recipe assumes that CMS will release it under
+# Apache-2.0, which they have NOT done; see ASSUMED-LICENSE.txt and the open item in PLAN.md.
+# It exists so that the CMSSW layers that need the L1 trigger's ML models can be built and
+# tested in the meantime. Do not submit it to conda-forge until upstream has added a licence,
+# and then replace ASSUMED-LICENSE.txt with that file.
+context:
+  version: "3.1.0"
+
+package:
+  name: cms-hls4ml-toollip
+  version: ${{ version }}
+
+source:
+  url: https://github.com/cms-hls4ml/TOoLLiP/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: 1f94ddac11387f011c49e90747fb163b545c1cbd631ab14c678f0237f00da910
+
+build:
+  number: 0
+  skip:
+    - win
+  script:
+    file: build.sh
+  # The models keep upstream's .so on macOS too: they are loaded with dlopen() by file name,
+  # which the loader forms as <model>.so.
+
+requirements:
+  build:
+    - ${{ compiler('cxx') }}
+    - ${{ stdlib('c') }}
+    - make
+  host:
+    - cms-hls4ml-emulator-extras
+    - hls-arbitrary-precision-types
+  run:
+    - cms-hls4ml-emulator-extras
+
+tests:
+  - package_contents:
+      files:
+        - lib/TOoLLiP_v1.so
+        - lib/TOoLLiP_v2.so
+        - lib/TOoLLiP_v3.so
+        - lib/TOoLLiP_tmp_v.so
+  - files:
+      recipe:
+        - load-model.cpp
+    requirements:
+      run:
+        - ${{ compiler('cxx') }}
+    script:
+      - ${CXX} ${CXXFLAGS} -std=c++17 -I${PREFIX}/include/hls4ml load-model.cpp -o load-model ${LDFLAGS} -L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib -lemulator_interface
+      # by bare name, as CMSSW does: the loader finds them next to itself
+      - ./load-model TOoLLiP_v1
+      - ./load-model TOoLLiP_v2
+      - ./load-model TOoLLiP_v3
+      - ./load-model TOoLLiP_tmp_v
+
+about:
+  homepage: https://github.com/cms-hls4ml/TOoLLiP
+  summary: TOoLLiP, the CMS Phase-2 Level-1 trigger's long-lived particle jet tagger (emulator)
+  description: |
+    TOoLLiP is the neural network the CMS Phase-2 Level-1 trigger uses to tag jets from
+    long-lived particle decays. This package is its bit-accurate C++ emulation, built from
+    the model's hls4ml firmware code, one shared library per model version (TOoLLiP_*),
+    which CMSSW's L1Trigger/Phase2L1ParticleFlow loads at run time through
+    cms-hls4ml-emulator-extras.
+
+    ASSUMED LICENCE: TOoLLiP has no licence. This package assumes it will be released under
+    Apache-2.0, which has not happened; see ASSUMED-LICENSE.txt.
+  # LicenseRef: the Apache-2.0 is an assumption, not a licence upstream has granted
+  license: LicenseRef-ASSUMED-Apache-2.0
+  license_file: ASSUMED-LICENSE.txt
+  repository: https://github.com/cms-hls4ml/TOoLLiP
+
+extra:
+  recipe-maintainers:
+    - ariostas

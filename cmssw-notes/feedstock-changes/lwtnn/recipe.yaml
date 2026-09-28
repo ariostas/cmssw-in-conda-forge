@@ -1,0 +1,198 @@
+# Local copy of conda-forge/lwtnn-feedstock (recipe/recipe.yaml there, build 3), rebuilt against
+# Eigen 5. The feedstock pins eigen-abi 3.4.0 in its variants.yaml ("lwtnn v2.14.2 does not
+# support Eigen v5"), and its migration PR (#9) fails on every platform. There are three
+# problems, none of them in what lwtnn computes:
+#   * lwtnn's own cmake/FindEigen3.cmake reads the version from Eigen/src/Core/util/Macros.h;
+#     Eigen 5 moved the version macros to Eigen/Version, so the version comes out empty and
+#     CMake fails the comparison (0001);
+#   * three headers use assert() without including <cassert>, which Eigen 3.4 happened to
+#     include for them (0002);
+#   * lwtnn builds as C++11 by default, and Eigen 5 needs C++14 (-DCMAKE_CXX_STANDARD=17).
+# Upstream change needed: the patches (lwtnn), and in the feedstock the C++ standard and dropping
+# the eigen_abi_devel pin.
+#
+# CMSSW needs this because lwtnn is the one package that holds the stack on Eigen 3.4: through
+# its eigen-abi 3.4 run export, the layers from cmssw-reco up get Eigen 3.4.0 while those below
+# were built with 5.0.1; and TensorFlow's headers (ml_dtypes) need Eigen 3.4.90 or later.
+context:
+  version: "2.14.2"
+
+package:
+  name: lwtnn
+  version: ${{ version }}
+
+source:
+  url: https://github.com/lwtnn/lwtnn/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: 0add0992cf59998a95fa024df4343b6c05d77f7e22c37ec012d9b1fcee4f1f71
+  patches:
+    - 0001-Read-the-Eigen-version-from-Eigen-Version-when-it-exists.patch
+    - 0002-Include-cassert-where-assert-is-used.patch
+
+build:
+  number: 4
+  skip:
+    - win
+  script:
+    # lwtnn defaults to C++11 (a cache variable), and Eigen 5 needs C++14
+    - cmake ${CMAKE_ARGS} -DCMAKE_INSTALL_PREFIX="${PREFIX}" -DBUILD_STATIC_LIBRARY=OFF -DCMAKE_CXX_STANDARD=17 -S . -B build
+    - cmake build -LH
+    - cmake --build build --parallel "${CPU_COUNT}"
+    - cmake --install build
+    # ctest passes on all cross-compiles but osx-arm64
+    - if: build_platform == host_platform
+      then: ctest --test-dir build --output-on-failure
+
+requirements:
+  run_exports:
+    - ${{ pin_subpackage("lwtnn", upper_bound="x.x") }}
+  build:
+    - ${{ stdlib("c") }}
+    - ${{ compiler("cxx") }}
+    - cmake
+    - make
+  host:
+    - libboost-devel
+    - eigen-abi-devel
+  run:
+    - eigen
+
+tests:
+  - package_contents:
+      strict: true
+      include:
+        - lwtnn/lightweight_network_config.hh
+        - lwtnn/InputPreprocessor.hh
+        - lwtnn/Source.hh
+        - lwtnn/lightweight_nn_streamers.hh
+        - lwtnn/NanReplacer.hh
+        - lwtnn/NNLayerConfig.hh
+        - lwtnn/Graph.hh
+        - lwtnn/Stack.hh
+        - lwtnn/Exceptions.hh
+        - lwtnn/LightweightNeuralNetwork.hh
+        - lwtnn/LightweightGraph.hh
+        - lwtnn/generic/Graph.tcc
+        - lwtnn/generic/FastInputPreprocessor.hh
+        - lwtnn/generic/eigen_typedefs.hh
+        - lwtnn/generic/InputPreprocessor.tcc
+        - lwtnn/generic/LightweightGraph.tcc
+        - lwtnn/generic/InputPreprocessor.hh
+        - lwtnn/generic/Source.hh
+        - lwtnn/generic/Graph.hh
+        - lwtnn/generic/Stack.hh
+        - lwtnn/generic/LightweightNeuralNetwork.hh
+        - lwtnn/generic/FastGraph.hh
+        - lwtnn/generic/FastGraph.tcc
+        - lwtnn/generic/LightweightGraph.hh
+        - lwtnn/generic/LightweightNeuralNetwork.tcc
+        - lwtnn/generic/FastInputPreprocessor.tcc
+        - lwtnn/generic/Stack.tcc
+        - lwtnn/InputOrder.hh
+        - lwtnn/parse_json.hh
+      lib:
+        - liblwtnn
+      bin:
+        - lwtnn-benchmark-rnn
+        - lwtnn-dump-config
+        - lwtnn-test-arbitrary-net
+        - lwtnn-test-graph
+        - lwtnn-test-lightweight-graph
+        - lwtnn-test-rnn
+        - lwtnn-test-fastgraph
+      files:
+        - converters/keras_layer_converters_common.py
+        - converters/keras_v1_layer_converters.py
+        - converters/keras_v2_layer_converters.py
+        - converters/keras2json.py
+        - converters/sequential2graph.py
+        - converters/kerasfunc2json.py
+        - converters/sklearn2json.py
+        - cmake/lwtnnConfig-targets.cmake
+        - cmake/lwtnnConfig-targets-release.cmake
+        - cmake/lwtnnConfig.cmake
+        - cmake/lwtnnConfig-version.cmake
+        # tests
+        - etc/conda/test-files/lwtnn/0/tests/*
+        - etc/conda/test-files/lwtnn/0/scripts/*
+
+  - files:
+      source:
+        - tests/data
+        - tests/test-highway.sh
+        - tests/test-GRU.sh
+        - tests/test-BatchNorm.sh
+        - tests/test-dense_dropout_functional.sh
+        - tests/test-lstm_functional.sh
+        - tests/test-merge-graph.sh
+        - tests/test-time-distributed-dense.sh
+        - tests/test-gru-sequence.sh
+        - tests/check-conversion.sh
+        - tests/test-leaky-relu.sh
+        - tests/test-elu.sh
+        - tests/test-unsplit-model.sh
+        - tests/test-SimpleRNN.sh
+        - tests/test-conv1d_functional.sh
+        - tests/reg-test.py
+        - scripts/lwtnn-split-keras-network.py
+
+    requirements:
+      run:
+        - sed
+        - wget
+        - tar
+        - h5py >=2.9.0
+        # lwtnn-examples
+        - git
+        - cxx-compiler
+
+    script:
+      # Remove hardcoded path to bin and converters
+      - find ./tests/ -type f -exec sed -i 's|TEST=\./bin/|TEST=|g' {} +
+      - find ./tests/ -type f -exec sed -i 's|CONVERT=\./convert|CONVERT=$CONDA_PREFIX/converters|g' {} +
+
+      - bash ./tests/test-highway.sh
+      - bash ./tests/test-GRU.sh
+      - bash ./tests/test-BatchNorm.sh
+      - bash ./tests/test-dense_dropout_functional.sh
+      - bash ./tests/test-lstm_functional.sh
+      - bash ./tests/test-merge-graph.sh
+      - bash ./tests/test-time-distributed-dense.sh
+      - bash ./tests/test-gru-sequence.sh
+      - bash ./tests/check-conversion.sh
+      - bash ./tests/test-leaky-relu.sh
+      - bash ./tests/test-elu.sh
+      - bash ./tests/test-unsplit-model.sh
+      - bash ./tests/test-SimpleRNN.sh
+      - bash ./tests/test-conv1d_functional.sh
+
+      # lwtnn-examples
+      - git clone https://github.com/lwtnn/lwtnn-examples.git
+      - cd lwtnn-examples
+      - git checkout 70855aba8650da344d05eb65687e8224e594c8e3
+      - sed -i 's|../test_NN.json|./test_NN.json|g' ./Sequential/AnalysisBase/testExec.cxx
+      - cd Sequential/AnalysisBase
+      # cxx-compiler v2+ does not set environment variables (CXX, CXXFLAGS,
+      # LDFLAGS), so invoke the platform specific compiler by path and pass the
+      # prefix include and lib flags explicitly.
+      # c.f. https://github.com/conda-forge/conda-forge.github.io/issues/2595
+      - if: linux
+        then: CXX="${CONDA_PREFIX}/bin/g++"
+      - if: osx
+        then: CXX="${CONDA_PREFIX}/bin/clang++"
+      - >-
+        ${CXX} ./testExec.cxx -o testExec
+        -I${CONDA_PREFIX}/include -I${CONDA_PREFIX}/include/eigen3
+        -L${CONDA_PREFIX}/lib -Wl,-rpath,${CONDA_PREFIX}/lib -llwtnn
+      - ./testExec
+
+about:
+  homepage: https://github.com/lwtnn/lwtnn
+  summary: 'Lightweight Trained Neural Network'
+  license: MIT
+  license_file: LICENSE
+  documentation: https://github.com/lwtnn/lwtnn/wiki
+  repository: https://github.com/lwtnn/lwtnn
+
+extra:
+  recipe-maintainers:
+    - matthewfeickert
