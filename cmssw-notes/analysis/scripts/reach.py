@@ -99,8 +99,11 @@ BLOCKED = {
     "evtgen": "generators",
     "photospp": "generators",
     "tauolapp": "generators",
-    "rivet": "generators",
-    "yoda": "generators",
+    # Rivet and YODA are NOT blocked any more (2026-09-28): conda-forge has 4.1.4 and 2.1.4
+    # (CMS uses 4.1.2 and 2.1.2), GPL-3.0. Only GeneratorInterface/RivetInterface uses them,
+    # for simulated NanoAOD's particle-level and Higgs STXS tables.
+    #   "rivet": "generators",
+    #   "yoda": "generators",
     "pythia6": "generators",
     "pythia6_pdfdummy": "generators",
     "hydjet": "generators",
@@ -149,6 +152,18 @@ PATCHED_USES = {
     # this one library blocks e/gamma and particle flow, and RecoLocalCalo includes its
     # EcalClusterTools.h.
     ("RecoEcal/EgammaCoreTools", "lib"): {"PhysicsTools/TensorFlow"},
+    # cmssw-reco-objects 0009: only the TauSpinner table uses Tauola++, and the patch removes
+    # it. Unpatched, this blocks all of NanoAOD's plugins.
+    ("PhysicsTools/NanoAOD", "plugins"): {"tauolapp"},
+    # cmssw-reco 0005: the plugins only include DataFormats/NanoAOD, which the patch names
+    # instead. Unpatched, this ties CalibTracker/SiStripCommon to NanoAOD's layer.
+    ("CalibTracker/SiStripCommon", "plugins"): {"PhysicsTools/NanoAOD"},
+    # cmssw-reco-objects 0010: the plugins that run a model on a Triton server are removed,
+    # and their generated cfis shipped as source. Unpatched, each of these packages loses all
+    # of its plugins, among them b-tagging, e/gamma calibration and tau identification.
+    ("RecoBTag/ONNXRuntime", "plugins"): {"HeterogeneousCore/SonicTriton"},
+    ("RecoEgamma/EgammaTools", "plugins"): {"HeterogeneousCore/SonicTriton"},
+    ("RecoTauTag/RecoTau", "plugins"): {"HeterogeneousCore/SonicTriton"},
 }
 
 # The order the ladder unblocks them in: cheapest and most valuable first.

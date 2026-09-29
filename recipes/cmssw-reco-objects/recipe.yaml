@@ -47,9 +47,38 @@ source:
       # and std::numbers (L1Trigger/L1TTrackMatch) without including <utility> and <numbers>,
       # which libstdc++ happens to include for them and libc++ does not.
       - patches/0006-L1-trigger-include-utility-and-numbers-for-libc.patch
+      # PhysicsTools/PatAlgos uses __gnu_cxx::is_sorted from libstdc++'s <ext/algorithm>,
+      # which libc++ does not have; std::is_sorted is the same algorithm, standardised in
+      # C++11 (cmssw-reco's 0004 does the same elsewhere).
+      - patches/0007-PhysicsTools-PatAlgos-use-std-is_sorted.patch
+      # PhysicsTools/KinFitter and AnalysisDataFormats/TopObjects call setiosflags() and
+      # resetiosflags() unqualified. libstdc++'s fmtflags is an enum in std, so
+      # argument-dependent lookup finds std::setiosflags; libc++'s is an integer, so nothing
+      # does.
+      - patches/0008-Qualify-setiosflags-for-libc.patch
+      # NanoAOD's TauSpinner table (tau polarisation weights for simulation) needs Tauola++,
+      # which conda-forge does not have; the patch removes the plugin, its cfi and its place
+      # in the simulation tables (nano_cff.py, custom_muon_cff.py). Everything else in
+      # NanoAOD, data and simulation, is unchanged; simulated NanoAOD has no TauSpinner_*
+      # branches.
+      - patches/0009-PhysicsTools-NanoAOD-leave-out-the-TauSpinner-table.patch
+      # The plugins that run a model on a Triton inference server (SONIC) instead of in the
+      # process: three b-tagging ones (RecoBTag/ONNXRuntime), the e/gamma energy regression
+      # (RecoEgamma/EgammaTools' DRN) and DeepTau's (RecoTauTag/RecoTau). The Triton client is
+      # not packaged, and each of those packages has one plugin library, so without the patch
+      # none of their other plugins could be built either: the in-process b-taggers, e/gamma
+      # energy calibration and tau identification, which NanoAOD runs. The cfis generated
+      # from the removed plugins' parameter descriptions are added as source, copied from
+      # CMS's build of this release, because the b-tagging and tau configuration imports them
+      # whether or not the Triton process modifiers that use them are enabled.
+      - patches/0010-Leave-out-the-Triton-inference-plugins-keep-their-cfis.patch
+      # NanoAOD's generator weight table sorts its scale variations with a non-const
+      # operator<, which libc++'s sort cannot call on the const objects it compares (as for
+      # CTPPSPixelLocalTrack in 0004).
+      - patches/0011-PhysicsTools-NanoAOD-const-comparison-operator-for-libc.patch
 
 build:
-  number: 3
+  number: 4
   skip:
     - win
     - osx and x86_64
@@ -172,6 +201,14 @@ requirements:
     # recipes.
     - cms-hls4ml-emulator-extras
     - cms-hls4ml-axol1tl
+    # the legacy CSC track finder's emulation, for L1Trigger/CSCTrackFinder, whose code the
+    # MET producers' beam-halo identification includes. ASSUMED LICENCE, like utm's; see
+    # the recipe.
+    - cms-csctrackfinderemulation
+    # particle-level objects and the Higgs template cross-section classification, which
+    # simulated NanoAOD computes with GeneratorInterface/RivetInterface
+    - rivet
+    - yoda
   run:
     - cms-scram
     # The exact build of the layer below this one was built against: a layer links that
@@ -201,6 +238,9 @@ requirements:
     - conifer-cpp
     - cms-hls4ml-emulator-extras
     - cms-hls4ml-axol1tl
+    - cms-csctrackfinderemulation
+    - rivet
+    - yoda
   ignore_run_exports:
     from_package:
       - libclang
@@ -242,7 +282,27 @@ tests:
       - edmPluginDump | grep -q FastjetJetProducer
       - edmPluginDump | grep -q PFProducer
       - edmPluginDump | grep -q GsfElectronProducer
+      # MET, with the beam-halo identification that needs the CSC track finder (whose
+      # emulation, cms-csctrackfinderemulation, is used on an ASSUMED licence)
+      - edmPluginDump | grep -q PFMETProducer
+      - edmPluginDump | grep -q CSCHaloDataProducer
+      - edmPluginDump | grep -q CSCTFTrackProducer
+      # PAT, and NanoAOD's table producers and output modules
+      - edmPluginDump | grep -qw PATMuonProducer
+      - edmPluginDump | grep -qw PATJetProducer
+      - edmPluginDump | grep -q SimplePATMuonFlatTableProducer
+      - edmPluginDump | grep -qw NanoAODOutputModule
+      # the plugins patch 0010 lets be built: in-process b-tagging, e/gamma energy
+      # calibration and tau identification
+      - edmPluginDump | grep -q UnifiedParticleTransformerAK4ONNXJetTagsProducer
+      - edmPluginDump | grep -q CalibratedPatElectronProducer
+      - edmPluginDump | grep -qw DeepTauId
+      # simulated NanoAOD's particle-level and Higgs STXS producers, which need Rivet
+      - edmPluginDump | grep -q ParticleLevelProducer
+      - edmPluginDump | grep -q HTXSRivetProducer
+      - edmPluginDump | grep -q NanoAODRNTupleOutputModule
       - cmsRun test/localreco.py
+      - python test/nano.py
     files:
       recipe:
         - test/
@@ -266,9 +326,14 @@ about:
     The L1 Global Trigger emulator needs the L1 trigger's ML models (cms-hls4ml-axol1tl),
     which are used on the same ASSUMPTION.
 
-    Left out for want of an external: the models that need the Triton inference client
-    (and with it the PF superclusters). The MET producers (whose beam-halo code includes the
-    L1 CSC track finder) are in cmssw-sim-dqm.
+    It has MET, PAT and NanoAOD, so MiniAOD can be turned into NanoAOD with this layer and
+    the ones below it. The MET producers' beam-halo identification includes the legacy L1
+    CSC track finder, whose emulation (cms-csctrackfinderemulation) is also used on the
+    ASSUMPTION that it will be released under Apache-2.0. NanoAOD's TauSpinner table is
+    left out, for want of Tauola++.
+
+    Left out for want of an external: the plugins that run a model on a Triton inference
+    server, and the PF superclusters, which need the Triton client.
   license: Apache-2.0
   license_file: cmssw/LICENSE
   repository: https://github.com/cms-sw/cmssw

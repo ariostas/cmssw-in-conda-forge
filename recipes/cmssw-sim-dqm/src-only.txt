@@ -43,7 +43,6 @@ SLHCUpgradeSimulations/Geometry
 SimCalorimetry/Configuration
 SimCalorimetry/EcalTestBeam
 SimCalorimetry/EcalZeroSuppressionAlgos
-SimDataFormats/HTXS
 SimFastTiming/Configuration
 SimG4Core/Configuration
 SimGeneral/Configuration
@@ -82,7 +81,6 @@ HLTrigger/special
 OnlineDB/SiStripO2O
 RecoMET/METPUSubtraction
 RecoML/AnomalyDetection
-RecoTauTag/RecoTau
 SimG4Core/PrintGeomInfo
 SimGeneral/CaloAnalysis
 SimPPS/PPSSimTrackProducer

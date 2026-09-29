@@ -1,0 +1,13 @@
+diff --git a/CalibTracker/SiStripCommon/plugins/BuildFile.xml b/CalibTracker/SiStripCommon/plugins/BuildFile.xml
+index 12bc794..9bc460f 100644
+--- a/CalibTracker/SiStripCommon/plugins/BuildFile.xml
++++ b/CalibTracker/SiStripCommon/plugins/BuildFile.xml
+@@ -10,7 +10,7 @@
+ <use name="CondFormats/RunInfo"/>
+ <use name="RecoLocalTracker/SiStripClusterizer"/>
+ <use name="SimDataFormats/TrackingAnalysis"/>
+-<use name="PhysicsTools/NanoAOD"/>
++<use name="DataFormats/NanoAOD"/>
+ <library file="*.cc" name="CalibTrackerSiStripCommonPlugins">
+   <flags EDM_PLUGIN="1"/>
+ </library>

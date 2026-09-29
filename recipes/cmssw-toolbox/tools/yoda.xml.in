@@ -1,0 +1,10 @@
+<tool name="yoda" version="2.1.4" path="@PREFIX@" revision="1">
+  <info url="https://yoda.hepforge.org"/>
+  <lib name="YODA"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="PATH" value="$TOOL_BASE/bin" type="path"/>
+  <use name="root_cxxdefaults"/>
+</tool>

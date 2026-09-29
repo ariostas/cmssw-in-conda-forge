@@ -1,0 +1,2033 @@
+diff --git a/RecoBTag/ONNXRuntime/plugins/BuildFile.xml b/RecoBTag/ONNXRuntime/plugins/BuildFile.xml
+index fceeb4e..251a68a 100644
+--- a/RecoBTag/ONNXRuntime/plugins/BuildFile.xml
++++ b/RecoBTag/ONNXRuntime/plugins/BuildFile.xml
+@@ -5,6 +5,5 @@
+   <use name="PhysicsTools/ONNXRuntime"/>
+   <use name="RecoBTag/FeatureTools"/>
+   <use name="RecoBTag/ONNXRuntime"/>
+-  <use name="HeterogeneousCore/SonicTriton"/>
+   <flags EDM_PLUGIN="1"/>
+ </library>
+diff --git a/RecoBTag/ONNXRuntime/plugins/ParticleNetSonicJetTagsProducer.cc b/RecoBTag/ONNXRuntime/plugins/ParticleNetSonicJetTagsProducer.cc
+deleted file mode 100644
+index 63bf961..0000000
+--- a/RecoBTag/ONNXRuntime/plugins/ParticleNetSonicJetTagsProducer.cc
++++ /dev/null
+@@ -1,348 +0,0 @@
+-#include "FWCore/Framework/interface/Frameworkfwd.h"
+-
+-#include "FWCore/Framework/interface/Event.h"
+-#include "FWCore/Framework/interface/MakerMacros.h"
+-
+-#include "FWCore/Framework/interface/makeRefToBaseProdFrom.h"
+-
+-#include "FWCore/ParameterSet/interface/ParameterSet.h"
+-#include "FWCore/Utilities/interface/StreamID.h"
+-
+-#include "DataFormats/BTauReco/interface/JetTag.h"
+-
+-#include "DataFormats/BTauReco/interface/DeepBoostedJetTagInfo.h"
+-
+-#include "HeterogeneousCore/SonicTriton/interface/TritonEDProducer.h"
+-
+-#include "HeterogeneousCore/SonicTriton/interface/TritonData.h"
+-
+-#include "RecoBTag/FeatureTools/interface/deep_helpers.h"
+-
+-#include <iostream>
+-#include <fstream>
+-#include <algorithm>
+-#include <numeric>
+-#include <nlohmann/json.hpp>
+-
+-using namespace btagbtvdeep;
+-
+-class ParticleNetSonicJetTagsProducer : public TritonEDProducer<> {
+-public:
+-  explicit ParticleNetSonicJetTagsProducer(const edm::ParameterSet &);
+-  ~ParticleNetSonicJetTagsProducer() override;
+-
+-  void acquire(edm::Event const &iEvent, edm::EventSetup const &iSetup, Input &iInput) override;
+-  void produce(edm::Event &iEvent, edm::EventSetup const &iSetup, Output const &iOutput) override;
+-  static void fillDescriptions(edm::ConfigurationDescriptions &);
+-
+-private:
+-  typedef std::vector<reco::DeepBoostedJetTagInfo> TagInfoCollection;
+-  typedef reco::JetTagCollection JetTagCollection;
+-
+-  void make_inputs(const reco::DeepBoostedJetTagInfo &taginfo);
+-
+-  const edm::EDGetTokenT<TagInfoCollection> src_;
+-  std::vector<std::string> flav_names_;             // names of the output scores
+-  std::vector<std::string> input_names_;            // names of each input group - the ordering is important!
+-  std::vector<std::vector<int64_t>> input_shapes_;  // shapes of each input group (-1 for dynamic axis)
+-  std::vector<unsigned> input_sizes_;               // total length of each input vector
+-  std::unordered_map<std::string, PreprocessParams> prep_info_map_;  // preprocessing info for each input group
+-  bool debug_ = false;
+-  bool skippedInference_ = false;
+-  std::vector<bool> emptyJets_;
+-  unsigned numParticleGroups_ = 0;
+-  unsigned numVertexGroups_ = 0;
+-  unsigned numLostTrackGroups_ = 0;
+-  bool countedInputs = false;
+-  std::string particleNameExample_;
+-  std::string vertexNameExample_;
+-  std::string losttrackNameExample_;
+-};
+-
+-ParticleNetSonicJetTagsProducer::ParticleNetSonicJetTagsProducer(const edm::ParameterSet &iConfig)
+-    : TritonEDProducer<>(iConfig),
+-      src_(consumes<TagInfoCollection>(iConfig.getParameter<edm::InputTag>("src"))),
+-      flav_names_(iConfig.getParameter<std::vector<std::string>>("flav_names")),
+-      debug_(iConfig.getUntrackedParameter<bool>("debugMode", false)) {
+-  ParticleNetConstructor(iConfig, false, input_names_, prep_info_map_, input_shapes_, input_sizes_, nullptr);
+-
+-  if (debug_) {
+-    LogDebug("ParticleNetSonicJetTagsProducer") << "<ParticleNetSonicJetTagsProducer::produce>:" << std::endl;
+-    for (unsigned i = 0; i < input_names_.size(); ++i) {
+-      const auto &group_name = input_names_.at(i);
+-      if (!input_shapes_.empty()) {
+-        LogDebug("ParticleNetSonicJetTagsProducer") << group_name << "\nshapes: ";
+-        for (const auto &x : input_shapes_.at(i)) {
+-          LogDebug("ParticleNetSonicJetTagsProducer") << x << ", ";
+-        }
+-      }
+-      LogDebug("ParticleNetSonicJetTagsProducer") << "\nvariables: ";
+-      for (const auto &x : prep_info_map_.at(group_name).var_names) {
+-        LogDebug("ParticleNetSonicJetTagsProducer") << x << ", ";
+-      }
+-      LogDebug("ParticleNetSonicJetTagsProducer") << "\n";
+-    }
+-    LogDebug("ParticleNetSonicJetTagsProducer") << "flav_names: ";
+-    for (const auto &flav_name : flav_names_) {
+-      LogDebug("ParticleNetSonicJetTagsProducer") << flav_name << ", ";
+-    }
+-    LogDebug("ParticleNetSonicJetTagsProducer") << "\n";
+-  }
+-
+-  // get output names from flav_names
+-  for (const auto &flav_name : flav_names_) {
+-    produces<JetTagCollection>(flav_name);
+-  }
+-
+-  if (!countedInputs) {
+-    int model_input_size = input_names_.size();
+-    for (int n = 0; n < model_input_size; n++) {
+-      if (prep_info_map_.at(input_names_.at(n)).var_names.at(0).find("pf") != std::string::npos) {
+-        if (numParticleGroups_ == 0) {
+-          particleNameExample_ = prep_info_map_.at(input_names_.at(n)).var_names.at(0);
+-        }
+-        numParticleGroups_++;
+-      } else if (prep_info_map_.at(input_names_.at(n)).var_names.at(0).find("sv") != std::string::npos) {
+-        if (numVertexGroups_ == 0) {
+-          vertexNameExample_ = prep_info_map_.at(input_names_.at(n)).var_names.at(0);
+-        }
+-        numVertexGroups_++;
+-      } else if (prep_info_map_.at(input_names_.at(n)).var_names.at(0).find("lt") != std::string::npos) {
+-        if (numLostTrackGroups_ == 0) {
+-          losttrackNameExample_ = prep_info_map_.at(input_names_.at(n)).var_names.at(0);
+-        }
+-        numLostTrackGroups_++;
+-      }
+-    }
+-
+-    countedInputs = true;
+-  }
+-}
+-
+-ParticleNetSonicJetTagsProducer::~ParticleNetSonicJetTagsProducer() {}
+-
+-void ParticleNetSonicJetTagsProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
+-  // pfDeepBoostedJetTags
+-  edm::ParameterSetDescription desc;
+-  TritonClient::fillPSetDescription(desc);
+-  desc.add<edm::InputTag>("src", edm::InputTag("pfDeepBoostedJetTagInfos"));
+-  desc.add<std::string>("preprocess_json", "");
+-  // `preprocessParams` is deprecated -- use the preprocessing json file instead
+-  edm::ParameterSetDescription preprocessParams;
+-  preprocessParams.setAllowAnything();
+-  preprocessParams.setComment("`preprocessParams` is deprecated, please use `preprocess_json` instead.");
+-  desc.addOptional<edm::ParameterSetDescription>("preprocessParams", preprocessParams);
+-  desc.add<std::vector<std::string>>("flav_names",
+-                                     std::vector<std::string>{
+-                                         "probTbcq",
+-                                         "probTbqq",
+-                                         "probTbc",
+-                                         "probTbq",
+-                                         "probWcq",
+-                                         "probWqq",
+-                                         "probZbb",
+-                                         "probZcc",
+-                                         "probZqq",
+-                                         "probHbb",
+-                                         "probHcc",
+-                                         "probHqqqq",
+-                                         "probQCDbb",
+-                                         "probQCDcc",
+-                                         "probQCDb",
+-                                         "probQCDc",
+-                                         "probQCDothers",
+-                                     });
+-  desc.addOptionalUntracked<bool>("debugMode", false);
+-
+-  descriptions.addWithDefaultLabel(desc);
+-}
+-
+-void ParticleNetSonicJetTagsProducer::acquire(edm::Event const &iEvent, edm::EventSetup const &iSetup, Input &iInput) {
+-  edm::Handle<TagInfoCollection> tag_infos;
+-  iEvent.getByToken(src_, tag_infos);
+-  client_->setBatchSize(tag_infos->size());
+-  skippedInference_ = false;
+-
+-  emptyJets_.clear();
+-
+-  if (!tag_infos->empty()) {
+-    emptyJets_.reserve(tag_infos->size());
+-    unsigned int maxParticles = 0;
+-    unsigned int maxVertices = 0;
+-    unsigned int maxLT = 0;
+-    unsigned int numParticles;
+-    unsigned int numVertices;
+-    for (unsigned jet_n = 0; jet_n < tag_infos->size(); ++jet_n) {
+-      numParticles = static_cast<unsigned int>(((*tag_infos)[jet_n]).features().get(particleNameExample_).size());
+-      numVertices = static_cast<unsigned int>(((*tag_infos)[jet_n]).features().get(vertexNameExample_).size());
+-      maxParticles = std::max(maxParticles, numParticles);
+-      maxVertices = std::max(maxVertices, numVertices);
+-
+-      if (numParticles == 0 && numVertices == 0) {
+-        emptyJets_.push_back(true);
+-      } else {
+-        emptyJets_.push_back(false);
+-      }
+-
+-      if (!(losttrackNameExample_.empty()) && numParticles > 0) {
+-        maxLT = std::max(maxLT,
+-                         static_cast<unsigned int>(((*tag_infos)[jet_n]).features().get(losttrackNameExample_).size()));
+-      }
+-    }
+-
+-    if (maxParticles == 0 && maxVertices == 0 && maxLT == 0) {
+-      client_->setBatchSize(0);
+-      skippedInference_ = true;
+-      return;
+-    }
+-
+-    unsigned int minPartFromJSON = prep_info_map_.at(input_names_[0]).min_length;
+-    unsigned int maxPartFromJSON = prep_info_map_.at(input_names_[0]).max_length;
+-    unsigned int minVertFromJSON = prep_info_map_.at(input_names_[numParticleGroups_]).min_length;
+-    unsigned int maxVertFromJSON = prep_info_map_.at(input_names_[numParticleGroups_]).max_length;
+-    maxParticles = std::clamp(maxParticles, minPartFromJSON, maxPartFromJSON);
+-    maxVertices = std::clamp(maxVertices, minVertFromJSON, maxVertFromJSON);
+-    if (!(losttrackNameExample_.empty())) {
+-      unsigned int minLTFromJSON = prep_info_map_.at(input_names_[numParticleGroups_ + numVertexGroups_]).min_length;
+-      unsigned int maxLTFromJSON = prep_info_map_.at(input_names_[numParticleGroups_ + numVertexGroups_]).max_length;
+-      maxLT = std::clamp(maxLT, minLTFromJSON, maxLTFromJSON);
+-    }
+-
+-    for (unsigned igroup = 0; igroup < input_names_.size(); ++igroup) {
+-      const auto &group_name = input_names_[igroup];
+-      auto &input = iInput.at(group_name);
+-      unsigned target;
+-      if (igroup < numParticleGroups_) {
+-        input.setShape(1, maxParticles);
+-        target = maxParticles;
+-      } else if (igroup < (numParticleGroups_ + numVertexGroups_)) {
+-        input.setShape(1, maxVertices);
+-        target = maxVertices;
+-      } else {
+-        input.setShape(1, maxLT);
+-        target = maxLT;
+-      }
+-      auto tdata = input.allocate<float>(true);
+-      for (unsigned jet_n = 0; jet_n < tag_infos->size(); ++jet_n) {
+-        const auto &taginfo = (*tag_infos)[jet_n];
+-        auto &vdata = (*tdata)[jet_n];
+-        const auto &prep_params = prep_info_map_.at(group_name);
+-        unsigned curr_pos = 0;
+-        // transform/pad
+-        for (unsigned i = 0; i < prep_params.var_names.size(); ++i) {
+-          const auto &varname = prep_params.var_names[i];
+-          std::vector<float> bare(0);
+-          std::vector<float> raw_value;
+-          if (!emptyJets_.at(jet_n)) {
+-            raw_value = taginfo.features().get(varname);
+-          } else {
+-            raw_value = bare;
+-          }
+-          const auto &info = prep_params.info(varname);
+-          int insize = center_norm_pad_halfRagged(raw_value,
+-                                                  info.center,
+-                                                  info.norm_factor,
+-                                                  target,
+-                                                  vdata,
+-                                                  curr_pos,
+-                                                  info.pad,
+-                                                  info.replace_inf_value,
+-                                                  info.lower_bound,
+-                                                  info.upper_bound);
+-          curr_pos += insize;
+-          if (i == 0 && (!input_shapes_.empty())) {
+-            input_shapes_[igroup][2] = insize;
+-          }
+-
+-          if (debug_) {
+-            LogDebug("acquire") << "<ParticleNetSonicJetTagsProducer::produce>:" << std::endl
+-                                << " -- var=" << varname << ", center=" << info.center << ", scale=" << info.norm_factor
+-                                << ", replace=" << info.replace_inf_value << ", pad=" << info.pad << std::endl;
+-            for (unsigned i = curr_pos - insize; i < curr_pos; i++) {
+-              LogDebug("acquire") << vdata[i] << ",";
+-            }
+-            LogDebug("acquire") << std::endl;
+-          }
+-        }
+-      }
+-      input.toServer(tdata);
+-    }
+-  }
+-}
+-
+-void ParticleNetSonicJetTagsProducer::produce(edm::Event &iEvent,
+-                                              const edm::EventSetup &iSetup,
+-                                              Output const &iOutput) {
+-  edm::Handle<TagInfoCollection> tag_infos;
+-  iEvent.getByToken(src_, tag_infos);
+-
+-  // initialize output collection
+-  std::vector<std::unique_ptr<JetTagCollection>> output_tags;
+-  if (!tag_infos->empty()) {
+-    auto jet_ref = tag_infos->begin()->jet();
+-    auto ref2prod = edm::makeRefToBaseProdFrom(jet_ref, iEvent);
+-    for (std::size_t i = 0; i < flav_names_.size(); i++) {
+-      output_tags.emplace_back(std::make_unique<JetTagCollection>(ref2prod));
+-    }
+-  } else {
+-    for (std::size_t i = 0; i < flav_names_.size(); i++) {
+-      output_tags.emplace_back(std::make_unique<JetTagCollection>());
+-    }
+-  }
+-
+-  if (!tag_infos->empty()) {
+-    if (!skippedInference_) {
+-      const auto &output1 = iOutput.begin()->second;
+-      const auto &outputs_from_server = output1.fromServer<float>();
+-
+-      for (unsigned jet_n = 0; jet_n < tag_infos->size(); ++jet_n) {
+-        const auto &taginfo = (*tag_infos)[jet_n];
+-        const auto &jet_ref = tag_infos->at(jet_n).jet();
+-
+-        if (emptyJets_.at(jet_n)) {
+-          for (std::size_t flav_n = 0; flav_n < flav_names_.size(); flav_n++) {
+-            (*(output_tags[flav_n]))[jet_ref] = 0.;
+-          }
+-        } else if (!taginfo.features().empty()) {
+-          for (std::size_t flav_n = 0; flav_n < flav_names_.size(); flav_n++) {
+-            (*(output_tags[flav_n]))[jet_ref] = outputs_from_server[jet_n][flav_n];
+-          }
+-        } else {
+-          for (std::size_t flav_n = 0; flav_n < flav_names_.size(); flav_n++) {
+-            (*(output_tags[flav_n]))[jet_ref] = 0.;
+-          }
+-        }
+-      }
+-    } else {
+-      for (unsigned jet_n = 0; jet_n < tag_infos->size(); ++jet_n) {
+-        const auto &jet_ref = tag_infos->at(jet_n).jet();
+-        for (std::size_t flav_n = 0; flav_n < flav_names_.size(); flav_n++) {
+-          (*(output_tags[flav_n]))[jet_ref] = 0.;
+-        }
+-      }
+-    }
+-  }
+-
+-  if (debug_) {
+-    LogDebug("produce") << "<ParticleNetSonicJetTagsProducer::produce>:" << std::endl
+-                        << "=== " << iEvent.id().run() << ":" << iEvent.id().luminosityBlock() << ":"
+-                        << iEvent.id().event() << " ===" << std::endl;
+-    for (unsigned jet_n = 0; jet_n < tag_infos->size(); ++jet_n) {
+-      const auto &jet_ref = tag_infos->at(jet_n).jet();
+-      LogDebug("produce") << " - Jet #" << jet_n << ", pt=" << jet_ref->pt() << ", eta=" << jet_ref->eta()
+-                          << ", phi=" << jet_ref->phi() << std::endl;
+-      for (std::size_t flav_n = 0; flav_n < flav_names_.size(); ++flav_n) {
+-        LogDebug("produce") << "    " << flav_names_.at(flav_n) << " = " << (*(output_tags.at(flav_n)))[jet_ref]
+-                            << std::endl;
+-      }
+-    }
+-  }
+-
+-  // put into the event
+-  for (std::size_t flav_n = 0; flav_n < flav_names_.size(); ++flav_n) {
+-    iEvent.put(std::move(output_tags[flav_n]), flav_names_[flav_n]);
+-  }
+-}
+-
+-//define this as a plug-in
+-DEFINE_FWK_MODULE(ParticleNetSonicJetTagsProducer);
+diff --git a/RecoBTag/ONNXRuntime/plugins/ParticleTransformerAK4SonicJetTagsProducer.cc b/RecoBTag/ONNXRuntime/plugins/ParticleTransformerAK4SonicJetTagsProducer.cc
+deleted file mode 100644
+index 2a33e97..0000000
+--- a/RecoBTag/ONNXRuntime/plugins/ParticleTransformerAK4SonicJetTagsProducer.cc
++++ /dev/null
+@@ -1,191 +0,0 @@
+-#include "FWCore/Framework/interface/Frameworkfwd.h"
+-
+-#include "FWCore/Framework/interface/Event.h"
+-#include "FWCore/Framework/interface/MakerMacros.h"
+-
+-#include "FWCore/Framework/interface/makeRefToBaseProdFrom.h"
+-
+-#include "FWCore/ParameterSet/interface/ParameterSet.h"
+-#include "FWCore/Utilities/interface/StreamID.h"
+-
+-#include "DataFormats/BTauReco/interface/JetTag.h"
+-
+-#include "DataFormats/BTauReco/interface/ParticleTransformerAK4TagInfo.h"
+-#include "DataFormats/BTauReco/interface/ParticleTransformerAK4Features.h"
+-
+-#include "HeterogeneousCore/SonicTriton/interface/TritonEDProducer.h"
+-#include "HeterogeneousCore/SonicTriton/interface/TritonData.h"
+-
+-#include "RecoBTag/ONNXRuntime/interface/tensor_fillers.h"
+-#include "RecoBTag/ONNXRuntime/interface/tensor_configs.h"
+-
+-class ParticleTransformerAK4SonicJetTagsProducer : public TritonEDProducer<> {
+-public:
+-  explicit ParticleTransformerAK4SonicJetTagsProducer(const edm::ParameterSet &);
+-  ~ParticleTransformerAK4SonicJetTagsProducer() override;
+-
+-  void acquire(edm::Event const &iEvent, edm::EventSetup const &iSetup, Input &iInput) override;
+-
+-  void produce(edm::Event &iEvent, edm::EventSetup const &iSetup, Output const &iOutput) override;
+-  static void fillDescriptions(edm::ConfigurationDescriptions &);
+-
+-private:
+-  typedef std::vector<reco::ParticleTransformerAK4TagInfo> TagInfoCollection;
+-  typedef reco::JetTagCollection JetTagCollection;
+-
+-  const edm::EDGetTokenT<TagInfoCollection> src_;
+-  std::vector<std::string> flav_names_;
+-  std::vector<std::string> input_names_;
+-  std::vector<std::string> output_names_;
+-
+-  bool skippedInference_ = false;
+-};
+-
+-ParticleTransformerAK4SonicJetTagsProducer::ParticleTransformerAK4SonicJetTagsProducer(const edm::ParameterSet &iConfig)
+-    : TritonEDProducer<>(iConfig),
+-      src_(consumes<TagInfoCollection>(iConfig.getParameter<edm::InputTag>("src"))),
+-      flav_names_(iConfig.getParameter<std::vector<std::string>>("flav_names")),
+-      input_names_(iConfig.getParameter<std::vector<std::string>>("input_names")),
+-      output_names_(iConfig.getParameter<std::vector<std::string>>("output_names")) {
+-  // get output names from flav_names
+-  for (const auto &flav_name : flav_names_) {
+-    produces<JetTagCollection>(flav_name);
+-  }
+-}
+-
+-ParticleTransformerAK4SonicJetTagsProducer::~ParticleTransformerAK4SonicJetTagsProducer() {}
+-
+-void ParticleTransformerAK4SonicJetTagsProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
+-  // pfParticleTransformerAK4JetTags
+-  edm::ParameterSetDescription desc;
+-  TritonClient::fillPSetDescription(desc);
+-  desc.add<edm::InputTag>("src", edm::InputTag("pfParticleTransformerAK4TagInfos"));
+-  desc.add<std::vector<std::string>>("input_names", {"input_1", "input_2", "input_3", "input_4", "input_5", "input_6"});
+-  desc.add<std::vector<std::string>>("output_names", {"softmax"});
+-  desc.add<std::vector<std::string>>(
+-      "flav_names", std::vector<std::string>{"probb", "probbb", "problepb", "probc", "probuds", "probg"});
+-
+-  descriptions.add("pfParticleTransformerAK4SonicJetTags", desc);
+-}
+-
+-void ParticleTransformerAK4SonicJetTagsProducer::acquire(edm::Event const &iEvent,
+-                                                         edm::EventSetup const &iSetup,
+-                                                         Input &iInput) {
+-  edm::Handle<TagInfoCollection> tag_infos;
+-  iEvent.getByToken(src_, tag_infos);
+-  client_->setBatchSize(tag_infos->size());
+-  skippedInference_ = false;
+-  if (tag_infos->empty())
+-    return;
+-
+-  // Find the max n_cpf, n_npf and n_vtx among all the jets in an event.
+-  unsigned int max_n_cpf_counter = 0;
+-  unsigned int max_n_npf_counter = 0;
+-  unsigned int max_n_vtx_counter = 0;
+-  for (unsigned jet_n = 0; jet_n < tag_infos->size(); ++jet_n) {
+-    max_n_cpf_counter =
+-        std::max(max_n_cpf_counter, static_cast<unsigned int>(((*tag_infos)[jet_n]).features().c_pf_features.size()));
+-    max_n_npf_counter =
+-        std::max(max_n_npf_counter, static_cast<unsigned int>(((*tag_infos)[jet_n]).features().n_pf_features.size()));
+-    max_n_vtx_counter =
+-        std::max(max_n_vtx_counter, static_cast<unsigned int>(((*tag_infos)[jet_n]).features().sv_features.size()));
+-  }
+-
+-  // If an event has no jet, or all jets has zero n_cpf, n_npf and n_vtx, the inference is skipped.
+-  if (max_n_cpf_counter == 0 && max_n_npf_counter == 0 && max_n_vtx_counter == 0) {
+-    client_->setBatchSize(0);
+-    skippedInference_ = true;
+-    return;
+-  }
+-
+-  // all the jets in the same event will fill up the same amount of n_cpf, n_npf, n_vtx and send to server
+-  const unsigned int target_n_cpf = std::clamp(max_n_cpf_counter, (unsigned int)1, (unsigned int)parT::n_cpf_accept);
+-  const unsigned int target_n_npf = std::clamp(max_n_npf_counter, (unsigned int)1, (unsigned int)parT::n_npf_accept);
+-  const unsigned int target_n_vtx = std::clamp(max_n_vtx_counter, (unsigned int)1, (unsigned int)parT::n_sv_accept);
+-
+-  const std::map<parT::InputFeatures, unsigned int> target_n{{parT::kChargedCandidates, target_n_cpf},
+-                                                             {parT::kNeutralCandidates, target_n_npf},
+-                                                             {parT::kVertices, target_n_vtx},
+-                                                             {parT::kChargedCandidates4Vec, target_n_cpf},
+-                                                             {parT::kNeutralCandidates4Vec, target_n_npf},
+-                                                             {parT::kVertices4Vec, target_n_vtx}};
+-
+-  // loop through all groups of features
+-  for (parT::InputFeatures ifeature = parT::kBegin; ifeature != parT::kEnd;
+-       ifeature = static_cast<parT::InputFeatures>(ifeature + 1)) {
+-    const auto &group_name = input_names_[ifeature];
+-    auto &input = iInput.at(group_name);
+-
+-    input.setShape(0, target_n.at(ifeature));
+-    auto tdata = input.allocate<float>(true);
+-
+-    for (unsigned jet_n = 0; jet_n < tag_infos->size(); ++jet_n) {
+-      const auto &taginfo = (*tag_infos)[jet_n];
+-      const auto &features = taginfo.features();
+-      auto &vdata = (*tdata)[jet_n];
+-      if (ifeature == parT::kChargedCandidates || ifeature == parT::kChargedCandidates4Vec)
+-        parT_tensor_filler(vdata, ifeature, features.c_pf_features, target_n_cpf);
+-      else if (ifeature == parT::kNeutralCandidates || ifeature == parT::kNeutralCandidates4Vec)
+-        parT_tensor_filler(vdata, ifeature, features.n_pf_features, target_n_npf);
+-      else if (ifeature == parT::kVertices || ifeature == parT::kVertices4Vec)
+-        parT_tensor_filler(vdata, ifeature, features.sv_features, target_n_vtx);
+-    }
+-    input.toServer(tdata);
+-  }
+-}
+-
+-void ParticleTransformerAK4SonicJetTagsProducer::produce(edm::Event &iEvent,
+-                                                         const edm::EventSetup &iSetup,
+-                                                         Output const &iOutput) {
+-  edm::Handle<TagInfoCollection> tag_infos;
+-  iEvent.getByToken(src_, tag_infos);
+-
+-  // initialize output collection
+-  std::vector<std::unique_ptr<JetTagCollection>> output_tags;
+-  if (!tag_infos->empty()) {
+-    auto jet_ref = tag_infos->begin()->jet();
+-    auto ref2prod = edm::makeRefToBaseProdFrom(jet_ref, iEvent);
+-    for (std::size_t i = 0; i < flav_names_.size(); i++) {
+-      output_tags.emplace_back(std::make_unique<JetTagCollection>(ref2prod));
+-    }
+-  } else {
+-    for (std::size_t i = 0; i < flav_names_.size(); i++) {
+-      output_tags.emplace_back(std::make_unique<JetTagCollection>());
+-    }
+-  }
+-  if (!tag_infos->empty()) {
+-    if (!skippedInference_) {
+-      const auto &output1 = iOutput.begin()->second;
+-      const auto &outputs_from_server = output1.fromServer<float>();
+-
+-      for (unsigned jet_n = 0; jet_n < tag_infos->size(); ++jet_n) {
+-        const auto &taginfo = (*tag_infos)[jet_n];
+-        const auto &jet_ref = tag_infos->at(jet_n).jet();
+-
+-        if (taginfo.features().is_filled) {
+-          for (std::size_t flav_n = 0; flav_n < flav_names_.size(); flav_n++) {
+-            (*(output_tags[flav_n]))[jet_ref] = outputs_from_server[jet_n][flav_n];
+-          }
+-        } else {
+-          for (std::size_t flav_n = 0; flav_n < flav_names_.size(); flav_n++) {
+-            (*(output_tags[flav_n]))[jet_ref] = -1.0;
+-          }
+-        }
+-      }
+-    } else {
+-      for (unsigned jet_n = 0; jet_n < tag_infos->size(); ++jet_n) {
+-        const auto &jet_ref = tag_infos->at(jet_n).jet();
+-        for (std::size_t flav_n = 0; flav_n < flav_names_.size(); flav_n++) {
+-          (*(output_tags[flav_n]))[jet_ref] = -1.0;
+-        }
+-      }
+-    }
+-  }
+-  // put into the event
+-  for (std::size_t flav_n = 0; flav_n < flav_names_.size(); ++flav_n) {
+-    iEvent.put(std::move(output_tags[flav_n]), flav_names_[flav_n]);
+-  }
+-}
+-
+-//define this as a plug-in
+-DEFINE_FWK_MODULE(ParticleTransformerAK4SonicJetTagsProducer);
+diff --git a/RecoBTag/ONNXRuntime/plugins/UnifiedParticleTransformerAK4SonicJetTagsProducer.cc b/RecoBTag/ONNXRuntime/plugins/UnifiedParticleTransformerAK4SonicJetTagsProducer.cc
+deleted file mode 100644
+index cde45e2..0000000
+--- a/RecoBTag/ONNXRuntime/plugins/UnifiedParticleTransformerAK4SonicJetTagsProducer.cc
++++ /dev/null
+@@ -1,204 +0,0 @@
+-#include "FWCore/Framework/interface/Frameworkfwd.h"
+-
+-#include "FWCore/Framework/interface/Event.h"
+-#include "FWCore/Framework/interface/MakerMacros.h"
+-
+-#include "FWCore/Framework/interface/makeRefToBaseProdFrom.h"
+-
+-#include "FWCore/ParameterSet/interface/ParameterSet.h"
+-#include "FWCore/Utilities/interface/StreamID.h"
+-
+-#include "DataFormats/BTauReco/interface/JetTag.h"
+-
+-#include "DataFormats/BTauReco/interface/UnifiedParticleTransformerAK4TagInfo.h"
+-#include "DataFormats/BTauReco/interface/UnifiedParticleTransformerAK4Features.h"
+-
+-#include "HeterogeneousCore/SonicTriton/interface/TritonEDProducer.h"
+-#include "HeterogeneousCore/SonicTriton/interface/TritonData.h"
+-
+-#include "RecoBTag/ONNXRuntime/interface/tensor_fillers.h"
+-#include "RecoBTag/ONNXRuntime/interface/tensor_configs.h"
+-
+-class UnifiedParticleTransformerAK4SonicJetTagsProducer : public TritonEDProducer<> {
+-public:
+-  explicit UnifiedParticleTransformerAK4SonicJetTagsProducer(const edm::ParameterSet &);
+-  ~UnifiedParticleTransformerAK4SonicJetTagsProducer() override;
+-
+-  void acquire(edm::Event const &iEvent, edm::EventSetup const &iSetup, Input &iInput) override;
+-
+-  void produce(edm::Event &iEvent, edm::EventSetup const &iSetup, Output const &iOutput) override;
+-  static void fillDescriptions(edm::ConfigurationDescriptions &);
+-
+-private:
+-  typedef std::vector<reco::UnifiedParticleTransformerAK4TagInfo> TagInfoCollection;
+-  typedef reco::JetTagCollection JetTagCollection;
+-
+-  const edm::EDGetTokenT<TagInfoCollection> src_;
+-  std::vector<std::string> flav_names_;
+-  std::vector<std::string> input_names_;
+-  std::vector<std::string> output_names_;
+-
+-  bool skippedInference_ = false;
+-};
+-
+-UnifiedParticleTransformerAK4SonicJetTagsProducer::UnifiedParticleTransformerAK4SonicJetTagsProducer(
+-    const edm::ParameterSet &iConfig)
+-    : TritonEDProducer<>(iConfig),
+-      src_(consumes<TagInfoCollection>(iConfig.getParameter<edm::InputTag>("src"))),
+-      flav_names_(iConfig.getParameter<std::vector<std::string>>("flav_names")),
+-      input_names_(iConfig.getParameter<std::vector<std::string>>("input_names")),
+-      output_names_(iConfig.getParameter<std::vector<std::string>>("output_names")) {
+-  // get output names from flav_names
+-  for (const auto &flav_name : flav_names_) {
+-    produces<JetTagCollection>(flav_name);
+-  }
+-}
+-
+-UnifiedParticleTransformerAK4SonicJetTagsProducer::~UnifiedParticleTransformerAK4SonicJetTagsProducer() {}
+-
+-void UnifiedParticleTransformerAK4SonicJetTagsProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
+-  // pfUnifiedParticleTransformerAK4SonicJetTags
+-  edm::ParameterSetDescription desc;
+-  TritonClient::fillPSetDescription(desc);
+-  desc.add<edm::InputTag>("src", edm::InputTag("pfUnifiedParticleTransformerAK4TagInfos"));
+-  desc.add<std::vector<std::string>>(
+-      "input_names", {"input_1", "input_2", "input_3", "input_4", "input_5", "input_6", "input_7", "input_8"});
+-  desc.add<std::vector<std::string>>("output_names", {"softmax"});
+-  desc.add<std::vector<std::string>>(
+-      "flav_names",
+-      std::vector<std::string>{"probb",        "probbb",       "problepb",     "probc",         "probs",
+-                               "probu",        "probd",        "probg",        "probele",       "probmu",
+-                               "probtaup1h0p", "probtaup1h1p", "probtaup1h2p", "probtaup3h0p",  "probtaup3h1p",
+-                               "probtaum1h0p", "probtaum1h1p", "probtaum1h2p", "probtaum3h0p",  "probtaum3h1p",
+-                               "ptcorr",       "ptreshigh",    "ptreslow",     "ptnu",          "probemudata",
+-                               "probemumc",    "probdimudata", "probdimumc",   "probmutaudata", "probmutaumc"});
+-
+-  descriptions.add("pfUnifiedParticleTransformerAK4SonicJetTags", desc);
+-}
+-
+-void UnifiedParticleTransformerAK4SonicJetTagsProducer::acquire(edm::Event const &iEvent,
+-                                                                edm::EventSetup const &iSetup,
+-                                                                Input &iInput) {
+-  edm::Handle<TagInfoCollection> tag_infos;
+-  iEvent.getByToken(src_, tag_infos);
+-  client_->setBatchSize(tag_infos->size());
+-  skippedInference_ = false;
+-  if (tag_infos->empty())
+-    return;
+-
+-  // Find the max n_cpf, n_npf and n_vtx among all the jets in an event.
+-  unsigned int max_n_cpf_counter = 0;
+-  unsigned int max_n_lt_counter = 0;
+-  unsigned int max_n_npf_counter = 0;
+-  unsigned int max_n_vtx_counter = 0;
+-  for (unsigned jet_n = 0; jet_n < tag_infos->size(); ++jet_n) {
+-    max_n_cpf_counter =
+-        std::max(max_n_cpf_counter, static_cast<unsigned int>(((*tag_infos)[jet_n]).features().c_pf_features.size()));
+-    max_n_lt_counter =
+-        std::max(max_n_lt_counter, static_cast<unsigned int>(((*tag_infos)[jet_n]).features().lt_features.size()));
+-    max_n_npf_counter =
+-        std::max(max_n_npf_counter, static_cast<unsigned int>(((*tag_infos)[jet_n]).features().n_pf_features.size()));
+-    max_n_vtx_counter =
+-        std::max(max_n_vtx_counter, static_cast<unsigned int>(((*tag_infos)[jet_n]).features().sv_features.size()));
+-  }
+-
+-  // If an event has no jet, or all jets has zero n_cpf, n_lt, n_npf and n_vtx, the inference is skipped.
+-  if (max_n_cpf_counter == 0 && max_n_lt_counter == 0 && max_n_npf_counter == 0 && max_n_vtx_counter == 0) {
+-    client_->setBatchSize(0);
+-    skippedInference_ = true;
+-    return;
+-  }
+-
+-  // all the jets in the same event will fill up the same amount of n_cpf, n_npf, n_vtx and send to server
+-  const unsigned int target_n_cpf = std::clamp(max_n_cpf_counter, (unsigned int)1, (unsigned int)UparT::n_cpf_accept);
+-  const unsigned int target_n_lt = std::clamp(max_n_lt_counter, (unsigned int)1, (unsigned int)UparT::n_lt_accept);
+-  const unsigned int target_n_npf = std::clamp(max_n_npf_counter, (unsigned int)1, (unsigned int)UparT::n_npf_accept);
+-  const unsigned int target_n_vtx = std::clamp(max_n_vtx_counter, (unsigned int)1, (unsigned int)UparT::n_sv_accept);
+-  const std::map<UparT::InputFeatures, unsigned int> target_n{{UparT::kChargedCandidates, target_n_cpf},
+-                                                              {UparT::kLostTracks, target_n_lt},
+-                                                              {UparT::kNeutralCandidates, target_n_npf},
+-                                                              {UparT::kVertices, target_n_vtx},
+-                                                              {UparT::kChargedCandidates4Vec, target_n_cpf},
+-                                                              {UparT::kLostTracks4Vec, target_n_lt},
+-                                                              {UparT::kNeutralCandidates4Vec, target_n_npf},
+-                                                              {UparT::kVertices4Vec, target_n_vtx}};
+-
+-  for (UparT::InputFeatures ifeature = UparT::kBegin; ifeature != UparT::kEnd;
+-       ifeature = static_cast<UparT::InputFeatures>(ifeature + 1)) {
+-    const auto &group_name = input_names_[ifeature];
+-    auto &input = iInput.at(group_name);
+-    input.setShape(0, target_n.at(ifeature));
+-    auto tdata = input.allocate<float>(true);
+-    for (unsigned jet_n = 0; jet_n < tag_infos->size(); ++jet_n) {
+-      const auto &taginfo = (*tag_infos)[jet_n];
+-      const auto &features = taginfo.features();
+-      auto &vdata = (*tdata)[jet_n];
+-
+-      if (ifeature == UparT::kChargedCandidates || ifeature == UparT::kChargedCandidates4Vec)
+-        UparT_tensor_filler(vdata, ifeature, features.c_pf_features, target_n_cpf);
+-      else if (ifeature == UparT::kLostTracks || ifeature == UparT::kLostTracks4Vec)
+-        UparT_tensor_filler(vdata, ifeature, features.lt_features, target_n_lt);
+-      else if (ifeature == UparT::kNeutralCandidates || ifeature == UparT::kNeutralCandidates4Vec)
+-        UparT_tensor_filler(vdata, ifeature, features.n_pf_features, target_n_npf);
+-      else if (ifeature == UparT::kVertices || ifeature == UparT::kVertices4Vec)
+-        UparT_tensor_filler(vdata, ifeature, features.sv_features, target_n_vtx);
+-    }
+-    input.toServer(tdata);
+-  }
+-}
+-
+-void UnifiedParticleTransformerAK4SonicJetTagsProducer::produce(edm::Event &iEvent,
+-                                                                const edm::EventSetup &iSetup,
+-                                                                Output const &iOutput) {
+-  edm::Handle<TagInfoCollection> tag_infos;
+-  iEvent.getByToken(src_, tag_infos);
+-
+-  // initialize output collection
+-  std::vector<std::unique_ptr<JetTagCollection>> output_tags;
+-  if (!tag_infos->empty()) {
+-    auto jet_ref = tag_infos->begin()->jet();
+-    auto ref2prod = edm::makeRefToBaseProdFrom(jet_ref, iEvent);
+-    for (std::size_t i = 0; i < flav_names_.size(); i++) {
+-      output_tags.emplace_back(std::make_unique<JetTagCollection>(ref2prod));
+-    }
+-  } else {
+-    for (std::size_t i = 0; i < flav_names_.size(); i++) {
+-      output_tags.emplace_back(std::make_unique<JetTagCollection>());
+-    }
+-  }
+-  if (!tag_infos->empty()) {
+-    if (!skippedInference_) {
+-      const auto &output1 = iOutput.begin()->second;
+-      const auto &outputs_from_server = output1.fromServer<float>();
+-
+-      for (unsigned jet_n = 0; jet_n < tag_infos->size(); ++jet_n) {
+-        const auto &taginfo = (*tag_infos)[jet_n];
+-        const auto &jet_ref = tag_infos->at(jet_n).jet();
+-
+-        if (taginfo.features().is_filled) {
+-          for (std::size_t flav_n = 0; flav_n < flav_names_.size(); flav_n++) {
+-            (*(output_tags[flav_n]))[jet_ref] = outputs_from_server[jet_n][flav_n];
+-          }
+-        } else {
+-          for (std::size_t flav_n = 0; flav_n < flav_names_.size(); flav_n++) {
+-            (*(output_tags[flav_n]))[jet_ref] = -1.0;
+-          }
+-        }
+-      }
+-    } else {
+-      for (unsigned jet_n = 0; jet_n < tag_infos->size(); ++jet_n) {
+-        const auto &jet_ref = tag_infos->at(jet_n).jet();
+-        for (std::size_t flav_n = 0; flav_n < flav_names_.size(); flav_n++) {
+-          (*(output_tags[flav_n]))[jet_ref] = -1.0;
+-        }
+-      }
+-    }
+-  }
+-  // put into the event
+-  for (std::size_t flav_n = 0; flav_n < flav_names_.size(); ++flav_n) {
+-    iEvent.put(std::move(output_tags[flav_n]), flav_names_[flav_n]);
+-  }
+-}
+-
+-//define this as a plug-in
+-DEFINE_FWK_MODULE(UnifiedParticleTransformerAK4SonicJetTagsProducer);
+diff --git a/RecoBTag/ONNXRuntime/python/ParticleNetSonicJetTagsProducer.py b/RecoBTag/ONNXRuntime/python/ParticleNetSonicJetTagsProducer.py
+new file mode 100644
+index 0000000..ba88283
+--- /dev/null
++++ b/RecoBTag/ONNXRuntime/python/ParticleNetSonicJetTagsProducer.py
+@@ -0,0 +1,51 @@
++# Generated by CMSSW_20_1_0_pre2's build from the parameter description of the
++# ParticleNetSonicJetTagsProducer plugin, which needs the Triton inference client and
++# is not built here. Kept so that the configurations that import it still load; the
++# plugin itself is only used with Triton.
++import FWCore.ParameterSet.Config as cms
++
++def ParticleNetSonicJetTagsProducer(*args, **kwargs):
++  mod = cms.EDProducer('ParticleNetSonicJetTagsProducer',
++    Client = cms.PSet(
++      mode = cms.string('PseudoAsync'),
++      allowedTries = cms.untracked.uint32(0),
++      verbose = cms.untracked.bool(False),
++      modelName = cms.required.string,
++      modelVersion = cms.string(''),
++      modelConfigPath = cms.required.FileInPath,
++      preferredServer = cms.untracked.string(''),
++      timeout = cms.required.untracked.uint32,
++      timeoutUnit = cms.untracked.string('seconds'),
++      useSharedMemory = cms.untracked.bool(True),
++      compression = cms.untracked.string(''),
++      outputs = cms.untracked.vstring()
++    ),
++    src = cms.InputTag('pfDeepBoostedJetTagInfos'),
++    preprocess_json = cms.string(''),
++    preprocessParams = cms.PSet(),
++    flav_names = cms.vstring(
++      'probTbcq',
++      'probTbqq',
++      'probTbc',
++      'probTbq',
++      'probWcq',
++      'probWqq',
++      'probZbb',
++      'probZcc',
++      'probZqq',
++      'probHbb',
++      'probHcc',
++      'probHqqqq',
++      'probQCDbb',
++      'probQCDcc',
++      'probQCDb',
++      'probQCDc',
++      'probQCDothers'
++    ),
++    debugMode = cms.untracked.bool(False),
++    mightGet = cms.optional.untracked.vstring
++  )
++  for a in args:
++    mod.update_(a)
++  mod.update_(kwargs)
++  return mod
+diff --git a/RecoBTag/ONNXRuntime/python/ParticleTransformerAK4SonicJetTagsProducer.py b/RecoBTag/ONNXRuntime/python/ParticleTransformerAK4SonicJetTagsProducer.py
+new file mode 100644
+index 0000000..9385ce8
+--- /dev/null
++++ b/RecoBTag/ONNXRuntime/python/ParticleTransformerAK4SonicJetTagsProducer.py
+@@ -0,0 +1,46 @@
++# Generated by CMSSW_20_1_0_pre2's build from the parameter description of the
++# ParticleTransformerAK4SonicJetTagsProducer plugin, which needs the Triton inference client and
++# is not built here. Kept so that the configurations that import it still load; the
++# plugin itself is only used with Triton.
++import FWCore.ParameterSet.Config as cms
++
++def ParticleTransformerAK4SonicJetTagsProducer(*args, **kwargs):
++  mod = cms.EDProducer('ParticleTransformerAK4SonicJetTagsProducer',
++    Client = cms.PSet(
++      mode = cms.string('PseudoAsync'),
++      allowedTries = cms.untracked.uint32(0),
++      verbose = cms.untracked.bool(False),
++      modelName = cms.required.string,
++      modelVersion = cms.string(''),
++      modelConfigPath = cms.required.FileInPath,
++      preferredServer = cms.untracked.string(''),
++      timeout = cms.required.untracked.uint32,
++      timeoutUnit = cms.untracked.string('seconds'),
++      useSharedMemory = cms.untracked.bool(True),
++      compression = cms.untracked.string(''),
++      outputs = cms.untracked.vstring()
++    ),
++    src = cms.InputTag('pfParticleTransformerAK4TagInfos'),
++    input_names = cms.vstring(
++      'input_1',
++      'input_2',
++      'input_3',
++      'input_4',
++      'input_5',
++      'input_6'
++    ),
++    output_names = cms.vstring('softmax'),
++    flav_names = cms.vstring(
++      'probb',
++      'probbb',
++      'problepb',
++      'probc',
++      'probuds',
++      'probg'
++    ),
++    mightGet = cms.optional.untracked.vstring
++  )
++  for a in args:
++    mod.update_(a)
++  mod.update_(kwargs)
++  return mod
+diff --git a/RecoBTag/ONNXRuntime/python/UnifiedParticleTransformerAK4SonicJetTagsProducer.py b/RecoBTag/ONNXRuntime/python/UnifiedParticleTransformerAK4SonicJetTagsProducer.py
+new file mode 100644
+index 0000000..976fc74
+--- /dev/null
++++ b/RecoBTag/ONNXRuntime/python/UnifiedParticleTransformerAK4SonicJetTagsProducer.py
+@@ -0,0 +1,72 @@
++# Generated by CMSSW_20_1_0_pre2's build from the parameter description of the
++# UnifiedParticleTransformerAK4SonicJetTagsProducer plugin, which needs the Triton inference client and
++# is not built here. Kept so that the configurations that import it still load; the
++# plugin itself is only used with Triton.
++import FWCore.ParameterSet.Config as cms
++
++def UnifiedParticleTransformerAK4SonicJetTagsProducer(*args, **kwargs):
++  mod = cms.EDProducer('UnifiedParticleTransformerAK4SonicJetTagsProducer',
++    Client = cms.PSet(
++      mode = cms.string('PseudoAsync'),
++      allowedTries = cms.untracked.uint32(0),
++      verbose = cms.untracked.bool(False),
++      modelName = cms.required.string,
++      modelVersion = cms.string(''),
++      modelConfigPath = cms.required.FileInPath,
++      preferredServer = cms.untracked.string(''),
++      timeout = cms.required.untracked.uint32,
++      timeoutUnit = cms.untracked.string('seconds'),
++      useSharedMemory = cms.untracked.bool(True),
++      compression = cms.untracked.string(''),
++      outputs = cms.untracked.vstring()
++    ),
++    src = cms.InputTag('pfUnifiedParticleTransformerAK4TagInfos'),
++    input_names = cms.vstring(
++      'input_1',
++      'input_2',
++      'input_3',
++      'input_4',
++      'input_5',
++      'input_6',
++      'input_7',
++      'input_8'
++    ),
++    output_names = cms.vstring('softmax'),
++    flav_names = cms.vstring(
++      'probb',
++      'probbb',
++      'problepb',
++      'probc',
++      'probs',
++      'probu',
++      'probd',
++      'probg',
++      'probele',
++      'probmu',
++      'probtaup1h0p',
++      'probtaup1h1p',
++      'probtaup1h2p',
++      'probtaup3h0p',
++      'probtaup3h1p',
++      'probtaum1h0p',
++      'probtaum1h1p',
++      'probtaum1h2p',
++      'probtaum3h0p',
++      'probtaum3h1p',
++      'ptcorr',
++      'ptreshigh',
++      'ptreslow',
++      'ptnu',
++      'probemudata',
++      'probemumc',
++      'probdimudata',
++      'probdimumc',
++      'probmutaudata',
++      'probmutaumc'
++    ),
++    mightGet = cms.optional.untracked.vstring
++  )
++  for a in args:
++    mod.update_(a)
++  mod.update_(kwargs)
++  return mod
+diff --git a/RecoBTag/ONNXRuntime/python/particleNetSonicJetTagsProducer_cfi.py b/RecoBTag/ONNXRuntime/python/particleNetSonicJetTagsProducer_cfi.py
+new file mode 100644
+index 0000000..a1a9976
+--- /dev/null
++++ b/RecoBTag/ONNXRuntime/python/particleNetSonicJetTagsProducer_cfi.py
+@@ -0,0 +1,9 @@
++# Generated by CMSSW_20_1_0_pre2's build from the parameter description of the
++# ParticleNetSonicJetTagsProducer plugin, which needs the Triton inference client and
++# is not built here. Kept so that the configurations that import it still load; the
++# plugin itself is only used with Triton.
++import FWCore.ParameterSet.Config as cms
++
++from .ParticleNetSonicJetTagsProducer import ParticleNetSonicJetTagsProducer
++
++particleNetSonicJetTagsProducer = ParticleNetSonicJetTagsProducer()
+diff --git a/RecoBTag/ONNXRuntime/python/pfParticleTransformerAK4SonicJetTags_cfi.py b/RecoBTag/ONNXRuntime/python/pfParticleTransformerAK4SonicJetTags_cfi.py
+new file mode 100644
+index 0000000..320e8ab
+--- /dev/null
++++ b/RecoBTag/ONNXRuntime/python/pfParticleTransformerAK4SonicJetTags_cfi.py
+@@ -0,0 +1,9 @@
++# Generated by CMSSW_20_1_0_pre2's build from the parameter description of the
++# ParticleTransformerAK4SonicJetTagsProducer plugin, which needs the Triton inference client and
++# is not built here. Kept so that the configurations that import it still load; the
++# plugin itself is only used with Triton.
++import FWCore.ParameterSet.Config as cms
++
++from .ParticleTransformerAK4SonicJetTagsProducer import ParticleTransformerAK4SonicJetTagsProducer
++
++pfParticleTransformerAK4SonicJetTags = ParticleTransformerAK4SonicJetTagsProducer()
+diff --git a/RecoBTag/ONNXRuntime/python/pfUnifiedParticleTransformerAK4SonicJetTags_cfi.py b/RecoBTag/ONNXRuntime/python/pfUnifiedParticleTransformerAK4SonicJetTags_cfi.py
+new file mode 100644
+index 0000000..935bcf5
+--- /dev/null
++++ b/RecoBTag/ONNXRuntime/python/pfUnifiedParticleTransformerAK4SonicJetTags_cfi.py
+@@ -0,0 +1,9 @@
++# Generated by CMSSW_20_1_0_pre2's build from the parameter description of the
++# UnifiedParticleTransformerAK4SonicJetTagsProducer plugin, which needs the Triton inference client and
++# is not built here. Kept so that the configurations that import it still load; the
++# plugin itself is only used with Triton.
++import FWCore.ParameterSet.Config as cms
++
++from .UnifiedParticleTransformerAK4SonicJetTagsProducer import UnifiedParticleTransformerAK4SonicJetTagsProducer
++
++pfUnifiedParticleTransformerAK4SonicJetTags = UnifiedParticleTransformerAK4SonicJetTagsProducer()
+diff --git a/RecoEgamma/EgammaTools/plugins/BuildFile.xml b/RecoEgamma/EgammaTools/plugins/BuildFile.xml
+index ae7116d..c934ab2 100644
+--- a/RecoEgamma/EgammaTools/plugins/BuildFile.xml
++++ b/RecoEgamma/EgammaTools/plugins/BuildFile.xml
+@@ -8,5 +8,4 @@
+   <use name="CondFormats/GBRForest"/>
+   <use name="DataFormats/EgammaCandidates"/>
+   <use name="RecoEgamma/EgammaTools"/>
+-  <use name="HeterogeneousCore/SonicTriton"/>
+ </library>
+diff --git a/RecoEgamma/EgammaTools/plugins/DRNCorrectionProducerT.cc b/RecoEgamma/EgammaTools/plugins/DRNCorrectionProducerT.cc
+deleted file mode 100644
+index 531bc5f..0000000
+--- a/RecoEgamma/EgammaTools/plugins/DRNCorrectionProducerT.cc
++++ /dev/null
+@@ -1,426 +0,0 @@
+-#include "HeterogeneousCore/SonicTriton/interface/TritonEDProducer.h"
+-#include "HeterogeneousCore/SonicTriton/interface/TritonData.h"
+-
+-#include "FWCore/Framework/interface/Frameworkfwd.h"
+-#include "FWCore/Framework/interface/stream/EDProducer.h"
+-#include "FWCore/Framework/interface/Event.h"
+-#include "FWCore/Framework/interface/EventSetup.h"
+-#include "FWCore/Framework/interface/MakerMacros.h"
+-
+-#include "FWCore/ParameterSet/interface/ParameterSet.h"
+-
+-#include "DataFormats/PatCandidates/interface/Photon.h"
+-#include "DataFormats/PatCandidates/interface/Electron.h"
+-#include "DataFormats/EgammaCandidates/interface/Photon.h"
+-#include "DataFormats/EgammaCandidates/interface/GsfElectron.h"
+-#include "DataFormats/EgammaCandidates/interface/PhotonFwd.h"
+-#include "DataFormats/EgammaCandidates/interface/PhotonCore.h"
+-#include "DataFormats/Common/interface/ValueMap.h"
+-#include "DataFormats/Common/interface/Handle.h"
+-#include "DataFormats/EcalDetId/interface/EcalSubdetector.h"
+-#include "DataFormats/EcalDetId/interface/EBDetId.h"
+-#include "DataFormats/EcalDetId/interface/EEDetId.h"
+-#include "DataFormats/EcalDetId/interface/ESDetId.h"
+-#include "DataFormats/EcalRecHit/interface/EcalRecHit.h"
+-#include "DataFormats/EcalRecHit/interface/EcalRecHitCollections.h"
+-#include "DataFormats/EgammaReco/interface/SuperClusterFwd.h"
+-#include "DataFormats/EgammaReco/interface/SuperCluster.h"
+-
+-#include "Geometry/CaloGeometry/interface/CaloSubdetectorGeometry.h"
+-#include "Geometry/CaloGeometry/interface/CaloGeometry.h"
+-#include "Geometry/CaloGeometry/interface/CaloCellGeometry.h"
+-#include "Geometry/CaloGeometry/interface/TruncatedPyramid.h"
+-#include "Geometry/EcalAlgo/interface/EcalPreshowerGeometry.h"
+-#include "Geometry/CaloTopology/interface/EcalPreshowerTopology.h"
+-#include "Geometry/Records/interface/CaloGeometryRecord.h"
+-#include "Geometry/CaloTopology/interface/CaloTopology.h"
+-
+-#include "CondFormats/EcalObjects/interface/EcalPedestals.h"
+-#include "CondFormats/DataRecord/interface/EcalPedestalsRcd.h"
+-
+-#include "RecoEcal/EgammaCoreTools/interface/PositionCalc.h"
+-
+-#include <cmath>
+-
+-/*
+- * DRNCorrectionProducerT
+- *
+- * Producer template generate a ValueMap of corrected energies and resolutions
+- * ValueMap contains std::pair<float, float> of corrected energy, resolution 
+- *
+- * Author: Simon Rothman (MIT)
+- * Written 2022
+- *
+- */
+-
+-namespace {
+-  float sigmoid(float x) { return 1.0f / (1.0f + std::exp(-x)); }
+-
+-  float logcorrection(float x) {
+-    static float ln2 = std::log(2);
+-    return ln2 * 2 * (sigmoid(x) - 0.5);
+-  }
+-
+-  //correction factor is transformed by sigmoid and "logratioflip target"
+-  float correction(float x) { return std::exp(-logcorrection(x)); }
+-
+-  inline float rescale(float x, float min, float range) { return (x - min) / range; }
+-
+-  //resolution is transformed by softplus function
+-  float resolution(float x) { return std::log(1 + std::exp(x)); }
+-
+-  const float RHO_MIN = 0.0f;
+-  const float RHO_RANGE = 13.0f;
+-
+-  const float HOE_MIN = 0.0f;
+-  const float HOE_RANGE = 0.05f;
+-
+-  const float XY_MIN = -150.0f;
+-  const float XY_RANGE = 300.0f;
+-
+-  const float Z_MIN = -330.0f;
+-  const float Z_RANGE = 660.0f;
+-
+-  const float NOISE_MIN = 0.9f;
+-  const float NOISE_RANGE = 3.0f;
+-
+-  const float ECAL_MIN = 0.0f;
+-  const float ECAL_RANGE = 250.0f;
+-
+-  const float ES_MIN = 0.0f;
+-  const float ES_RANGE = 0.1f;
+-
+-}  // namespace
+-
+-template <typename T>
+-class DRNCorrectionProducerT : public TritonEDProducer<> {
+-public:
+-  explicit DRNCorrectionProducerT(const edm::ParameterSet& iConfig);
+-
+-  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
+-
+-  void acquire(edm::Event const& iEvent, edm::EventSetup const& iSetup, Input& input) override;
+-  void produce(edm::Event& iEvent, const edm::EventSetup& iSetup, Output const& iOutput) override;
+-
+-private:
+-  edm::EDGetTokenT<edm::View<T>> particleToken_;
+-
+-  edm::EDGetTokenT<double> rhoToken_;
+-
+-  edm::EDGetTokenT<EcalRecHitCollection> EBRecHitsToken_, EERecHitsToken_, ESRecHitsToken_;
+-
+-  edm::ESGetToken<EcalPedestals, EcalPedestalsRcd> pedToken_;
+-  edm::ESGetToken<CaloGeometry, CaloGeometryRecord> geomToken_;
+-
+-  size_t nPart_, nValidPart_;
+-
+-  bool isEB(const T& part);
+-  bool isEE(const T& part);
+-  bool skip(const T& part);
+-};
+-
+-template <typename T>
+-DRNCorrectionProducerT<T>::DRNCorrectionProducerT(const edm::ParameterSet& iConfig)
+-    : TritonEDProducer<>(iConfig),
+-      particleToken_(consumes(iConfig.getParameter<edm::InputTag>("particleSource"))),
+-      rhoToken_(consumes(iConfig.getParameter<edm::InputTag>("rhoName"))),
+-      EBRecHitsToken_(consumes<EcalRecHitCollection>(iConfig.getParameter<edm::InputTag>("reducedEcalRecHitsEB"))),
+-      EERecHitsToken_(consumes<EcalRecHitCollection>(iConfig.getParameter<edm::InputTag>("reducedEcalRecHitsEE"))),
+-      ESRecHitsToken_(consumes<EcalRecHitCollection>(iConfig.getParameter<edm::InputTag>("reducedEcalRecHitsES"))),
+-      pedToken_(esConsumes()),
+-      geomToken_(esConsumes()) {
+-  produces<edm::ValueMap<std::pair<float, float>>>();
+-}
+-
+-template <typename T>
+-bool DRNCorrectionProducerT<T>::isEB(const T& part) {
+-  return part.superCluster()->seed()->hitsAndFractions().at(0).first.subdetId() == EcalBarrel;
+-}
+-
+-template <typename T>
+-bool DRNCorrectionProducerT<T>::isEE(const T& part) {
+-  return part.superCluster()->seed()->hitsAndFractions().at(0).first.subdetId() == EcalEndcap;
+-}
+-
+-template <typename T>
+-bool DRNCorrectionProducerT<T>::skip(const T& part) {
+-  /*
+-   * Separated out from acquire() and produce() to ensure that skipping check is identical in both
+-   * N.B. in MiniAOD there are sometimes particles with no RecHits
+-   * We can not apply our regression to these, so we skip them
+-   */
+-  return (!isEB(part) && !isEE(part)) || part.superCluster()->hitsAndFractions().empty();
+-}
+-
+-template <typename T>
+-void DRNCorrectionProducerT<T>::acquire(edm::Event const& iEvent, edm::EventSetup const& iSetup, Input& iInput) {
+-  /*
+-   * Get products from event and event setup
+-   */
+-  const auto& particles_ = iEvent.getHandle(particleToken_);
+-  float rho = iEvent.get(rhoToken_);
+-
+-  const auto& ped = &iSetup.getData(pedToken_);
+-  const auto& geo = &iSetup.getData(geomToken_);
+-
+-  const CaloSubdetectorGeometry* ecalEBGeom =
+-      static_cast<const CaloSubdetectorGeometry*>(geo->getSubdetectorGeometry(DetId::Ecal, EcalBarrel));
+-  const CaloSubdetectorGeometry* ecalEEGeom =
+-      static_cast<const CaloSubdetectorGeometry*>(geo->getSubdetectorGeometry(DetId::Ecal, EcalEndcap));
+-  const CaloSubdetectorGeometry* ecalESGeom =
+-      static_cast<const CaloSubdetectorGeometry*>(geo->getSubdetectorGeometry(DetId::Ecal, EcalPreshower));
+-
+-  const auto& recHitsEB = iEvent.get(EBRecHitsToken_);
+-  const auto& recHitsEE = iEvent.get(EERecHitsToken_);
+-  const auto& recHitsES = iEvent.get(ESRecHitsToken_);
+-
+-  nPart_ = particles_->size();
+-
+-  if (nPart_ == 0) {
+-    client_->setBatchSize(0);
+-    return;
+-  } else {
+-    client_->setBatchSize(1);
+-  }
+-
+-  /*
+-   * Determine how many particles, how many RecHits there are in each subdetector
+-   */
+-  unsigned nHitsECAL = 0, nHitsES = 0;
+-  nValidPart_ = 0;
+-  for (auto& part : *particles_) {
+-    const reco::SuperClusterRef& sc = part.superCluster();
+-
+-    if (skip(part))
+-      continue;
+-
+-    nHitsECAL += sc->hitsAndFractions().size();
+-
+-    for (auto iES = sc->preshowerClustersBegin(); iES != sc->preshowerClustersEnd(); ++iES) {
+-      nHitsES += (*iES)->hitsAndFractions().size();
+-    }
+-
+-    ++nValidPart_;
+-  }
+-
+-  /*
+-   * Allocate DRN inputs ({SB} is one of ECAL, ES):
+-   * x{SB}: (x, y, z, energy, [noise]) continuous-valued inputs per RecHit
+-   * f{SB}: (flagVal) integer denoting RecHit flag values
+-   * gainECAL: (gain) integer in (0, 1, 2) denoting gain value
+-   * gx: (rho, H/E) additional high-level features.
+-   * batch{SB}: graph models require explicitely passing the particle index for each vertex
+-   */
+-  auto& inputxECAL = iInput.at("xECAL__0");
+-  inputxECAL.setShape(0, nHitsECAL);
+-  auto dataxECAL = inputxECAL.allocate<float>();
+-  auto& vdataxECAL = (*dataxECAL)[0];
+-
+-  auto& inputfECAL = iInput.at("fECAL__1");
+-  inputfECAL.setShape(0, nHitsECAL);
+-  auto datafECAL = inputfECAL.allocate<int64_t>();
+-  auto& vdatafECAL = (*datafECAL)[0];
+-
+-  auto& inputGainECAL = iInput.at("gain__2");
+-  inputGainECAL.setShape(0, nHitsECAL);
+-  auto dataGainECAL = inputGainECAL.allocate<int64_t>();
+-  auto& vdataGainECAL = (*dataGainECAL)[0];
+-
+-  auto& inputGx = iInput.at("graph_x__5");
+-  inputGx.setShape(0, nValidPart_);
+-  auto dataGx = inputGx.allocate<float>();
+-  auto& vdataGx = (*dataGx)[0];
+-
+-  auto& inputBatchECAL = iInput.at("xECAL_batch__6");
+-  inputBatchECAL.setShape(0, nHitsECAL);
+-  auto dataBatchECAL = inputBatchECAL.allocate<int64_t>();
+-  auto& vdataBatchECAL = (*dataBatchECAL)[0];
+-
+-  auto& inputxES = iInput.at("xES__3");
+-  inputxES.setShape(0, nHitsES);
+-  auto dataxES = inputxES.allocate<float>();
+-  auto& vdataxES = (*dataxES)[0];
+-
+-  auto& inputfES = iInput.at("fES__4");
+-  inputfES.setShape(0, nHitsES);
+-  auto datafES = inputfES.allocate<int64_t>();
+-  auto& vdatafES = (*datafES)[0];
+-
+-  auto& inputBatchES = iInput.at("xES_batch__7");
+-  inputBatchES.setShape(0, nHitsES);
+-  auto dataBatchES = inputBatchES.allocate<int64_t>();
+-  auto& vdataBatchES = (*dataBatchES)[0];
+-
+-  /*
+-   * Fill input tensors by iterating over particles...
+-   */
+-  int64_t partNum = 0;
+-  CaloCellGeometryMayOwnPtr geom;
+-  for (auto& part : *particles_) {
+-    const reco::SuperClusterRef& sc = part.superCluster();
+-
+-    if (skip(part))
+-      continue;
+-
+-    std::vector<std::pair<DetId, float>> hitsAndFractions = sc->hitsAndFractions();
+-    EcalRecHitCollection::const_iterator hit;
+-
+-    //iterate over ECAL hits...
+-    for (const auto& detitr : hitsAndFractions) {
+-      DetId id = detitr.first.rawId();
+-      if (isEB(part)) {
+-        geom = ecalEBGeom->getGeometry(id);
+-        hit = recHitsEB.find(detitr.first);
+-      } else {
+-        geom = ecalEEGeom->getGeometry(id);
+-        hit = recHitsEE.find(detitr.first);
+-      }
+-
+-      //fill xECAL
+-      auto pos = geom->getPosition();
+-      vdataxECAL.push_back(rescale(pos.x(), XY_MIN, XY_RANGE));
+-      vdataxECAL.push_back(rescale(pos.y(), XY_MIN, XY_RANGE));
+-      vdataxECAL.push_back(rescale(pos.z(), Z_MIN, Z_RANGE));
+-      vdataxECAL.push_back(rescale(hit->energy() * detitr.second, ECAL_MIN, ECAL_RANGE));
+-      vdataxECAL.push_back(rescale(ped->find(detitr.first)->rms(1), NOISE_MIN, NOISE_RANGE));
+-
+-      //fill fECAL
+-      int64_t flagVal = 0;
+-      if (hit->checkFlag(EcalRecHit::kGood))
+-        flagVal += 1;
+-      if (hit->checkFlag(EcalRecHit::kOutOfTime))
+-        flagVal += 2;
+-      if (hit->checkFlag(EcalRecHit::kPoorCalib))
+-        flagVal += 4;
+-
+-      vdatafECAL.push_back(flagVal);
+-
+-      //fill gain
+-      int64_t gainVal = 0;
+-      if (hit->checkFlag(EcalRecHit::kHasSwitchToGain6))
+-        gainVal = 1;
+-      else if (hit->checkFlag(EcalRecHit::kHasSwitchToGain1))
+-        gainVal = 0;
+-      else
+-        gainVal = 2;
+-
+-      vdataGainECAL.push_back(gainVal);
+-
+-      //fill batch number
+-      vdataBatchECAL.push_back(partNum);
+-    }  //end iterate over ECAL hits
+-
+-    //iterate over ES clusters...
+-    for (auto iES = sc->preshowerClustersBegin(); iES != sc->preshowerClustersEnd(); ++iES) {
+-      for (const auto& ESitr : (*iES)->hitsAndFractions()) {  //iterate over ES hits
+-        hit = recHitsES.find(ESitr.first);
+-        geom = ecalESGeom->getGeometry(ESitr.first);
+-        auto& pos = geom->getPosition();
+-
+-        //fill xES
+-        vdataxES.push_back(rescale(pos.x(), XY_MIN, XY_RANGE));
+-        vdataxES.push_back(rescale(pos.y(), XY_MIN, XY_RANGE));
+-        vdataxES.push_back(rescale(pos.z(), Z_MIN, Z_RANGE));
+-        vdataxES.push_back(rescale(hit->energy(), ES_MIN, ES_RANGE));
+-
+-        //fill fES
+-        int64_t flagVal = 0;
+-        if (hit->checkFlag(EcalRecHit::kESGood))
+-          flagVal += 1;
+-
+-        vdatafES.push_back(flagVal);
+-
+-        //fill batchES
+-        vdataBatchES.push_back(partNum);
+-      }  //end iterate over ES hits
+-    }  //end iterate over ES clusters
+-
+-    //fill gx
+-    vdataGx.push_back(rescale(rho, RHO_MIN, RHO_RANGE));
+-    vdataGx.push_back(rescale(part.hadronicOverEm(), HOE_MIN, HOE_RANGE));
+-
+-    //increment particle number
+-    ++partNum;
+-  }  // end iterate over particles
+-
+-  /*
+-   * Convert input tensors to server data format
+-   */
+-
+-  inputxECAL.toServer(dataxECAL);
+-  inputfECAL.toServer(datafECAL);
+-  inputGainECAL.toServer(dataGainECAL);
+-  inputBatchECAL.toServer(dataBatchECAL);
+-
+-  inputGx.toServer(dataGx);
+-
+-  inputxES.toServer(dataxES);
+-  inputfES.toServer(datafES);
+-  inputBatchES.toServer(dataBatchES);
+-}
+-
+-template <typename T>
+-void DRNCorrectionProducerT<T>::produce(edm::Event& iEvent, const edm::EventSetup& iSetup, Output const& iOutput) {
+-  const auto& particles_ = iEvent.getHandle(particleToken_);
+-
+-  std::vector<std::pair<float, float>> corrections;
+-  corrections.reserve(nPart_);
+-
+-  //if there are no particles, the fromServer() call will fail
+-  //but we can just put() an empty valueMap
+-  if (nPart_) {
+-    const auto& out = iOutput.at("combined_output__0").fromServer<float>();
+-
+-    unsigned i = 0;
+-    float mu, sigma, Epred, sigmaPred, rawE;
+-    for (unsigned iPart = 0; iPart < nPart_; ++iPart) {
+-      const auto& part = particles_->at(iPart);
+-      if (!skip(part)) {
+-        mu = correction(out[0][0 + 11 * i]);
+-        sigma = resolution(out[0][6 + 11 * i]);
+-        ++i;
+-
+-        rawE = part.superCluster()->rawEnergy();
+-        Epred = mu * rawE;
+-        sigmaPred = sigma * rawE;
+-        corrections.emplace_back(Epred, sigmaPred);
+-      } else {
+-        corrections.emplace_back(-1.0f, -1.0f);
+-      }
+-    }
+-  }
+-
+-  //fill
+-  auto out = std::make_unique<edm::ValueMap<std::pair<float, float>>>();
+-  edm::ValueMap<std::pair<float, float>>::Filler filler(*out);
+-  filler.insert(particles_, corrections.begin(), corrections.end());
+-  filler.fill();
+-
+-  iEvent.put(std::move(out));
+-}
+-
+-template <typename T>
+-void DRNCorrectionProducerT<T>::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+-  edm::ParameterSetDescription desc;
+-  TritonClient::fillPSetDescription(desc);
+-  desc.add<edm::InputTag>("particleSource");
+-  desc.add<edm::InputTag>("rhoName");
+-  desc.add<edm::InputTag>("reducedEcalRecHitsEB", edm::InputTag("reducedEcalRecHitsEB"));
+-  desc.add<edm::InputTag>("reducedEcalRecHitsEE", edm::InputTag("reducedEcalRecHitsEE"));
+-  desc.add<edm::InputTag>("reducedEcalRecHitsES", edm::InputTag("reducedEcalRecHitsES"));
+-  descriptions.addWithDefaultLabel(desc);
+-}
+-
+-//reco:: template instances are supported
+-//uncomment the lines below to enable them
+-
+-//using GsfElectronDRNCorrectionProducer = DRNCorrectionProducerT<reco::GsfElectron>;
+-//using GedPhotonDRNCorrectionProducer = DRNCorrectionProducerT<reco::Photon>;
+-//DEFINE_FWK_MODULE(GedPhotonDRNCorrectionProducer);
+-//DEFINE_FWK_MODULE(GsfElectronDRNCorrectionProducer);
+-
+-using PatElectronDRNCorrectionProducer = DRNCorrectionProducerT<pat::Electron>;
+-using PatPhotonDRNCorrectionProducer = DRNCorrectionProducerT<pat::Photon>;
+-
+-DEFINE_FWK_MODULE(PatPhotonDRNCorrectionProducer);
+-DEFINE_FWK_MODULE(PatElectronDRNCorrectionProducer);
+diff --git a/RecoEgamma/EgammaTools/python/PatElectronDRNCorrectionProducer.py b/RecoEgamma/EgammaTools/python/PatElectronDRNCorrectionProducer.py
+new file mode 100644
+index 0000000..9217da3
+--- /dev/null
++++ b/RecoEgamma/EgammaTools/python/PatElectronDRNCorrectionProducer.py
+@@ -0,0 +1,33 @@
++# Generated by CMSSW_20_1_0_pre2's build from the parameter description of the
++# PatElectronDRNCorrectionProducer plugin, which needs the Triton inference client and
++# is not built here. Kept so that the configurations that import it still load; the
++# plugin itself is only used with Triton.
++import FWCore.ParameterSet.Config as cms
++
++def PatElectronDRNCorrectionProducer(*args, **kwargs):
++  mod = cms.EDProducer('PatElectronDRNCorrectionProducer',
++    Client = cms.PSet(
++      mode = cms.string('PseudoAsync'),
++      allowedTries = cms.untracked.uint32(0),
++      verbose = cms.untracked.bool(False),
++      modelName = cms.required.string,
++      modelVersion = cms.string(''),
++      modelConfigPath = cms.required.FileInPath,
++      preferredServer = cms.untracked.string(''),
++      timeout = cms.required.untracked.uint32,
++      timeoutUnit = cms.untracked.string('seconds'),
++      useSharedMemory = cms.untracked.bool(True),
++      compression = cms.untracked.string(''),
++      outputs = cms.untracked.vstring()
++    ),
++    particleSource = cms.required.InputTag,
++    rhoName = cms.required.InputTag,
++    reducedEcalRecHitsEB = cms.InputTag('reducedEcalRecHitsEB'),
++    reducedEcalRecHitsEE = cms.InputTag('reducedEcalRecHitsEE'),
++    reducedEcalRecHitsES = cms.InputTag('reducedEcalRecHitsES'),
++    mightGet = cms.optional.untracked.vstring
++  )
++  for a in args:
++    mod.update_(a)
++  mod.update_(kwargs)
++  return mod
+diff --git a/RecoEgamma/EgammaTools/python/PatPhotonDRNCorrectionProducer.py b/RecoEgamma/EgammaTools/python/PatPhotonDRNCorrectionProducer.py
+new file mode 100644
+index 0000000..dd5841b
+--- /dev/null
++++ b/RecoEgamma/EgammaTools/python/PatPhotonDRNCorrectionProducer.py
+@@ -0,0 +1,33 @@
++# Generated by CMSSW_20_1_0_pre2's build from the parameter description of the
++# PatPhotonDRNCorrectionProducer plugin, which needs the Triton inference client and
++# is not built here. Kept so that the configurations that import it still load; the
++# plugin itself is only used with Triton.
++import FWCore.ParameterSet.Config as cms
++
++def PatPhotonDRNCorrectionProducer(*args, **kwargs):
++  mod = cms.EDProducer('PatPhotonDRNCorrectionProducer',
++    Client = cms.PSet(
++      mode = cms.string('PseudoAsync'),
++      allowedTries = cms.untracked.uint32(0),
++      verbose = cms.untracked.bool(False),
++      modelName = cms.required.string,
++      modelVersion = cms.string(''),
++      modelConfigPath = cms.required.FileInPath,
++      preferredServer = cms.untracked.string(''),
++      timeout = cms.required.untracked.uint32,
++      timeoutUnit = cms.untracked.string('seconds'),
++      useSharedMemory = cms.untracked.bool(True),
++      compression = cms.untracked.string(''),
++      outputs = cms.untracked.vstring()
++    ),
++    particleSource = cms.required.InputTag,
++    rhoName = cms.required.InputTag,
++    reducedEcalRecHitsEB = cms.InputTag('reducedEcalRecHitsEB'),
++    reducedEcalRecHitsEE = cms.InputTag('reducedEcalRecHitsEE'),
++    reducedEcalRecHitsES = cms.InputTag('reducedEcalRecHitsES'),
++    mightGet = cms.optional.untracked.vstring
++  )
++  for a in args:
++    mod.update_(a)
++  mod.update_(kwargs)
++  return mod
+diff --git a/RecoEgamma/EgammaTools/python/patElectronDRNCorrectionProducer_cfi.py b/RecoEgamma/EgammaTools/python/patElectronDRNCorrectionProducer_cfi.py
+new file mode 100644
+index 0000000..909a2b9
+--- /dev/null
++++ b/RecoEgamma/EgammaTools/python/patElectronDRNCorrectionProducer_cfi.py
+@@ -0,0 +1,9 @@
++# Generated by CMSSW_20_1_0_pre2's build from the parameter description of the
++# PatElectronDRNCorrectionProducer plugin, which needs the Triton inference client and
++# is not built here. Kept so that the configurations that import it still load; the
++# plugin itself is only used with Triton.
++import FWCore.ParameterSet.Config as cms
++
++from .PatElectronDRNCorrectionProducer import PatElectronDRNCorrectionProducer
++
++patElectronDRNCorrectionProducer = PatElectronDRNCorrectionProducer()
+diff --git a/RecoEgamma/EgammaTools/python/patPhotonDRNCorrectionProducer_cfi.py b/RecoEgamma/EgammaTools/python/patPhotonDRNCorrectionProducer_cfi.py
+new file mode 100644
+index 0000000..404a07c
+--- /dev/null
++++ b/RecoEgamma/EgammaTools/python/patPhotonDRNCorrectionProducer_cfi.py
+@@ -0,0 +1,9 @@
++# Generated by CMSSW_20_1_0_pre2's build from the parameter description of the
++# PatPhotonDRNCorrectionProducer plugin, which needs the Triton inference client and
++# is not built here. Kept so that the configurations that import it still load; the
++# plugin itself is only used with Triton.
++import FWCore.ParameterSet.Config as cms
++
++from .PatPhotonDRNCorrectionProducer import PatPhotonDRNCorrectionProducer
++
++patPhotonDRNCorrectionProducer = PatPhotonDRNCorrectionProducer()
+diff --git a/RecoTauTag/RecoTau/plugins/BuildFile.xml b/RecoTauTag/RecoTau/plugins/BuildFile.xml
+index 040ff02..ae33bdc 100644
+--- a/RecoTauTag/RecoTau/plugins/BuildFile.xml
++++ b/RecoTauTag/RecoTau/plugins/BuildFile.xml
+@@ -20,7 +20,6 @@
+   <use name="Geometry/CaloGeometry"/>
+   <use name="Geometry/HcalTowerAlgo"/>
+   <use name="Geometry/Records"/>
+-  <use name="HeterogeneousCore/SonicTriton"/>
+   <use name="MagneticField/Engine"/>
+   <use name="MagneticField/Records"/>
+   <use name="PhysicsTools/TensorFlow"/>
+diff --git a/RecoTauTag/RecoTau/plugins/DeepTauIdSONIC.cc b/RecoTauTag/RecoTau/plugins/DeepTauIdSONIC.cc
+deleted file mode 100644
+index a1f5648..0000000
+--- a/RecoTauTag/RecoTau/plugins/DeepTauIdSONIC.cc
++++ /dev/null
+@@ -1,383 +0,0 @@
+-/*
+- * \class DeepTauIdSONIC
+- *
+- * Tau identification using Deep NN with SONIC
+- *
+- */
+-
+-#include "HeterogeneousCore/SonicTriton/interface/TritonEDProducer.h"
+-#include "RecoTauTag/RecoTau/interface/DeepTauIdBase.h"
+-
+-class DeepTauIdSonicProducer : public DeepTauIdBase<TritonEDProducer<>> {
+-public:
+-  explicit DeepTauIdSonicProducer(edm::ParameterSet const& cfg) : DeepTauIdBase<TritonEDProducer<>>(cfg) {}
+-
+-  void acquire(edm::Event const& iEvent, edm::EventSetup const& iSetup, Input& iInput) override;
+-  void produce(edm::Event& iEvent, edm::EventSetup const& iSetup, Output const& iOutput) override;
+-  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
+-
+-private:
+-  std::vector<size_t> tau_indices_;
+-
+-  std::vector<float>* p_tauBlockInputs;
+-  std::vector<float>* p_egammaInnerBlockInputs;
+-  std::vector<float>* p_muonInnerBlockInputs;
+-  std::vector<float>* p_hadronInnerBlockInputs;
+-  std::vector<float>* p_egammaOuterBlockInputs;
+-  std::vector<float>* p_muonOuterBlockInputs;
+-  std::vector<float>* p_hadronOuterBlockInputs;
+-  std::vector<int64_t>* p_innerGridposInputs;
+-  std::vector<int64_t>* p_outerGridposInputs;
+-
+-  template <typename CandidateCastType, typename TauCastType>
+-  void prepareInputsV2(TauCollection::const_reference& tau,
+-                       const size_t tau_index,
+-                       const edm::RefToBase<reco::BaseTau> tau_ref,
+-                       const std::vector<pat::Electron>* electrons,
+-                       const std::vector<pat::Muon>* muons,
+-                       const edm::View<reco::Candidate>& pfCands,
+-                       const reco::Vertex& pv,
+-                       double rho,
+-                       const TauFunc& tau_funcs);
+-
+-  template <typename CandidateCastType, typename TauCastType>
+-  void createConvFeatures(const TauCastType& tau,
+-                          const size_t tau_index,
+-                          const edm::RefToBase<reco::BaseTau> tau_ref,
+-                          const reco::Vertex& pv,
+-                          double rho,
+-                          const std::vector<pat::Electron>* electrons,
+-                          const std::vector<pat::Muon>* muons,
+-                          const edm::View<reco::Candidate>& pfCands,
+-                          const CellGrid& grid,
+-                          const TauFunc& tau_funcs,
+-                          bool is_inner,
+-                          std::vector<float>* p_egammaBlockInputs,
+-                          std::vector<float>* p_muonBlockInputs,
+-                          std::vector<float>* p_hadronBlockInputs,
+-                          std::vector<int64_t>* p_GridposInputs);
+-};
+-
+-void DeepTauIdSonicProducer::acquire(edm::Event const& iEvent, edm::EventSetup const& iSetup, Input& iInput) {
+-  edm::Handle<TauCollection> taus;
+-  iEvent.getByToken(tausToken_, taus);
+-
+-  loadPrediscriminants(iEvent, taus);
+-
+-  const std::vector<pat::Electron> electron_collection_default;
+-  const std::vector<pat::Muon> muon_collection_default;
+-  const reco::TauDiscriminatorContainer basicTauDiscriminators_default;
+-  const reco::TauDiscriminatorContainer basicTauDiscriminatorsdR03_default;
+-  const edm::AssociationVector<reco::PFTauRefProd, std::vector<reco::PFTauTransverseImpactParameterRef>>
+-      pfTauTransverseImpactParameters_default;
+-
+-  const std::vector<pat::Electron>* electron_collection;
+-  const std::vector<pat::Muon>* muon_collection;
+-  const reco::TauDiscriminatorContainer* basicTauDiscriminators;
+-  const reco::TauDiscriminatorContainer* basicTauDiscriminatorsdR03;
+-  const edm::AssociationVector<reco::PFTauRefProd, std::vector<reco::PFTauTransverseImpactParameterRef>>*
+-      pfTauTransverseImpactParameters;
+-
+-  if (!is_online_) {
+-    electron_collection = &iEvent.get(electrons_token_);
+-    muon_collection = &iEvent.get(muons_token_);
+-    pfTauTransverseImpactParameters = &pfTauTransverseImpactParameters_default;
+-    basicTauDiscriminators = &basicTauDiscriminators_default;
+-    basicTauDiscriminatorsdR03 = &basicTauDiscriminatorsdR03_default;
+-  } else {
+-    electron_collection = &electron_collection_default;
+-    muon_collection = &muon_collection_default;
+-    pfTauTransverseImpactParameters = &iEvent.get(pfTauTransverseImpactParameters_token_);
+-    basicTauDiscriminators = &iEvent.get(basicTauDiscriminators_inputToken_);
+-    basicTauDiscriminatorsdR03 = &iEvent.get(basicTauDiscriminatorsdR03_inputToken_);
+-
+-    // Get indices for discriminators
+-    if (!discrIndicesMapped_) {
+-      basicDiscrIndexMap_ =
+-          matchDiscriminatorIndices(iEvent, basicTauDiscriminators_inputToken_, requiredBasicDiscriminators_);
+-      basicDiscrdR03IndexMap_ =
+-          matchDiscriminatorIndices(iEvent, basicTauDiscriminatorsdR03_inputToken_, requiredBasicDiscriminatorsdR03_);
+-      discrIndicesMapped_ = true;
+-    }
+-  }
+-
+-  TauFunc tauIDs = {basicTauDiscriminators,
+-                    basicTauDiscriminatorsdR03,
+-                    pfTauTransverseImpactParameters,
+-                    basicDiscrIndexMap_,
+-                    basicDiscrdR03IndexMap_};
+-
+-  edm::Handle<edm::View<reco::Candidate>> pfCands;
+-  iEvent.getByToken(pfcandToken_, pfCands);
+-
+-  edm::Handle<reco::VertexCollection> vertices;
+-  iEvent.getByToken(vtxToken_, vertices);
+-
+-  edm::Handle<double> rho;
+-  iEvent.getByToken(rho_token_, rho);
+-
+-  // vector to store the indices for the taus passing the selections
+-  tau_indices_.clear();
+-
+-  for (size_t tau_index = 0; tau_index < taus->size(); ++tau_index) {
+-    const edm::RefToBase<reco::BaseTau> tauRef = taus->refAt(tau_index);
+-    bool passesPrediscriminants;
+-    if (is_online_) {
+-      passesPrediscriminants = tauIDs.passPrediscriminants<std::vector<TauDiscInfo<reco::PFTauDiscriminator>>>(
+-          recoPrediscriminants_, andPrediscriminants_, tauRef);
+-    } else {
+-      passesPrediscriminants = tauIDs.passPrediscriminants<std::vector<TauDiscInfo<pat::PATTauDiscriminator>>>(
+-          patPrediscriminants_, andPrediscriminants_, tauRef);
+-    }
+-    if (!passesPrediscriminants)
+-      continue;
+-
+-    // tau index that passes the selection
+-    tau_indices_.push_back(tau_index);
+-  }
+-
+-  if (tau_indices_.empty()) {
+-    // no tau passing the requirement
+-    // no need to run acquire and inference
+-    client_->setBatchSize(0);
+-    return;
+-  }
+-
+-  int n_taus = tau_indices_.size();
+-  // for the regular non-split deep-tau model, set the
+-  // batch size to the number of taus per event
+-  client_->setBatchSize(n_taus);
+-
+-  auto& input_tauBlock = iInput.at("input_tau");
+-  auto& input_innerEgammaBlock = iInput.at("input_inner_egamma");
+-  auto& input_outerEgammaBlock = iInput.at("input_outer_egamma");
+-  auto& input_innerMuonBlock = iInput.at("input_inner_muon");
+-  auto& input_outerMuonBlock = iInput.at("input_outer_muon");
+-  auto& input_innerHadronBlock = iInput.at("input_inner_hadrons");
+-  auto& input_outerHadronBlock = iInput.at("input_outer_hadrons");
+-
+-  p_innerGridposInputs = nullptr;
+-  p_outerGridposInputs = nullptr;
+-
+-  auto data_tauBlock = input_tauBlock.allocate<float>();
+-  auto data_innerEgammaBlock = input_innerEgammaBlock.allocate<float>();
+-  auto data_outerEgammaBlock = input_outerEgammaBlock.allocate<float>();
+-  auto data_innerMuonBlock = input_innerMuonBlock.allocate<float>();
+-  auto data_outerMuonBlock = input_outerMuonBlock.allocate<float>();
+-  auto data_innerHadronBlock = input_innerHadronBlock.allocate<float>();
+-  auto data_outerHadronBlock = input_outerHadronBlock.allocate<float>();
+-
+-  for (unsigned itau_passed = 0; itau_passed < tau_indices_.size(); ++itau_passed) {
+-    // batch size is not one, needs to go to corresponding itau
+-    p_tauBlockInputs = &((*data_tauBlock)[itau_passed]);
+-
+-    p_egammaInnerBlockInputs = &((*data_innerEgammaBlock)[itau_passed]);
+-    p_muonInnerBlockInputs = &((*data_innerMuonBlock)[itau_passed]);
+-    p_hadronInnerBlockInputs = &((*data_innerHadronBlock)[itau_passed]);
+-
+-    p_egammaOuterBlockInputs = &((*data_outerEgammaBlock)[itau_passed]);
+-    p_muonOuterBlockInputs = &((*data_outerMuonBlock)[itau_passed]);
+-    p_hadronOuterBlockInputs = &((*data_outerHadronBlock)[itau_passed]);
+-
+-    int tau_index = tau_indices_[itau_passed];
+-    const edm::RefToBase<reco::BaseTau> tauRef = taus->refAt(tau_index);
+-    prepareInputsV2<pat::PackedCandidate, pat::Tau>(taus->at(tau_index),
+-                                                    tau_index,
+-                                                    tauRef,
+-                                                    electron_collection,
+-                                                    muon_collection,
+-                                                    *pfCands,
+-                                                    vertices->at(0),
+-                                                    *rho,
+-                                                    tauIDs);
+-  }
+-
+-  // set all input data to the server
+-  input_tauBlock.toServer(data_tauBlock);
+-
+-  input_innerEgammaBlock.toServer(data_innerEgammaBlock);
+-  input_innerMuonBlock.toServer(data_innerMuonBlock);
+-  input_innerHadronBlock.toServer(data_innerHadronBlock);
+-
+-  input_outerEgammaBlock.toServer(data_outerEgammaBlock);
+-  input_outerMuonBlock.toServer(data_outerMuonBlock);
+-  input_outerHadronBlock.toServer(data_outerHadronBlock);
+-}
+-
+-void DeepTauIdSonicProducer::produce(edm::Event& iEvent, edm::EventSetup const& iSetup, Output const& iOutput) {
+-  edm::Handle<TauCollection> taus;
+-  iEvent.getByToken(tausToken_, taus);
+-
+-  if (taus->empty()) {
+-    std::vector<std::vector<float>> pred_all(0, std::vector<float>(deep_tau::NumberOfOutputs, 0.));
+-    createOutputs(iEvent, pred_all, taus);
+-    return;
+-  }
+-
+-  const auto& output_tauval = iOutput.at("main_output/Softmax");
+-  const auto& outputs_tauval = output_tauval.fromServer<float>();
+-
+-  // fill the taus passing the selections with the results from produce,
+-  //  and the taus failing the selections with 2 and -1.0
+-  std::vector<std::vector<float>> pred_all(taus->size(), std::vector<float>(deep_tau::NumberOfOutputs, 0.));
+-  for (unsigned itau = 0; itau < taus->size(); ++itau) {
+-    for (int k = 0; k < deep_tau::NumberOfOutputs; ++k) {
+-      pred_all[itau][k] = (k == 2) ? -1.f : 2.f;
+-    }
+-  }
+-  for (unsigned itau_passed = 0; itau_passed < tau_indices_.size(); ++itau_passed) {
+-    int tau_index = tau_indices_[itau_passed];
+-    std::copy(outputs_tauval[itau_passed].begin(), outputs_tauval[itau_passed].end(), pred_all[tau_index].begin());
+-
+-    if (debug_level >= 2) {
+-      for (int i = 0; i < 4; ++i) {
+-        std::cout << "tau index " << itau_passed << " k " << i << " pred " << pred_all[tau_index][i] << std::endl;
+-      }
+-    }
+-  }
+-  createOutputs(iEvent, pred_all, taus);
+-}
+-
+-template <typename CandidateCastType, typename TauCastType>
+-void DeepTauIdSonicProducer::prepareInputsV2(TauCollection::const_reference& tau,
+-                                             const size_t tau_index,
+-                                             const edm::RefToBase<reco::BaseTau> tau_ref,
+-                                             const std::vector<pat::Electron>* electrons,
+-                                             const std::vector<pat::Muon>* muons,
+-                                             const edm::View<reco::Candidate>& pfCands,
+-                                             const reco::Vertex& pv,
+-                                             double rho,
+-                                             const TauFunc& tau_funcs) {
+-  using namespace dnn_inputs_v2;
+-  CellGrid inner_grid(number_of_inner_cell, number_of_inner_cell, 0.02, 0.02, disable_CellIndex_workaround_);
+-  CellGrid outer_grid(number_of_outer_cell, number_of_outer_cell, 0.05, 0.05, disable_CellIndex_workaround_);
+-  auto tau_casted = dynamic_cast<const TauCastType&>(tau);
+-  // fill in the inner and outer grids for electrons, muons, and pfCands
+-  fillGrids(tau_casted, *electrons, inner_grid, outer_grid);
+-  fillGrids(tau_casted, *muons, inner_grid, outer_grid);
+-  fillGrids(tau_casted, pfCands, inner_grid, outer_grid);
+-
+-  p_tauBlockInputs->insert(p_tauBlockInputs->end(), TauBlockInputs::NumberOfInputs, 0.);
+-  std::vector<float>::iterator tauIter = p_tauBlockInputs->begin();
+-
+-  createTauBlockInputs<CandidateCastType>(tau_casted, tau_index, tau_ref, pv, rho, tau_funcs, tauIter);
+-
+-  // egamma, muon, and hadron inner and outer inputs for the grids
+-  createConvFeatures<CandidateCastType>(tau_casted,
+-                                        tau_index,
+-                                        tau_ref,
+-                                        pv,
+-                                        rho,
+-                                        electrons,
+-                                        muons,
+-                                        pfCands,
+-                                        inner_grid,
+-                                        tau_funcs,
+-                                        true,
+-                                        p_egammaInnerBlockInputs,
+-                                        p_muonInnerBlockInputs,
+-                                        p_hadronInnerBlockInputs,
+-                                        p_innerGridposInputs);
+-  createConvFeatures<CandidateCastType>(tau_casted,
+-                                        tau_index,
+-                                        tau_ref,
+-                                        pv,
+-                                        rho,
+-                                        electrons,
+-                                        muons,
+-                                        pfCands,
+-                                        outer_grid,
+-                                        tau_funcs,
+-                                        false,
+-                                        p_egammaOuterBlockInputs,
+-                                        p_muonOuterBlockInputs,
+-                                        p_hadronOuterBlockInputs,
+-                                        p_outerGridposInputs);
+-}
+-
+-template <typename CandidateCastType, typename TauCastType>
+-void DeepTauIdSonicProducer::createConvFeatures(const TauCastType& tau,
+-                                                const size_t tau_index,
+-                                                const edm::RefToBase<reco::BaseTau> tau_ref,
+-                                                const reco::Vertex& pv,
+-                                                double rho,
+-                                                const std::vector<pat::Electron>* electrons,
+-                                                const std::vector<pat::Muon>* muons,
+-                                                const edm::View<reco::Candidate>& pfCands,
+-                                                const CellGrid& grid,
+-                                                const TauFunc& tau_funcs,
+-                                                bool is_inner,
+-                                                std::vector<float>* p_egammaBlockInputs,
+-                                                std::vector<float>* p_muonBlockInputs,
+-                                                std::vector<float>* p_hadronBlockInputs,
+-                                                std::vector<int64_t>* p_GridposInputs) {
+-  // fill in the block inputs with zeros
+-  int n_cells = 0;
+-  int n_cell_oneside = is_inner ? dnn_inputs_v2::number_of_inner_cell : dnn_inputs_v2::number_of_outer_cell;
+-
+-  n_cells = is_inner ? (dnn_inputs_v2::number_of_inner_cell * dnn_inputs_v2::number_of_inner_cell)
+-                     : (dnn_inputs_v2::number_of_outer_cell * dnn_inputs_v2::number_of_outer_cell);
+-
+-  p_egammaBlockInputs->insert(
+-      p_egammaBlockInputs->end(), n_cells * dnn_inputs_v2::EgammaBlockInputs::NumberOfInputs, 0.);
+-  std::vector<float>::iterator egammaIter = p_egammaBlockInputs->begin();
+-
+-  p_muonBlockInputs->insert(p_muonBlockInputs->end(), n_cells * dnn_inputs_v2::MuonBlockInputs::NumberOfInputs, 0.);
+-  std::vector<float>::iterator muonIter = p_muonBlockInputs->begin();
+-
+-  p_hadronBlockInputs->insert(
+-      p_hadronBlockInputs->end(), n_cells * dnn_inputs_v2::HadronBlockInputs::NumberOfInputs, 0.);
+-  std::vector<float>::iterator hadronIter = p_hadronBlockInputs->begin();
+-
+-  unsigned idx = 0;
+-  for (int eta = -grid.maxEtaIndex(); eta <= grid.maxEtaIndex(); ++eta) {
+-    for (int phi = -grid.maxPhiIndex(); phi <= grid.maxPhiIndex(); ++phi) {
+-      if (debug_level >= 2) {
+-        std::cout << "processing ( eta = " << eta << ", phi = " << phi << " )" << std::endl;
+-      }
+-      const CellIndex cell_index{eta, phi};
+-
+-      const auto cell_iter = grid.find(cell_index);
+-      if (cell_iter != grid.end()) {
+-        if (debug_level >= 2) {
+-          std::cout << " creating inputs for ( eta = " << eta << ", phi = " << phi << " ): idx = " << idx << std::endl;
+-        }
+-        const Cell& cell = cell_iter->second;
+-        const int eta_index = grid.getEtaTensorIndex(cell_index);
+-        const int phi_index = grid.getPhiTensorIndex(cell_index);
+-        std::vector<float>::iterator egammaIterCell =
+-            egammaIter + (eta_index * n_cell_oneside + phi_index) * dnn_inputs_v2::EgammaBlockInputs::NumberOfInputs;
+-        std::vector<float>::iterator muonIterCell =
+-            muonIter + (eta_index * n_cell_oneside + phi_index) * dnn_inputs_v2::MuonBlockInputs::NumberOfInputs;
+-        std::vector<float>::iterator hadronIterCell =
+-            hadronIter + (eta_index * n_cell_oneside + phi_index) * dnn_inputs_v2::HadronBlockInputs::NumberOfInputs;
+-
+-        createEgammaBlockInputs<CandidateCastType>(
+-            idx, tau, tau_index, tau_ref, pv, rho, electrons, pfCands, cell, tau_funcs, is_inner, egammaIterCell);
+-        createMuonBlockInputs<CandidateCastType>(
+-            idx, tau, tau_index, tau_ref, pv, rho, muons, pfCands, cell, tau_funcs, is_inner, muonIterCell);
+-        createHadronsBlockInputs<CandidateCastType>(
+-            idx, tau, tau_index, tau_ref, pv, rho, pfCands, cell, tau_funcs, is_inner, hadronIterCell);
+-
+-        idx += 1;
+-      } else {
+-        if (debug_level >= 2) {
+-          std::cout << " skipping creation of inputs, because ( eta = " << eta << ", phi = " << phi
+-                    << " ) is not in the grid !!" << std::endl;
+-        }
+-        // we need to fill in the zeros for the input tensors
+-        idx += 1;
+-      }
+-    }
+-  }
+-}
+-
+-void DeepTauIdSonicProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+-  edm::ParameterSetDescription desc;
+-  TritonClient::fillPSetDescription(desc);
+-  fillDescriptionsHelper(desc);
+-  descriptions.add("DeepTauIdSonicProducer", desc);
+-}
+-
+-#include "FWCore/Framework/interface/MakerMacros.h"
+-DEFINE_FWK_MODULE(DeepTauIdSonicProducer);
+diff --git a/RecoTauTag/RecoTau/python/DeepTauIdSonicProducer.py b/RecoTauTag/RecoTau/python/DeepTauIdSonicProducer.py
+new file mode 100644
+index 0000000..e3dacb4
+--- /dev/null
++++ b/RecoTauTag/RecoTau/python/DeepTauIdSonicProducer.py
+@@ -0,0 +1,57 @@
++# Generated by CMSSW_20_1_0_pre2's build from the parameter description of the
++# DeepTauIdSonicProducer plugin, which needs the Triton inference client and
++# is not built here. Kept so that the configurations that import it still load; the
++# plugin itself is only used with Triton.
++import FWCore.ParameterSet.Config as cms
++
++def DeepTauIdSonicProducer(*args, **kwargs):
++  mod = cms.EDProducer('DeepTauIdSonicProducer',
++    Client = cms.PSet(
++      mode = cms.string('PseudoAsync'),
++      allowedTries = cms.untracked.uint32(0),
++      verbose = cms.untracked.bool(False),
++      modelName = cms.required.string,
++      modelVersion = cms.string(''),
++      modelConfigPath = cms.required.FileInPath,
++      preferredServer = cms.untracked.string(''),
++      timeout = cms.required.untracked.uint32,
++      timeoutUnit = cms.untracked.string('seconds'),
++      useSharedMemory = cms.untracked.bool(True),
++      compression = cms.untracked.string(''),
++      outputs = cms.untracked.vstring()
++    ),
++    electrons = cms.InputTag('slimmedElectrons'),
++    muons = cms.InputTag('slimmedMuons'),
++    taus = cms.InputTag('slimmedTaus'),
++    pfcands = cms.InputTag('packedPFCandidates'),
++    vertices = cms.InputTag('offlineSlimmedPrimaryVertices'),
++    rho = cms.InputTag('fixedGridRhoAll'),
++    mem_mapped = cms.bool(False),
++    year = cms.uint32(2017),
++    version = cms.uint32(2),
++    sub_version = cms.uint32(1),
++    debug_level = cms.int32(0),
++    disable_dxy_pca = cms.bool(False),
++    disable_hcalFraction_workaround = cms.bool(False),
++    disable_CellIndex_workaround = cms.bool(False),
++    save_inputs = cms.bool(False),
++    is_online = cms.bool(False),
++    VSeWP = cms.vstring('-1.'),
++    VSmuWP = cms.vstring('-1.'),
++    VSjetWP = cms.vstring('-1.'),
++    basicTauDiscriminators = cms.untracked.InputTag('basicTauDiscriminators'),
++    basicTauDiscriminatorsdR03 = cms.untracked.InputTag('basicTauDiscriminatorsdR03'),
++    pfTauTransverseImpactParameters = cms.InputTag('hpsPFTauTransverseImpactParameters'),
++    Prediscriminants = cms.PSet(
++      BooleanOperator = cms.string('and'),
++      decayMode = cms.PSet(
++        cut = cms.required.double,
++        Producer = cms.required.InputTag
++      )
++    ),
++    mightGet = cms.optional.untracked.vstring
++  )
++  for a in args:
++    mod.update_(a)
++  mod.update_(kwargs)
++  return mod
+diff --git a/RecoTauTag/RecoTau/python/DeepTauIdSonicProducer_cfi.py b/RecoTauTag/RecoTau/python/DeepTauIdSonicProducer_cfi.py
+new file mode 100644
+index 0000000..ab38788
+--- /dev/null
++++ b/RecoTauTag/RecoTau/python/DeepTauIdSonicProducer_cfi.py
+@@ -0,0 +1,9 @@
++# Generated by CMSSW_20_1_0_pre2's build from the parameter description of the
++# DeepTauIdSonicProducer plugin, which needs the Triton inference client and
++# is not built here. Kept so that the configurations that import it still load; the
++# plugin itself is only used with Triton.
++import FWCore.ParameterSet.Config as cms
++
++from .DeepTauIdSonicProducer import DeepTauIdSonicProducer
++
++DeepTauIdSonicProducer = DeepTauIdSonicProducer()

@@ -26,9 +26,14 @@ source:
       # The MTD one matters most: GeometricTimingDet.h is under RecoMTD/DetLayers and
       # TrackingTools/RecoGeometry, so without it almost all of RecoTracker fails to link.
       - patches/0004-Do-not-rely-on-libstdc-extensions-missing-from-libc.patch
+      # CalibTracker/SiStripCommon's plugins name PhysicsTools/NanoAOD, but only include
+      # DataFormats/NanoAOD's FlatTable. NanoAOD has no library, so the <use> only put its
+      # headers on the include path; naming it tied this layer to a package whose plugins
+      # need PAT, which is built in cmssw-reco-objects.
+      - patches/0005-CalibTracker-SiStripCommon-plugins-declare-DataFormats-NanoAOD.patch
 
 build:
-  number: 4
+  number: 5
   skip:
     - win
     - osx and x86_64
@@ -180,6 +185,8 @@ tests:
       - edmPluginDump | grep -q DeepCoreSeedGenerator
       - edmPluginDump | grep -q DisplacedRegionSeedingVertexProducer
       - edmPluginDump | grep -q MkFitProducer
+      # the SiStrip calibration tables, whose BuildFile patch 0005 changes
+      - edmPluginDump | grep -q SiStripLorentzAngleRunInfoTableProducer
       - cmsRun test/tracking.py
     files:
       recipe:
@@ -198,7 +205,7 @@ about:
     It includes the TensorFlow interface (PhysicsTools/TensorFlow) and the tracking plugins
     that run a TensorFlow model. Some plugins are left out: the ones that run a PyTorch
     model, which is not packaged, and the dE/dx estimators, which need the HLT framework
-    (HLTrigger/HLTcore) from cmssw-sim-dqm.
+    (HLTrigger/HLTcore) from cmssw-reco-objects.
   license: Apache-2.0
   license_file: cmssw/LICENSE
   repository: https://github.com/cms-sw/cmssw

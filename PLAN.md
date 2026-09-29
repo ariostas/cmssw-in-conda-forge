@@ -346,10 +346,11 @@ outstanding part of this milestone.
 
 ### M5: reconstruction, then L1/HLT and ML — **the next work**
 
-**Nearly everything reachable is now packaged, on ASSUMED licences**: 1253 of 1358 packages,
-about 13.1k TU, **86%** of the build (86.3% is reachable; the difference is plugins of
+**Nearly everything reachable is now packaged, on ASSUMED licences**: 1254 of 1358 packages,
+about 13.3k TU, **87%** of the build (87.4% is reachable; the difference is plugins of
 packages kept src-only in a layer that cannot build them, among them the conditions tools,
-`L1CaloTrigger` and `RecoTracker/DeDx`). The assumption is that `utm`, the
+`L1CaloTrigger` and `RecoTracker/DeDx`). Since 2026-09-28 that includes NanoAOD's plugins,
+and with them MiniAOD → NanoAOD. The assumption is that `utm`, the
 L1 ML models and `CSCTrackFinderEmulation` will be released under Apache-2.0; **none of them
 has a licence** today. The 8 points from 64% to 72% depend on utm, the 9 from 72% to 81% on
 the L1 ML models and the CSC emulation (see 2026-09-26 in the progress log, and M2); the 5
@@ -366,24 +367,31 @@ not with the greedy `--layers` partition: asked for the same number of translati
 latter returns a slice of 79 subsystems that does not deliver anything in particular.
 
 - [x] `cmssw-reco`: RecoTracker, RecoVertex, RecoMuon, TrackingTools, RecoLocalTracker,
-      CommonTools and the rest of Geometry, and the TensorFlow interface. 239 packages, 2548
-      TU; builds and tests pass on all three platforms (build 4).
+      CommonTools and the rest of Geometry, and the TensorFlow interface. 238 packages, 2548
+      TU; builds and tests pass on all three platforms (build 5).
 - [x] `cmssw-reco-objects`: RAW unpacking, calorimeter and muon local reconstruction, e/gamma,
       particle flow, jets, b-tagging, calibration, and (on assumed licences) RPC, the legacy
       and Stage-2 L1 unpackers, the L1 Global Trigger emulator and the HLT framework, and the
-      Phase-2 L1 track trigger. 300 packages, about 3200 TU; builds and tests pass on all
-      three platforms.
+      Phase-2 L1 track trigger; since 2026-09-28 MET, PAT and NanoAOD. 317 packages, about
+      3700 TU; builds and tests pass on all three platforms (build 4).
 - [x] `cmssw-sim-dqm`: DQM, validation, digitisation, fast simulation and the rest of what is
       reachable, including (on assumed licences) the Stage-2 L1 emulator, the conddb tools, the
-      HLT's code, PAT, taus and the Phase-2 L1 particle flow. 474 packages, about 4300 TU;
-      builds and tests pass on all three platforms.
+      HLT's code, tau validation and the Phase-2 L1 particle flow. 459 packages, about 4000
+      TU; builds and tests pass on all three platforms (build 4).
 - [ ] Data packages needed by reco (`cmssw-data-*`).
 - [x] TensorFlow (2026-09-27): conda-forge's works; it needed include paths, Abseil/protobuf
       pins, Eigen 5 (and so a rebuilt lwtnn), and version 2.19.1 rather than 2.21, which crashes
       next to ROOT's interpreter. 82% → 86%.
-- [ ] The externals ladder, cumulative in `reach.py`'s order (2026-09-27): 86% reachable today;
+- [ ] The externals ladder, cumulative in `reach.py`'s order (2026-09-27; Rivet and YODA are
+      no longer in it since 2026-09-28): 87% reachable today;
       PyTorch, Triton and CMS's XLA AOT runtime add under half a point; small unpackaged
-      externals → 90%; CMS's Geant4 extensions → 90%; generators → 94%.
+      externals → 91%; CMS's Geant4 extensions → 91%; generators → 95%.
+- [x] NanoAOD's plugins (2026-09-28): the data and simulation NanoAOD configurations build,
+      and every module they schedule is registered. The TauSpinner table is left out (no
+      Tauola++ on conda-forge). Not yet *run* on a MiniAOD file: that needs the data packages.
+- [ ] The AOD → MiniAOD step (`PAT_cff`): `RecoEcal/EgammaClusterProducers` (Triton, via the
+      PF superclusters) is in no layer, and `RecoLocalCalo/HGCalRecProducers` and
+      `RecoMET/METPUSubtraction` are src-only (`pyimports.py` lists the modules).
 - [ ] Target: run a standard RECO step from RAW (e.g. a relval workflow `runTheMatrix.py -l ...`).
 
 ### M6: simulation and generators (group 6)
@@ -2263,3 +2271,90 @@ in a layer that cannot build them, the conditions tools the largest. `cmssw-reco
 `cmssw-sim-dqm`'s constructs `TOoLLiPProducer`, which loads `TOoLLiP_v1.so` by name. No test
 runs a TensorFlow inference inside CMSSW: every module that does needs a graph from CMS's data
 repositories, which are not packaged.
+
+### 2026-09-28: NanoAOD's plugins, and PAT and MET move down a layer
+
+The first thing a use-case-driven cutoff would have asked for, MiniAOD → NanoAOD, did not
+work at 86%: `PhysicsTools/NanoAOD` was src-only in `cmssw-reco`, so none of its 73 plugin
+TUs (the table producers and output modules) was built. Two things stood in the way.
+
+**Placement.** NanoAOD's python has to be in `cmssw-reco-objects` or below:
+`Configuration/EventContent` and `Configuration/Applications` (cmsDriver) import it. Its
+plugins can only be built by the layer that owns the package, and they need PAT, which was
+in `cmssw-sim-dqm`. The package cycle PAT ↔ NanoAOD (the 13-package cycle of 2026-09-25) means
+the two have to share a layer, so PAT came *down*, which is the safe direction, with what its
+and NanoAOD's plugins need: 15 packages from `cmssw-sim-dqm` (PatAlgos, PatUtils, KinFitter,
+RecoUtils, JetMCAlgos, MET, MuonAssociators, CondTools/BTau, SimDataFormats/HTXS,
+RecoTauTag/RecoTau, the L1 CSC and DT track finders, whose code the MET producers' beam-halo
+identification includes, and TopObjects/TopTools for the ttbar categorisation tables). NanoAOD
+itself moved up from `cmssw-reco`, where the only user was `CalibTracker/SiStripCommon`'s
+plugins, which name `PhysicsTools/NanoAOD` but include only `DataFormats/NanoAOD`'s FlatTable
+(`cmssw-reco` 0005 names that instead). `cms-csctrackfinderemulation` (ASSUMED licence) moves
+with the CSC track finder.
+
+**Externals.** The plugin library needs Tauola++ for one module, the TauSpinner table (tau
+polarisation weights, in the standard *simulation* tables). Tauola++ is not on conda-forge;
+its source is at gitlab.cern.ch/tauolapp/tauolapp, but its licence is only implied (GPL
+statements in the C++ interface headers, a GPL-3.0 `COPYING` in its LCG autotools packaging,
+nothing in the Fortran), and at run time the table also needs the LHAPDF set
+`NNPDF31_nnlo_hessian_pdfas`. `cmssw-reco-objects` 0009 removes the table instead (decided
+2026-09-28): data NanoAOD is unchanged, simulated NanoAOD has no `TauSpinner_*` branches.
+
+**The test found what the graph could not.** `test/nano.py` builds the NanoAOD configuration
+for data and simulation as cmsDriver does and checks every module and ES module it schedules
+is a registered plugin (it cannot go through cmsRun: the `FileInPath`s name files from the
+unpackaged data repositories). Its first run failed on an import:
+`boostedJetONNXJetTagsProducer_cfi` is generated from `RecoBTag/ONNXRuntime`'s plugins during
+the build, and that package was src-only. So were `RecoEgamma/EgammaTools` and
+`RecoTauTag/RecoTau`, whose plugins NanoAOD also runs (in-process b-tagging, e/gamma energy
+calibration, tau identification). All three were blocked by one plugin each that runs its
+model on a Triton server (SONIC) — and the configurations import those plugins' generated
+cfis at module level, even though only a Triton process modifier uses them. `cmssw-reco-
+objects` 0010 removes the five SONIC plugin files and ships their generated `<Plugin>.py` and
+`<label>_cfi.py` (copied from CMS's build of this release) as source, so the imports work and
+enabling the modifier fails with a missing plugin, as it should.
+
+With those, the data configuration was complete (115 modules of 81 types, all registered),
+and the simulation one lacked four: `ParticleLevelProducer`, `HTXSRivetProducer`,
+`GenParticles2HepMCConverter` and `MergedGenParticleProducer`, all in
+`GeneratorInterface/RivetInterface`, which was blocked on Rivet and YODA as "generators".
+conda-forge has had both for some time (4.1.4 and 2.1.4, GPL-3.0; CMS uses 4.1.2 and 2.1.2,
+Rivet 4 on HepMC3 in both), on all three platforms and with the same fastjet as the stack.
+They get tool files (`cmssw-toolbox` 20) and the package joins `cmssw-reco-objects`. The
+"generators" group in `reach.py` had not been re-checked against conda-forge since it was
+written. Re-checked now: `evtgen` (2.2.3), `photos` (Photos++ 3.64), `millepede` and MPI are
+there too, on all three platforms, and would add about 60 TU between them (EvtGen's
+interface 46, MPI 13); `sherpa` is there at 3.0 (CMS uses 2.2), `thepeg` without Herwig7,
+and pythia6, Tauola++, hydjet/pyquen, CepGen, hector, fftjet and the rest are not.
+
+`analysis/scripts/pyimports.py` now does that check before a build: it walks a
+configuration's imports and reports modules in a higher layer or none, and generated cfis of
+src-only packages. For `nano_cff` it is clean. For the AOD → MiniAOD step
+(`Configuration.StandardSequences.PAT_cff`) it is not: `RecoLocalCalo/HGCalRecProducers` and
+`RecoMET/METPUSubtraction` (DeepMET, which has the same SONIC plugin) are src-only, and
+`RecoEcal/EgammaClusterProducers` is in no layer (Triton, via the PF superclusters). That is
+the next workflow gap.
+
+**macOS** found one more thing: `GenWeightsTableProducer` sorts with a non-const
+`operator<` (`cmssw-reco-objects` 0011; the linux-aarch64 build predates it). The test
+was also wrong at first in a way worth remembering: it handled `cms.SwitchProducer`, which
+CMSSW 20_1 no longer has.
+
+#### Results
+
+`cmssw-toolbox` 20, `cmssw-reco` 5, `cmssw-reco-objects` 4, `cmssw-sim-dqm` 4:
+
+| | linux-aarch64 | linux-64 (emulated) | osx-arm64 |
+|---|---|---|---|
+| `cmssw-reco` | 2977 s, 640 libraries | 5147 s, 640 | 10659 s, 642 |
+| `cmssw-reco-objects` | 3900 s, 1087 (was 1056) | 8427 s, 1087 | 13556 s, 1090 (was 1059) |
+| `cmssw-sim-dqm` | 6354 s, 1741 (was 1734) | 12664 s, 1741 | 21787 s, 1734 (was 1727) |
+
+The times are longer than on 2026-09-27 because two platforms were built at once throughout;
+they are not comparable. The layers now hold **1254 packages, 13.3k TU, 87.1%** of the build
+(87.4% reachable): `cmssw-reco` 238 packages, `cmssw-reco-objects` 317, `cmssw-sim-dqm` 459.
+`cmssw-reco-objects`' test builds the data and simulation NanoAOD configurations (115 modules
+of 81 types, and 178 of 107) and finds every one registered, and checks MET, PAT, NanoAOD's
+output modules, the in-process b-taggers, e/gamma calibration, DeepTau and the Rivet
+producers. Nothing has *run* NanoAOD yet: that needs a MiniAOD file and the data packages
+(`cms-data/PhysicsTools-NanoAOD` and friends), which is the next step for this workflow.

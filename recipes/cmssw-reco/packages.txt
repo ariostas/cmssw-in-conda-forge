@@ -141,7 +141,6 @@ PhysicsTools/IsolationAlgos
 PhysicsTools/IsolationUtils
 PhysicsTools/JetMCUtils
 PhysicsTools/MVAComputer
-PhysicsTools/NanoAOD
 PhysicsTools/TensorFlow
 RecoBTag/SecondaryVertex
 RecoBTau/JetTagComputer

@@ -32,7 +32,7 @@ first, and add to its progress log (section 6) when something significant is lea
     services, storage) → `cmssw-conditions` (CondCore/CondFormats) → `cmssw-geometry`
     (DD4hep detector description, geometry records, magnetic field) → `cmssw-reco` (tracking,
     vertexing, muons) → `cmssw-reco-objects` (RAW unpacking, calorimetry, e/gamma, particle
-    flow, jets) → `cmssw-sim-dqm` (DQM, validation, digitisation, fast simulation, the rest).
+    flow, jets, MET, PAT and NanoAOD) → `cmssw-sim-dqm` (DQM, validation, digitisation, fast simulation, the rest).
     Together they are everything `reach.py` counts as reachable. A layer contains:
     - `packages.txt`: CMSSW packages to build; `src-only.txt`: those of which only `src/` is
       built (the BuildFiles in their `plugins/` and `bin/` are removed; the sources stay);
@@ -182,6 +182,15 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
   *cannot* be built fails whatever the layer contains. `includes.py` reports both; `reach.py`
   counts undeclared includes as dependencies through `_work/include-uses.json`, which
   `include_graph.py` regenerates (do so after changing `PATCHED_OUT` in `includes.py`).
+- Neither of those sees python. For a configuration a layer is meant to support, run
+  `analysis/scripts/pyimports.py <layer> <module>` (e.g. `cmssw-reco-objects
+  PhysicsTools.NanoAOD.nano_cff`): it walks the imports and reports modules from a higher
+  layer or none, and **cfis generated from plugins that are not built**. A `_cfi` that has no
+  source file is written from a plugin's parameter description during the build, so a
+  src-only package provides none of them, and configurations import such cfis even for
+  plugins they only use behind a process modifier (the Triton ones, for example). When a
+  patch removes a plugin that way, ship its generated `<Plugin>.py` and `<label>_cfi.py` as
+  source, copied from `cfipython/` of the CVMFS release (`cmssw-reco-objects` 0010).
 - SCRAM compiles with the compiler in the **host** prefix, which `root_base` brings in for its
   interpreter, not the one in the build prefix; and `root_base` 6.36 pins the host sysroot to
   glibc 2.17. So a layer cannot move to a newer glibc by setting `c_stdlib_version`.

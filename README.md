@@ -71,7 +71,7 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 | `cmssw-conditions` | [recipes/cmssw-conditions](recipes/cmssw-conditions) | ✅ | ✅ | ✅ |
 | `cmssw-geometry` (DD4hep detector description) | [recipes/cmssw-geometry](recipes/cmssw-geometry) | ✅ | ✅ | ✅ |
 | `cmssw-reco` (tracking, vertexing, muons) | [recipes/cmssw-reco](recipes/cmssw-reco) | ✅ | ✅ | ✅ |
-| `cmssw-reco-objects` (RAW unpacking, calorimetry, e/gamma, particle flow, jets) | [recipes/cmssw-reco-objects](recipes/cmssw-reco-objects) | ✅ | ✅ | ✅ |
+| `cmssw-reco-objects` (RAW unpacking, calorimetry, e/gamma, particle flow, jets, MET, PAT, NanoAOD) | [recipes/cmssw-reco-objects](recipes/cmssw-reco-objects) | ✅ | ✅ | ✅ |
 | `cmssw-sim-dqm` (DQM, validation, digitisation, fast simulation) | [recipes/cmssw-sim-dqm](recipes/cmssw-sim-dqm) | ✅ | ✅ | ✅ |
 | `cmssw-devel` (build your own packages) | [recipes/cmssw-devel](recipes/cmssw-devel) | ✅ | ✅ | ✅ |
 
@@ -171,17 +171,24 @@ unusable there; see [PLAN.md](PLAN.md).
   It needed two new externals, `gbl` and `mille`, the track-refitting libraries used by
   alignment. The plugins that run a TensorFlow model are built; those that run a PyTorch one
   are left out (see below).
-- **The rest of reconstruction and the DQM/validation stack build.** `cmssw-reco-objects` (300
+- **The rest of reconstruction and the DQM/validation stack build.** `cmssw-reco-objects` (317
   packages) adds unpacking of the detector's raw data, calorimeter and muon local
-  reconstruction, electrons and photons, particle flow, jets and b-tagging; its test constructs
-  all of them, particle flow included:
+  reconstruction, electrons and photons, particle flow, jets, b-tagging and MET; its test
+  constructs all of them, particle flow included:
 
   ```
   161 producers, 68 ES producers
   local reconstruction configuration built
   ```
 
-  `cmssw-sim-dqm` (474 packages, 1734 libraries) adds data quality monitoring, validation,
+  It also has PAT and NanoAOD, so MiniAOD → NanoAOD is in reach: the test builds the data and
+  simulation NanoAOD configurations as `cmsDriver.py --step NANO` does and finds every module
+  they schedule registered. It has not been run on a file yet, for want of the data packages
+  (below). The TauSpinner table is left out: it needs Tauola++, which conda-forge does not
+  have, so simulated NanoAOD lacks its `TauSpinner_*` weights. Rivet and YODA come from
+  conda-forge, for the particle-level tables.
+
+  `cmssw-sim-dqm` (459 packages, 1741 libraries) adds data quality monitoring, validation,
   digitisation, fast simulation, alignment and calibration workflows and analysis tools. They
   needed one new external, `classlib`, and tool files for protobuf, onnxruntime, xgboost, hdf5,
   lhapdf and others that conda-forge already has.
@@ -208,18 +215,18 @@ unusable there; see [PLAN.md](PLAN.md).
   2.21 exports its bundled LLVM, which crashes next to ROOT's interpreter. It brings PAT, taus,
   the mkFit and DeepCore TensorFlow plugins, the DeepSC superclustering, the Stage-2 L1
   unpackers' plugins and the Phase-2 L1 particle flow.
-- 26 CMSSW source patches in total, plus one to cmssw-config. About half are needed only for
+- 36 CMSSW source patches in total, plus one to cmssw-config. About half are needed only for
   macOS, and most of those fix code that only compiled because libstdc++ is more permissive
   than libc++. All are meant for upstream.
 
 ## Where this stands
 
 **Seven CMSSW layers build and pass their tests on all three platforms**, but nothing has been
-submitted to conda-forge yet. They hold 1253 of
-the release's 1358 packages: about 13.1k of its 15.3k translation units (excluding tests), or
-**86% of the build**. About 20 of those points depend on externals used on an **assumed**
+submitted to conda-forge yet. They hold 1254 of
+the release's 1358 packages: about 13.3k of its 15.3k translation units (excluding tests), or
+**87% of the build**. About 20 of those points depend on externals used on an **assumed**
 licence (above): `utm`, the L1 ML models and the CSC track finder emulation; without them
-66% would be reachable. That is nearly everything reachable (86.3%): the rest is plugins of
+67% would be reachable. That is nearly everything reachable (87.4%): the rest is plugins of
 a few packages that live in a layer that cannot build them. What is left beyond needs
 externals that are not packaged yet (below).
 "Reachable" counts the headers CMSSW includes without declaring them as dependencies; on the
@@ -237,7 +244,7 @@ nothing uses, and TensorFlow for a single e/gamma component) add three points.
 - CMSSW compiles against conda-forge's toolchain and externals (it has built with three
   different ROOT versions), including clang and libc++ on macOS.
 - Build cost: about 7.6 CPU-s per translation unit measured end to end (including dictionaries,
-  install and tests), so about 28 CPU-hours per architecture for the whole 86%. CPU is not the
+  install and tests), so about 28 CPU-hours per architecture for the whole 87%. CPU is not the
   constraint.
 
 **Not proven yet** (roughly by risk)
@@ -246,9 +253,9 @@ nothing uses, and TensorFlow for a single e/gamma component) add three points.
    peak at 4.3 GB each, and a default conda-forge runner has 7 GB. The reco layer therefore
    builds with one job there: about 2.2 hours of its 6-hour limit, which works but leaves little
    room for heavier layers. The layer builds size their job count from available memory.
-2. **Externals beyond today's 86%**, cumulative in order: PyTorch, Triton and CMS's XLA AOT
-   runtime (under half a point), a few small unpackaged externals (90%), CMS's Geant4
-   extensions (90%) and the event generators (94%).
+2. **Externals beyond today's 87%**, cumulative in order: PyTorch, Triton and CMS's XLA AOT
+   runtime (under half a point), a few small unpackaged externals (91%), CMS's Geant4
+   extensions (91%) and the event generators (95%).
 3. **Data packages.** 8.6 GB of CMS data files (one repository is 2.9 GB) versus what
    conda-forge accepts. They are now the next thing in the way: the digitisers cannot even be
    configured without them, so nothing that simulates or reconstructs from RAW can run yet.
@@ -289,8 +296,12 @@ they gate conditions tooling, L1 reconstruction from RAW and the HLT.
   longer built at all), and everything in the stack has to follow it. Both are for the
   TensorFlow feedstock to fix. The layers also need a rebuilt `lwtnn` (on Eigen 5), which is a
   change for its feedstock.
-- **PyTorch plugins are left out**, and so are the PF superclusters and the tau plugins, which
-  need the Triton client.
+- **PyTorch plugins are left out**, and so are the PF superclusters and the plugins that run a
+  model on a Triton inference server, which need the Triton client. The configuration imports
+  the Triton plugins' generated cfis even when it does not use them, so those are shipped as
+  source. Without the PF superclusters, the AOD → MiniAOD step cannot be configured yet.
+- **Simulated NanoAOD has no TauSpinner weights**: that table needs Tauola++, which is not on
+  conda-forge (and whose licence is only implied), so it is patched out.
 - conda-forge's xrootd 6 headers use `statx` on Linux, which needs glibc 2.28, but the package
   does not say so, and `root_base` 6.36 keeps the build at 2.17. The one plugin package that
   includes them (`IORawData/DTCommissioning`) is built without its plugins.

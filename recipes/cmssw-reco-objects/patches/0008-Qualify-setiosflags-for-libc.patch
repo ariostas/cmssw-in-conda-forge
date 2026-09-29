@@ -1,0 +1,71 @@
+diff --git a/AnalysisDataFormats/TopObjects/src/printParticle.cc b/AnalysisDataFormats/TopObjects/src/printParticle.cc
+index 75ab342d9..6614ded29 100644
+--- a/AnalysisDataFormats/TopObjects/src/printParticle.cc
++++ b/AnalysisDataFormats/TopObjects/src/printParticle.cc
+@@ -22,11 +22,11 @@ namespace ttevent {
+       log << std::setw(15) << name << ": not available!\n";
+       return;
+     }
+-    log << std::setprecision(3) << setiosflags(std::ios::fixed | std::ios::showpoint);
++    log << std::setprecision(3) << std::setiosflags(std::ios::fixed | std::ios::showpoint);
+     log << std::setw(15) << name << ": " << std::setw(7) << cand->pt() << "; " << std::setw(7) << cand->eta() << "; "
+-        << std::setw(7) << cand->phi() << "; " << resetiosflags(std::ios::fixed | std::ios::showpoint)
+-        << setiosflags(std::ios::scientific) << std::setw(10) << cand->mass() << "\n";
+-    log << resetiosflags(std::ios::scientific);
++        << std::setw(7) << cand->phi() << "; " << std::resetiosflags(std::ios::fixed | std::ios::showpoint)
++        << std::setiosflags(std::ios::scientific) << std::setw(10) << cand->mass() << "\n";
++    log << std::resetiosflags(std::ios::scientific);
+   }
+ 
+ }  // namespace ttevent
+diff --git a/PhysicsTools/KinFitter/src/TKinFitter.cc b/PhysicsTools/KinFitter/src/TKinFitter.cc
+index c67ccb632..b9011d1fa 100644
+--- a/PhysicsTools/KinFitter/src/TKinFitter.cc
++++ b/PhysicsTools/KinFitter/src/TKinFitter.cc
+@@ -1137,19 +1137,19 @@ void TKinFitter::print() {
+     Int_t nParP = particle->getNPar();
+     const TMatrixD* par = particle->getParCurr();
+     const TMatrixD* covP = particle->getCovMatrix();
+-    log << std::setw(3) << setiosflags(std::ios::right) << iP;
+-    log << std::setw(15) << setiosflags(std::ios::right) << particle->GetName();
++    log << std::setw(3) << std::setiosflags(std::ios::right) << iP;
++    log << std::setw(15) << std::setiosflags(std::ios::right) << particle->GetName();
+     log << std::setw(3) << " ";
+     for (int iPar = 0; iPar < nParP; iPar++) {
+       if (iPar > 0) {
+-        log << setiosflags(std::ios::right) << std::setw(21) << " ";
++        log << std::setiosflags(std::ios::right) << std::setw(21) << " ";
+       }
+       TString colstr = "";
+       colstr += parIndex;
+       colstr += ":";
+       log << std::setw(4) << colstr;
+       log << std::setw(2) << " ";
+-      log << setiosflags(std::ios::left) << setiosflags(std::ios::scientific) << std::setprecision(3);
++      log << std::setiosflags(std::ios::left) << std::setiosflags(std::ios::scientific) << std::setprecision(3);
+       log << std::setw(15) << (*par)(iPar, 0);
+       if (_nbIter > 0 && _status < 10) {
+         log << std::setw(15) << TMath::Sqrt(_yaVFit(iPar, iPar));
+@@ -1169,19 +1169,19 @@ void TKinFitter::print() {
+     TAbsFitParticle* particle = _unmeasParticles[iP];
+     Int_t nParP = particle->getNPar();
+     const TMatrixD* par = particle->getParCurr();
+-    log << std::setw(3) << setiosflags(std::ios::right) << iP;
++    log << std::setw(3) << std::setiosflags(std::ios::right) << iP;
+     log << std::setw(15) << particle->GetName();
+     log << std::setw(3) << " ";
+     for (int iPar = 0; iPar < nParP; iPar++) {
+       if (iPar > 0) {
+-        log << setiosflags(std::ios::right) << std::setw(21) << " ";
++        log << std::setiosflags(std::ios::right) << std::setw(21) << " ";
+       }
+       TString colstr = "";
+       colstr += parIndex;
+       colstr += ":";
+       log << std::setw(4) << colstr;
+       log << std::setw(2) << " ";
+-      log << setiosflags(std::ios::left) << setiosflags(std::ios::scientific) << std::setprecision(3);
++      log << std::setiosflags(std::ios::left) << std::setiosflags(std::ios::scientific) << std::setprecision(3);
+       log << std::setw(15) << (*par)(iPar, 0);
+       if (_nbIter > 0 && _status < 10) {
+         log << std::setw(15) << TMath::Sqrt(_yaVFit(iPar + _nParB, iPar + _nParB));

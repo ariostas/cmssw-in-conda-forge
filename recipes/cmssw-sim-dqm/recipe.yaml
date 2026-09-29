@@ -33,8 +33,6 @@ source:
       #   which libc++ keeps distinct types;
       # - DQM/EcalMonitorClient constructs a std::vector iterator from nullptr;
       # - DQM/SiStripMonitorHardware includes <ext/algorithm>, a libstdc++ extension it does not use;
-      # - unqualified setiosflags(): libstdc++'s fmtflags is an enum in std, so argument-dependent
-      #   lookup finds std::setiosflags; libc++'s is an integer, so nothing does;
       # - Alignment/OfflineValidation opens a std::ifstream on a boost::filesystem::path, which
       #   only libstdc++ converts implicitly;
       # - DQM/TrackerRemapper links libstdc++fs, which std::filesystem has not needed since
@@ -53,19 +51,16 @@ source:
       # - DQMServices/Components' fastHadd includes <sys/prctl.h> to have its worker processes
       #   killed with their parent, which only Linux can do;
       # - DQM/SiStripMonitorClient and DQM/TrackingMonitorClient call setiosflags()
-      #   unqualified, and L1Trigger/TrackFindingTracklet uses `ulong` (see 0004);
+      #   unqualified (see cmssw-reco-objects' 0008), and L1Trigger/TrackFindingTracklet uses
+      #   `ulong` (see 0004);
       # - DPGAnalysis/SiStripTools takes equal_range() of multimaps keyed on `const uint32_t`
       #   into iterators of maps keyed on `uint32_t` (see 0004);
       # - Alignment/OfflineValidation includes <ext/alloc_traits.h>, which it does not use,
       #   and its tools link stdc++fs (see 0004).
       - patches/0007-Build-the-newly-buildable-DQM-and-HLT-packages-on-macOS.patch
-      # PhysicsTools/PatAlgos (built since TensorFlow, 2026-09-27) uses __gnu_cxx::is_sorted from
-      # libstdc++'s <ext/algorithm>, which libc++ does not have; std::is_sorted is the same
-      # algorithm, standardised in C++11 (cmssw-reco's 0004 does the same elsewhere).
-      - patches/0008-PhysicsTools-PatAlgos-use-std-is_sorted.patch
 
 build:
-  number: 3
+  number: 4
   skip:
     - win
     - osx and x86_64
@@ -181,15 +176,17 @@ requirements:
     - xrootd
     - cms-hls4ml-emulator-extras
     - cms-hls4ml-axol1tl
+    - cms-csctrackfinderemulation
+    - rivet
+    - yoda
     # new in this layer
     # The L1 trigger's ML models that L1Trigger/L1TCaloLayer1 (CICADA) and the Phase-2 L1
-    # particle flow (MET, taus, long-lived particle jets) load at run time, and the CSC track
-    # finder emulation. ASSUMED LICENCE: none of them has a licence yet; see their recipes.
+    # particle flow (MET, taus, long-lived particle jets) load at run time. ASSUMED LICENCE:
+    # none of them has a licence yet; see their recipes.
     - cms-hls4ml-cicada
     - cms-hls4ml-l1metml
     - cms-hls4ml-nnpuppitaumodel
     - cms-hls4ml-toollip
-    - cms-csctrackfinderemulation
     # the allocator HLTrigger/Tools' hltDiff links
     - jemalloc
     # WebDAV/HTTP file access (FWStorage/DavixAdaptor)
@@ -231,12 +228,14 @@ requirements:
     - cms-l1t-utm
     - cms-hls4ml-emulator-extras
     - cms-hls4ml-axol1tl
+    - cms-csctrackfinderemulation
+    - rivet
+    - yoda
     # new in this layer
     - cms-hls4ml-cicada
     - cms-hls4ml-l1metml
     - cms-hls4ml-nnpuppitaumodel
     - cms-hls4ml-toollip
-    - cms-csctrackfinderemulation
     - davix
     - hdf5
     - highfive
@@ -261,16 +260,11 @@ tests:
       - edmPluginDump | grep -q RPCMonitorDigi
       - edmPluginDump | grep -q DataMixingModule
       - edmPluginDump | grep -q EmptyIOVSource
-      # what depends on the HLT framework, the CSC track finder and MET, which need the L1 ML
-      # models and the CSC track finder emulation (ASSUMED licences)
+      # what depends on the HLT framework and the L1 ML models (ASSUMED licences)
       - edmPluginDump | grep -q L1FPGATrackProducer
-      - edmPluginDump | grep -q CSCTFTrackProducer
-      - edmPluginDump | grep -q CSCHaloDataProducer
       - edmPluginDump | grep -q L1TCaloSummary_CICADA_vXp1p2
-      # what TensorFlow and the Phase-2 L1 particle flow's models brought: PAT, tau
-      # validation, the Phase-2 L1 particle flow, muon and HGCal triggers, and CPPF
-      - edmPluginDump | grep -qw PATMuonProducer
-      - edmPluginDump | grep -qw PATJetProducer
+      # what TensorFlow and the Phase-2 L1 particle flow's models brought: tau validation,
+      # the Phase-2 L1 particle flow, muon and HGCal triggers, and CPPF
       - edmPluginDump | grep -q TauDQMHistPlotter
       - edmPluginDump | grep -q L1MetPfProducer
       - edmPluginDump | grep -q L1NNTauProducer
@@ -298,11 +292,10 @@ about:
     tools (CondCore/Utilities). Those need the L1 trigger menu library (cms-l1t-utm), which
     is used on the ASSUMPTION that it will be released under Apache-2.0: it has no licence yet.
 
-    It also has the HLT's own code, trigger DQM and validation, MET reconstruction, PAT, tau
-    reconstruction and validation, and the Phase-2 L1 particle flow. Those need the L1
-    trigger's ML models (cms-hls4ml-*, loaded at run time) and the CSC track finder emulation
-    (cms-csctrackfinderemulation), which are also used on the ASSUMPTION that they will be
-    released under Apache-2.0: they have no licence yet.
+    It also has the HLT's own code, trigger DQM and validation, tau validation and the
+    Phase-2 L1 particle flow. Those need the L1 trigger's ML models (cms-hls4ml-*, loaded
+    at run time), which are also used on the ASSUMPTION that they will be released under
+    Apache-2.0: they have no licence yet. (MET, PAT and NanoAOD are in cmssw-reco-objects.)
 
     Plugins that need PyTorch or the Triton client, event generators or CMS's own Geant4
     extensions are left out.

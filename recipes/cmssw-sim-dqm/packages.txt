@@ -20,12 +20,14 @@
 # (2026-09-26) the L1 Global Trigger emulator (L1Trigger/L1TGlobal) and with it the HLT
 # framework (HLTrigger/HLTcore), and so the HLT, trigger DQM and validation, tracking DQM,
 # MET reconstruction and the L1 track trigger's tracklet algorithm. Since 2026-09-27 the
-# first two are in cmssw-reco-objects, with the Stage-2 L1 packages the unpackers need.
+# first two are in cmssw-reco-objects, with the Stage-2 L1 packages the unpackers need, and
+# since 2026-09-28 MET is too.
 #
 # TensorFlow (2026-09-27), with the Phase-2 L1 particle flow's models (cms-hls4ml-l1metml,
 # -nnpuppitaumodel, -toollip; ASSUMED licence), brought in PAT (PhysicsTools/PatAlgos), tau
 # reconstruction and its validation, the Phase-2 L1 particle flow, HGCal trigger and muon
-# trigger, the EMTF Phase-2 and CPPF emulators, and L1 DQM.
+# trigger, the EMTF Phase-2 and CPPF emulators, and L1 DQM. PAT moved to cmssw-reco-objects
+# on 2026-09-28, with NanoAOD, whose plugins need it.
 Alignment/APEEstimation
 Alignment/CommonAlignmentMonitor
 Alignment/CommonAlignmentProducer
@@ -38,7 +40,6 @@ AnalysisAlgos/SiStripClusterInfoProducer
 AnalysisAlgos/TrackInfoProducer
 AnalysisDataFormats/EWK
 AnalysisDataFormats/SUSYBSMObjects
-AnalysisDataFormats/TopObjects
 Calibration/EcalAlCaRecoProducers
 Calibration/EcalTBTools
 Calibration/HcalAlCaRecoProducers
@@ -68,7 +69,6 @@ CondCore/Utilities
 CondFormats/HcalMapping
 CondFormats/MLObjects
 CondFormats/PCLConfig
-CondTools/BTau
 CondTools/BeamSpot
 CondTools/CTPPS
 CondTools/DQM
@@ -286,8 +286,6 @@ IORawData/SiPixelInputSources
 IgTools/IgProf
 JetMETAnalysis/Configuration
 JetMETAnalysis/METSkims
-L1Trigger/CSCTrackFinder
-L1Trigger/DTTrackFinder
 L1Trigger/HardwareValidation
 L1Trigger/L1TCaloLayer1
 L1Trigger/L1THGCal
@@ -308,7 +306,6 @@ L1TriggerOffline/L1Analyzer
 L1TriggerScouting/NanoAOD
 L1TriggerScouting/OnlineProcessing
 MuonAnalysis/MomentumScaleCalibration
-MuonAnalysis/MuonAssociators
 OnlineDB/SiStripO2O
 PerfTools/AllocMonitor
 PerfTools/AllocMonitorPreload
@@ -325,21 +322,14 @@ PhysicsTools/Configuration
 PhysicsTools/HeppyCore
 PhysicsTools/JetCharge
 PhysicsTools/JetExamples
-PhysicsTools/JetMCAlgos
-PhysicsTools/KinFitter
 PhysicsTools/NanoAODTools
-PhysicsTools/PatAlgos
 PhysicsTools/PatFromScouting
-PhysicsTools/PatUtils
 PhysicsTools/PythonAnalysis
 PhysicsTools/RecoAlgos
-PhysicsTools/RecoUtils
 PhysicsTools/Scouting
 PhysicsTools/TagAndProbe
 PhysicsTools/TruthInfo
-RecoMET/METAlgorithms
 RecoMET/METPUSubtraction
-RecoMET/METProducers
 RecoML/AnomalyDetection
 RecoML/Topology
 RecoMuon/TrackerSeedGenerator
@@ -354,7 +344,6 @@ RecoTBCalo/HcalTBObjectUnpacker
 RecoTBCalo/HcalTBTools
 RecoTBCalo/ZDCTBAnalysis
 RecoTauTag/HLTProducers
-RecoTauTag/RecoTau
 SLHCUpgradeSimulations/Configuration
 SLHCUpgradeSimulations/Geometry
 SimCalorimetry/CastorSim
@@ -380,7 +369,6 @@ SimCalorimetry/HcalZeroSuppressionProducers
 SimDataFormats/CaloTest
 SimDataFormats/Forward
 SimDataFormats/GEMDigiSimLink
-SimDataFormats/HTXS
 SimDataFormats/HcalTestBeam
 SimDataFormats/SimHitMaker
 SimDataFormats/TruthInfo
@@ -440,7 +428,6 @@ TopQuarkAnalysis/TopJetCombination
 TopQuarkAnalysis/TopKinFitter
 TopQuarkAnalysis/TopObjectResolutions
 TopQuarkAnalysis/TopSkimming
-TopQuarkAnalysis/TopTools
 Utilities/RelMon
 Utilities/Testing
 Validation/CSCRecHits

@@ -1,0 +1,18 @@
+<tool name="rivet" version="4.1.4" path="@PREFIX@" revision="1">
+  <info url="https://rivet.hepforge.org"/>
+  <lib name="Rivet"/>
+  <client>
+    <environment name="LIBDIR" default="$TOOL_BASE/lib"/>
+    <environment name="INCLUDE" default="$TOOL_BASE/include"/>
+  </client>
+  <runtime name="PATH" value="$TOOL_BASE/bin" type="path"/>
+  <runtime name="RIVET_DATA_PATH" value="$TOOL_BASE/share/Rivet" type="path"/>
+  <runtime name="ROOT_INCLUDE_PATH" value="$INCLUDE" type="path"/>
+  <!-- Rivet 4 reads HepMC3 events. CMS's tool file names hdf5, highfive and onnxruntime too,
+       for optional Rivet features that conda-forge's build does not enable. -->
+  <use name="hepmc3"/>
+  <use name="fastjet"/>
+  <use name="fastjet-contrib"/>
+  <use name="gsl"/>
+  <use name="yoda"/>
+</tool>

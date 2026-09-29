@@ -54,8 +54,6 @@ CalibCalorimetry/EcalTPGTools
 CalibTracker/SiPixelQuality
 L1Trigger/L1CaloTrigger
 L1Trigger/L1THGCalUtilities
-RecoBTag/ONNXRuntime
-RecoEgamma/EgammaTools
 RecoLocalCalo/HGCalRecProducers
 RecoParticleFlow/PFSimProducer
 
@@ -69,3 +67,7 @@ CondTools/RunInfo
 # rechit fragments and others import its embedding customisations. Its plugins need pythia8
 # and RecoEgamma plugins this layer cannot build.
 TauAnalysis/MCEmbeddingTools
+
+# The Higgs template cross-section format, which NanoAOD's generator tables read; it has no
+# plugins.
+SimDataFormats/HTXS

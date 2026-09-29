@@ -102,6 +102,12 @@ PATCHED_OUT = (
     "RecoTracker/FinalTrackSelectors/plugins/alpaka/",
     "RecoEcal/EgammaCoreTools/src/DeepSCGraphEvaluation.cc",
     "RecoEcal/EgammaCoreTools/src/EcalClustersGraph.cc",
+    # cmssw-reco-objects 0010: the plugins that need the Triton client
+    "RecoBTag/ONNXRuntime/plugins/ParticleNetSonicJetTagsProducer.cc",
+    "RecoBTag/ONNXRuntime/plugins/ParticleTransformerAK4SonicJetTagsProducer.cc",
+    "RecoBTag/ONNXRuntime/plugins/UnifiedParticleTransformerAK4SonicJetTagsProducer.cc",
+    "RecoEgamma/EgammaTools/plugins/DRNCorrectionProducerT.cc",
+    "RecoTauTag/RecoTau/plugins/DeepTauIdSONIC.cc",
 )
 
 
