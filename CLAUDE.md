@@ -32,16 +32,20 @@ first, and add to its progress log (section 6) when something significant is lea
     services, storage) → `cmssw-conditions` (CondCore/CondFormats) → `cmssw-geometry`
     (DD4hep detector description, geometry records, magnetic field) → `cmssw-reco` (tracking,
     vertexing, muons) → `cmssw-reco-objects` (RAW unpacking, calorimetry, e/gamma, particle
-    flow, jets, MET, PAT and NanoAOD) → `cmssw-sim-dqm` (DQM, validation, digitisation, fast simulation, the rest).
+    flow, jets, MET, PAT and NanoAOD) → `cmssw-sim-dqm` (DQM, validation, digitisation, fast
+    simulation, the rest).
     Together they are everything `reach.py` counts as reachable. A layer contains:
     - `packages.txt`: CMSSW packages to build; `src-only.txt`: those of which only `src/` is
       built (the BuildFiles in their `plugins/` and `bin/` are removed; the sources stay);
     - `patches/`, `cmssw-config-patches/`: source patches;
-    - `variants.yaml`: ROOT/CLHEP pins for this CMSSW version;
+    - `variants.yaml`: ROOT/CLHEP pins for this CMSSW version, and its one python (3.12);
     - `build.sh`: a few lines around `cmssw-build-layer`, and optionally a `prepare.sh` it
       sources in the developer area before building (`cmssw-reco-objects` regenerates DQM's
       protobuf code there);
-    - activation scripts (`cmssw-fwlite` only; there is one release directory).
+    - activation scripts: `cmssw-fwlite`'s set up the release (there is one release
+      directory); `cmssw-framework` adds `SITECONFIG_PATH` and `cmssw-geometry` the library
+      path DD4hep searches. They are sourced in the user's shell, so keep them POSIX: no
+      bash-only syntax such as `${!name}` (zsh is the default on macOS).
   - `cmssw-devel`: a metapackage that turns a CMSSW environment into one where `scram b` works
     (compilers, `make`, and the `-devel` splits of the externals the layers were built against).
     Its test runs the whole developer loop, so it is the regression test for that workflow.
@@ -80,6 +84,15 @@ The host is an arm64 Mac, so builds happen in Docker:
   has no `ps`/`pkill`.
 - Both mount the repo at `/repo`. rattler-build lives in `/work/tools/bin`, and
   `/work/conda_build_config.yaml` is the conda-forge global pinning.
+- Everything that matters lives in the volumes, so the containers themselves are disposable.
+  If `docker ps -a` does not list them, recreate them from the repo root:
+
+  ```sh
+  docker run -d --name cmssw-dev --platform linux/arm64 -v "$PWD":/repo -v cmssw-work:/work \
+    condaforge/miniforge3 sleep infinity
+  docker run -d --name cmssw-dev-amd64 --platform linux/amd64 -v "$PWD":/repo \
+    -v cmssw-work-amd64:/work quay.io/condaforge/linux-anvil-x86_64:alma9 sleep infinity
+  ```
 
 ```sh
 docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PATH; \

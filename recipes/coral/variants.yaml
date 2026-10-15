@@ -8,3 +8,11 @@ libboost_headers:
   - "1.90"
 libboost_python_devel:
   - "1.90"
+
+# The python the CMSSW layers are built for (see cmssw-fwlite's variants.yaml); CORAL has no
+# other users here.
+python:
+  - 3.12.* *_cpython
+# zipped with python in the global pinning, so it has to have as many entries
+is_python_min:
+  - false

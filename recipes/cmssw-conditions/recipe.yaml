@@ -10,10 +10,10 @@ source:
   - url: https://github.com/cms-sw/cmssw/archive/refs/tags/${{ cmssw_tag }}.tar.gz
     sha256: 39afc8deff3e31952cc43699324b25bbc10e619abe616b0eb6c3c20b4746312e
     target_directory: cmssw
+    # A layer's patches only matter for the packages it builds: the CondFormats/Serialization
+    # fixes are cmssw-fwlite's, whose installed copy of the generator every layer runs.
     patches:
-      - patches/0001-CondFormats-find-libstdc-headers-in-conda-gcc-layout.patch
-      - patches/0002-CondFormats-support-unpatched-boost-serialization.patch
-      - patches/0003-CondCore-CondDB-HOST_NAME_MAX-and-map-on-macOS.patch
+      - patches/0001-CondCore-CondDB-HOST_NAME_MAX-and-map-on-macOS.patch
 
 build:
   number: 3

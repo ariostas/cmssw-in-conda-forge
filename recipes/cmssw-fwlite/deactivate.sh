@@ -1,10 +1,20 @@
 unset CMSSW_VERSION CMSSW_BASE CMSSW_RELEASE_BASE LOCALRT CMSSW_SEARCH_PATH CMSSW_PLUGIN_PATH
-for var in SCRAM_ARCH ROOT_INCLUDE_PATH ROOT_LIBRARY_PATH; do
-  backup="CMSSW_CONDA_BACKUP_${var}"
-  if [ -n "${!backup:-}" ]; then
-    export "${var}=${!backup}"
-  else
-    unset "${var}"
-  fi
-  unset "${backup}"
-done
+# Spelled out per variable: conda sources this in the user's shell, and indirect expansion
+# (${!name}) is bash-only, a "bad substitution" in zsh.
+if [ -n "${CMSSW_CONDA_BACKUP_SCRAM_ARCH:-}" ]; then
+  export SCRAM_ARCH="${CMSSW_CONDA_BACKUP_SCRAM_ARCH}"
+else
+  unset SCRAM_ARCH
+fi
+if [ -n "${CMSSW_CONDA_BACKUP_ROOT_INCLUDE_PATH:-}" ]; then
+  export ROOT_INCLUDE_PATH="${CMSSW_CONDA_BACKUP_ROOT_INCLUDE_PATH}"
+else
+  unset ROOT_INCLUDE_PATH
+fi
+if [ -n "${CMSSW_CONDA_BACKUP_ROOT_LIBRARY_PATH:-}" ]; then
+  export ROOT_LIBRARY_PATH="${CMSSW_CONDA_BACKUP_ROOT_LIBRARY_PATH}"
+else
+  unset ROOT_LIBRARY_PATH
+fi
+unset CMSSW_CONDA_BACKUP_SCRAM_ARCH CMSSW_CONDA_BACKUP_ROOT_INCLUDE_PATH \
+  CMSSW_CONDA_BACKUP_ROOT_LIBRARY_PATH

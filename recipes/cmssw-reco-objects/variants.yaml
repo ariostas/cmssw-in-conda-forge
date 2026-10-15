@@ -57,3 +57,13 @@ libgrpc:
   - if: aarch64
     then: "1.73"
     else: "1.78"
+
+# One python: the one this CMSSW release is built and validated with (CMS's python3 is
+# 3.12.13 in CMSSW_20_1_0_pre2). The global pinning would build every layer once per
+# supported python, each a multi-hour job, for interpreters CMSSW is not validated with
+# (decided 2026-10-15). Move it with the release, never independently of it.
+python:
+  - 3.12.* *_cpython
+# zipped with python in the global pinning, so it has to have as many entries
+is_python_min:
+  - false

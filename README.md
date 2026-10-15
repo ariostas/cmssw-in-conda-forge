@@ -66,6 +66,11 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 | `mille` (Millepede-II I/O) | [recipes/mille](recipes/mille) | ✅ | ✅ | ✅ |
 | `gbl` (General Broken Lines) | [recipes/gbl](recipes/gbl) | ✅ | ✅ | ✅ |
 | `classlib` (CMS socket/IO library, for DQM) | [recipes/classlib](recipes/classlib) | ✅ | ✅ | ✅ |
+| `conifer-cpp` (boosted decision trees for the L1 track trigger) | [recipes/conifer-cpp](recipes/conifer-cpp) | ✅ | ✅ | ✅ |
+| `lwtnn` (existing feedstock pins Eigen 3.4) | [cmssw-notes/feedstock-changes/lwtnn](cmssw-notes/feedstock-changes/lwtnn) | ✅ | ✅ | ✅ |
+| `cms-l1t-utm` (L1 trigger menu) ⚠️ | [recipes/cms-l1t-utm](recipes/cms-l1t-utm) | ✅ | ✅ | ✅ |
+| `cms-hls4ml-*`: the L1 ML models' loader and six models ⚠️ | [recipes/](recipes) | ✅ | ✅ | ✅ |
+| `cms-csctrackfinderemulation` (legacy CSC track finder) ⚠️ | [recipes/cms-csctrackfinderemulation](recipes/cms-csctrackfinderemulation) | ✅ | ✅ | ✅ |
 | `cmssw-fwlite` | [recipes/cmssw-fwlite](recipes/cmssw-fwlite) | ✅ | ✅ | ✅ |
 | `cmssw-framework` (`cmsRun`) | [recipes/cmssw-framework](recipes/cmssw-framework) | ✅ | ✅ | ✅ |
 | `cmssw-conditions` | [recipes/cmssw-conditions](recipes/cmssw-conditions) | ✅ | ✅ | ✅ |
@@ -77,6 +82,11 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 
 ✅ = builds locally with rattler-build (in Docker for Linux, natively for macOS) and passes the
 recipe tests. — = not needed: the existing feedstock already covers that platform.
+⚠️ = upstream has **no licence**; packaged on an assumed Apache-2.0 licence and not
+submittable until upstream adds one (see "Known issues").
+
+The CMSSW layers are built for **Python 3.12 only**, the version the release is built and
+validated with at CMS, rather than for every Python in conda-forge's pinning.
 
 Every package now builds on all three platforms from the same sources. macOS builds against a
 **newer ROOT than the release uses** (6.40 instead of 6.36) because conda-forge's 6.36 is
@@ -84,7 +94,7 @@ unusable there; see [PLAN.md](PLAN.md).
 
 **What works**
 
-- `cmssw-fwlite` (138 CMSSW packages, 1.3k translation units, a 60 MB package) builds against
+- `cmssw-fwlite` (138 CMSSW packages, 1.3k translation units, a 60 MB package on Linux) builds against
   conda-forge's ROOT 6.36, gcc 15 and python 3.12. It takes about 1 CPU-hour natively on aarch64
   (10 min wall time on 10 cores), so it fits the default conda-forge CI runners.
 - From a plain conda environment (no SCRAM, no CVMFS, no `cmsenv`), FWLite reads CMS MiniAOD files,
@@ -108,7 +118,8 @@ unusable there; see [PLAN.md](PLAN.md).
   cmsRun write.py && cmsRun read.py      # 5 events, products intact
   ```
 
-  It also opens a CMS Open Data MiniAOD over XRootD. A conda environment is not a CMS site, so
+  It has also opened a CMS Open Data MiniAOD over XRootD, by hand: the recipe tests have no
+  network. A conda environment is not a CMS site, so
   the package ships a site configuration that uses the global CMS services: files through the
   global XRootD redirector, conditions from the central Frontier servers.
 - `coral` and `frontier-client`, which CMSSW needs to read detector conditions, both build in
@@ -157,7 +168,7 @@ unusable there; see [PLAN.md](PLAN.md).
 
   This needed taking conda-forge's in-flight boost 1.90 migration, which the whole stack is now
   built against.
-- **Reconstruction builds.** `cmssw-reco` (239 CMSSW packages) adds local
+- **Reconstruction builds.** `cmssw-reco` (238 CMSSW packages) adds local
   reconstruction in the tracker, the Kalman-filter track finding and fitting chain, primary and
   secondary vertexing, muon reconstruction and identification, and the rest of the detector
   geometry. Its test loads every library of the release and constructs the core tracking,
@@ -188,7 +199,8 @@ unusable there; see [PLAN.md](PLAN.md).
   have, so simulated NanoAOD lacks its `TauSpinner_*` weights. Rivet and YODA come from
   conda-forge, for the particle-level tables.
 
-  `cmssw-sim-dqm` (459 packages, 1741 libraries) adds data quality monitoring, validation,
+  `cmssw-sim-dqm` (459 packages; its test loads all 1741 libraries of the seven layers) adds
+  data quality monitoring, validation,
   digitisation, fast simulation, alignment and calibration workflows and analysis tools. They
   needed one new external, `classlib`, and tool files for protobuf, onnxruntime, xgboost, hdf5,
   lhapdf and others that conda-forge already has.
@@ -215,23 +227,29 @@ unusable there; see [PLAN.md](PLAN.md).
   2.21 exports its bundled LLVM, which crashes next to ROOT's interpreter. It brings PAT, taus,
   the mkFit and DeepCore TensorFlow plugins, the DeepSC superclustering, the Stage-2 L1
   unpackers' plugins and the Phase-2 L1 particle flow.
-- 36 CMSSW source patches in total, plus one to cmssw-config. About half are needed only for
+- 31 CMSSW source patches in total, plus one to cmssw-config. About half are needed only for
   macOS, and most of those fix code that only compiled because libstdc++ is more permissive
   than libc++. All are meant for upstream.
 
 ## Where this stands
 
 **Seven CMSSW layers build and pass their tests on all three platforms**, but nothing has been
-submitted to conda-forge yet. They hold 1254 of
-the release's 1358 packages: about 13.3k of its 15.3k translation units (excluding tests), or
-**87% of the build**. About 20 of those points depend on externals used on an **assumed**
-licence (above): `utm`, the L1 ML models and the CSC track finder emulation; without them
-67% would be reachable. That is nearly everything reachable (87.4%): the rest is plugins of
-a few packages that live in a layer that cannot build them. What is left beyond needs
-externals that are not packaged yet (below).
-"Reachable" counts the headers CMSSW includes without declaring them as dependencies; on the
-BuildFile graph alone the figure reads 63%, and two small patches (a dependency on `ktjet` that
-nothing uses, and TensorFlow for a single e/gamma component) add three points.
+submitted to conda-forge yet. Of the release's 1358 packages and 15.3k translation units
+(excluding tests):
+
+| | share of the build |
+|---|---|
+| built by the layers (1254 packages, 13.3k TU) | **87%** |
+| reachable with the externals that exist today | 87.4% |
+| reachable without the externals on an assumed licence | 67% |
+
+So about 20 points depend on `utm`, the L1 ML models and the CSC track finder emulation (see
+"Known issues"). The gap between built and reachable is plugins of a few packages that live in
+a layer that cannot build them; what is beyond needs externals that are not packaged (below).
+"Reachable" counts the headers CMSSW includes without declaring them as dependencies, which
+costs 0.6 points against the BuildFile graph alone, and includes 3.4 points that the layers'
+patches make reachable by dropping unused or optional dependencies (`ktjet`, Tauola++, the
+Triton client's plugins and others).
 
 **Proven so far**
 
@@ -243,16 +261,18 @@ nothing uses, and TensorFlow for a single e/gamma component) add three points.
   The geometry was checked against CMS's own build of the release.
 - CMSSW compiles against conda-forge's toolchain and externals (it has built with three
   different ROOT versions), including clang and libc++ on macOS.
-- Build cost: about 7.6 CPU-s per translation unit measured end to end (including dictionaries,
-  install and tests), so about 28 CPU-hours per architecture for the whole 87%. CPU is not the
-  constraint.
+- Build cost: between about 3 CPU-s per translation unit (the compiles' own CPU time) and 8
+  (wall time times ten cores, which also counts the serial steps), so roughly 12–30 CPU-hours
+  per architecture for the whole 87%. CPU is not the constraint.
 
 **Not proven yet** (roughly by risk)
 
 1. **Memory on CI.** The heaviest translation units (alpaka kernels in `RecoTracker/PixelSeeding`)
    peak at 4.3 GB each, and a default conda-forge runner has 7 GB. The reco layer therefore
-   builds with one job there: about 2.2 hours of its 6-hour limit, which works but leaves little
-   room for heavier layers. The layer builds size their job count from available memory.
+   builds with one job there: between about 2.3 and 5.4 hours of the 6-hour limit, depending on
+   which of the two cost figures above holds on a CI runner, and `cmssw-sim-dqm` is half as big
+   again. That has to be measured on a real runner; a layer may need splitting. The layer
+   builds size their job count from available memory.
 2. **Externals beyond today's 87%**, cumulative in order: PyTorch, Triton and CMS's XLA AOT
    runtime (under half a point), a few small unpackaged externals (91%), CMS's Geant4
    extensions (91%) and the event generators (95%).
@@ -322,17 +342,31 @@ they gate conditions tooling, L1 reconstruction from RAW and the HLT.
   of a package with Fortran sources fails until `cmssw-fwlite` is rebuilt with a fix.
 - CMS's HepMC2 fork changes an ABI-relevant type. conda-forge's stock `hepmc2` is used instead,
   with a new dictionary class version. Reading GEN-level `HepMCProduct` data still needs validation.
-- Fireworks (event display) is not included.
+- The event display (Fireworks) is not included: six of its packages are in `cmssw-sim-dqm`,
+  but only for their libraries, not the display itself (`Fireworks/Core` is not built).
+- **Reading an EDM file with `PoolSource`'s default settings fails**, in ROOT's automatic
+  TTreeCache setup; `cmssw-framework`'s test sets `cacheSize = 0`. CMS's environment sets
+  `ROOT_TTREECACHE_SIZE=0` and `ROOT_TTREECACHE_PREFILL=0`, which the conda activation script
+  does not, and that is the likely cause. To be fixed and verified in the next rebuild.
+- `cmssw-devel` cannot rebuild a `CondFormats` package: the serialization code generator needs
+  `python-clang` and `libclang`, which it does not install yet.
+- The lower layers depend on the layer below by version only, not by exact build, so a solver
+  can pair a layer with an older build of the one below it; the top two already pin exactly.
 - The CMSSW source patches, in each layer's `patches/` directory, should be proposed upstream.
 
 ## Roadmap
 
 1. Submit the dependency recipes (`alpaka`, `hls-arbitrary-precision-types`, `mille`, `gbl`,
-   `classlib`, `frontier-client`, and PRs to the `cms-md5` and `cpu_features` feedstocks for the missing
-   platforms) and upstream the CMSSW patches; they gate everything else.
+   `classlib`, `frontier-client`, `conifer-cpp`, and PRs to the `cms-md5` feedstock for the
+   missing platforms and `run_exports`, to `cpu_features` for macOS and to `lwtnn` for Eigen 5)
+   and upstream the CMSSW patches; they gate everything else. Then `cms-scram`,
+   `cmssw-toolbox` and the layers, **one PR per layer, in order**: each layer builds against
+   the one below it from the conda-forge channel. Before that, the recipe-level pins that
+   differ from conda-forge's global pinning (boost, Abseil/protobuf/gRPC, `fastjet-cxx`,
+   TensorFlow) have to be dropped or justified.
 2. Ask the utm, CORAL and L1 ML model authors for a licence (pure lead time). utm and the L1
    models are already used on an assumed Apache-2.0 licence; if their authors choose otherwise,
-   the 17 points they bring come out.
+   the 20 points they bring come out.
 3. The data packages, starting with those the digitisers and a RECO step read, so that a
    standard workflow can run end to end.
 4. Upstream the TensorFlow (hidden LLVM symbols, current pins, linux-aarch64) and lwtnn (Eigen 5)
@@ -352,7 +386,8 @@ See [PLAN.md](PLAN.md) for details.
 - [cmssw-notes/analysis](cmssw-notes/analysis): scripts that analyse the CMSSW package dependency
   graph and build cost, and propose how to split it. `reach.py` says what is reachable with the
   working externals and proposes layers, `includes.py` closes a layer over headers that CMSSW
-  includes without declaring them, and `preflight.py` checks a layer before a build.
+  includes without declaring them, `preflight.py` checks a layer before a build, and
+  `pyimports.py` checks that a configuration's python imports stay within a layer.
 - [cmssw-notes/geometry-comparison](cmssw-notes/geometry-comparison): compares the geometry with
   CMS's own build of the release.
 - [cmssw-notes/build-local.sh](cmssw-notes/build-local.sh): builds the recipes inside conda-forge
@@ -365,7 +400,7 @@ The recipes use the [rattler-build](https://rattler.build) v1 format. To build t
 conda-forge CI image (the repository is mounted at `/repo`):
 
 ```sh
-docker run -it --platform linux/amd64 -v "$PWD":/repo -v cmssw-work:/work \
+docker run -it --platform linux/amd64 -v "$PWD":/repo -v cmssw-work-amd64:/work \
   quay.io/condaforge/linux-anvil-x86_64:alma9 bash
 # inside the container
 mamba create -y -p /work/tools -c conda-forge rattler-build conda-forge-pinning

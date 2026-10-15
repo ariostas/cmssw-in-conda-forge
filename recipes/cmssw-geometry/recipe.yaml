@@ -11,10 +11,7 @@ source:
     sha256: 39afc8deff3e31952cc43699324b25bbc10e619abe616b0eb6c3c20b4746312e
     target_directory: cmssw
     patches:
-      - patches/0001-CondFormats-find-libstdc-headers-in-conda-gcc-layout.patch
-      - patches/0002-CondFormats-support-unpatched-boost-serialization.patch
-      - patches/0003-CondCore-CondDB-HOST_NAME_MAX-and-map-on-macOS.patch
-      - patches/0004-Geometry-libstdc-internal-includes-and-missing-standard-ones.patch
+      - patches/0001-Geometry-libstdc-internal-includes-and-missing-standard-ones.patch
 
 build:
   number: 4
