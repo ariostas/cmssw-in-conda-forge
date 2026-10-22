@@ -14,7 +14,7 @@ source:
       - patches/0001-Geometry-libstdc-internal-includes-and-missing-standard-ones.patch
 
 build:
-  number: 4
+  number: 5
   skip:
     - win
     - osx and x86_64
@@ -96,7 +96,9 @@ requirements:
     - geant4
   run:
     - cms-scram
-    - cmssw-conditions ==${{ version }}
+    # the exact build of the layer below, as in cmssw-reco-objects: a layer links that layer's
+    # libraries, and another build of it may not have the same ones
+    - ${{ pin_compatible("cmssw-conditions", exact=True) }}
     - python
     - root_base
     - coral

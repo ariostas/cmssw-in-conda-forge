@@ -104,9 +104,11 @@ fi
 
 # 4. build
 cd "${DEV}"
-USER_LDFLAGS="-Wl,-rpath,${RELEASE}/${LIBDIR} -Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib"
+USER_LDFLAGS="-Wl,-rpath,${PREFIX}/lib -L${PREFIX}/lib"
 if [[ "${target_platform}" == linux-* ]]; then
-  USER_LDFLAGS="${USER_LDFLAGS} -Wl,-rpath-link,${PREFIX}/lib"
+  # (on macOS SCRAM's rules add the release's library directory to the rpaths themselves, and
+  # install_name_tool refuses to add one twice; cmssw-fwlite's cmssw-config patch 0002)
+  USER_LDFLAGS="-Wl,-rpath,${RELEASE}/${LIBDIR} ${USER_LDFLAGS} -Wl,-rpath-link,${PREFIX}/lib"
 fi
 # Cap the job count by available memory as well as by cores. A few of CMSSW's translation
 # units are very large -- the alpaka ones above all -- and ten of those at once exhausted

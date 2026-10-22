@@ -33,7 +33,7 @@ source:
       - patches/0005-CalibTracker-SiStripCommon-plugins-declare-DataFormats-NanoAOD.patch
 
 build:
-  number: 5
+  number: 6
   skip:
     - win
     - osx and x86_64
@@ -116,15 +116,11 @@ requirements:
     - gbl
     - mille
     # jet clustering, used by CommonTools/PileupAlgos and the muon rechit clusterer. The C++
-    # library, not `fastjet`, which is the python bindings.
-    # Build 5 is the last one that ships the headers. Build 6 (2026-09-22) moved them to a new
-    # fastjet-cxx-devel, which requires cgal-cpp; every current cgal-cpp requires eigen-abi
-    # 5.0.1, conda-forge's lwtnn requires eigen-abi 3.4.0, and so the solver falls back to
-    # cgal-cpp 5.x and the long-gone boost-cpp and cannot resolve. The local lwtnn rebuild
-    # (cmssw-notes/feedstock-changes/lwtnn) is on Eigen 5, so fastjet-cxx-devel can be taken
-    # once that is upstream.
-    - fastjet-cxx ==3.5.1 *_5
-    - fastjet-contrib
+    # library, not `fastjet`, which is the python bindings. The headers are in the -devel
+    # splits (since fastjet-cxx 3.5.1 build 6 and fastjet-contrib 1.105), and conda-forge has
+    # since patched rivet to require them.
+    - fastjet-cxx-devel
+    - fastjet-contrib-devel
     # particle properties, for SimGeneral/HepPDTRecord
     - heppdt
     # nlohmann/json, header only; RecoTracker/MkFitCore reads its configuration with it
@@ -143,7 +139,9 @@ requirements:
     - libtensorflow_cc ==2.19.1 cpu_*
   run:
     - cms-scram
-    - cmssw-geometry ==${{ version }}
+    # the exact build of the layer below, as in cmssw-reco-objects: a layer links that layer's
+    # libraries, and another build of it may not have the same ones
+    - ${{ pin_compatible("cmssw-geometry", exact=True) }}
     - python
     - root_base
     - coral

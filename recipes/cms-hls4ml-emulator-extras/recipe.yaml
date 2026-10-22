@@ -16,12 +16,15 @@ source:
   sha256: 71c01d8e3036a528800a9e745ade3aeaf8380b9422f81faa8d14464fa0bb6532
 
 build:
-  number: 0
+  number: 1
   skip:
     - win
   script: build.sh
 
 requirements:
+  # what links this library depends on a compatible build of it (no soname version)
+  run_exports:
+    - ${{ pin_subpackage("cms-hls4ml-emulator-extras", upper_bound="x.x") }}
   build:
     - ${{ compiler('cxx') }}
     - ${{ stdlib('c') }}

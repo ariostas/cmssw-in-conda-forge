@@ -28,6 +28,15 @@ echo "This directory marks ${SCRAM_ARCH} as an available SCRAM architecture (see
 #    every tool of this CMSSW release, including ones only used by later layers: the tool files
 #    only refer to $PREFIX, so they do not depend on what is installed while building this layer.
 cmssw-generate-toolbox "${STAGE}/toolbox" --prefix "${PREFIX}"
+# Every compiler the release names has to be in this prefix, which conda relocates; the build
+# prefix is gone once this build is, and a user's developer area would inherit the dead path
+# (see the host requirements in recipe.yaml).
+for tool in gcc-ccompiler gcc-cxxcompiler gcc-f77compiler llvm-ccompiler llvm-cxxcompiler; do
+  if grep -E 'name="(CC|CXX|FC)"' "${STAGE}/toolbox/tools/selected/${tool}.xml" | grep -v "\"${PREFIX}/"; then
+    echo "${tool} names a compiler outside ${PREFIX}" >&2
+    exit 1
+  fi
+done
 
 # 2. project configuration
 cp -R "${SRC_DIR}/config" "${STAGE}/config"

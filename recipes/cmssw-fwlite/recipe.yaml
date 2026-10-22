@@ -30,9 +30,14 @@ source:
     target_directory: config
     patches:
       - cmssw-config-patches/0001-conda-build-environment-fixes.patch
+      # On macOS SCRAM gives a library only its own area's lib/ as rpath. In a developer
+      # area that misses the release's libraries, which Linux finds through LD_LIBRARY_PATH
+      # and macOS cannot (SIP), so the first one not already loaded fails: SCRAM's class
+      # version check of a rebuilt CondFormats package, for instance. Add the release's too.
+      - cmssw-config-patches/0002-macOS-developer-areas-find-the-release-libraries.patch
 
 build:
-  number: 9
+  number: 10
   skip:
     - win
     - osx and x86_64
@@ -102,6 +107,15 @@ requirements:
     - cms-md5
     - python-clang
     - libclang
+    # The release's tool files record each compiler by its path in this prefix, which conda
+    # relocates on install, and cmssw-devel installs the same compilers for users. C and C++
+    # are here because root_base brings them for its interpreter. gfortran, and on Linux the
+    # clang the CondFormats serialization generator runs, would otherwise only be found in
+    # the build prefix, a path that is gone once this build is: a user's `scram b` of a
+    # package with Fortran sources, or of a CondFormats package, then failed. build.sh checks.
+    - ${{ compiler('fortran') }}
+    - if: linux
+      then: clangxx
   run:
     # so that users can create a developer area on top of the release
     - cms-scram
@@ -113,6 +127,8 @@ requirements:
     - eigen
     - alpaka
     - hls-arbitrary-precision-types
+    # libcms-md5 is linked; named here because conda-forge's cms-md5 has no run_exports
+    - cms-md5
   ignore_run_exports:
     from_package:
       - libclang

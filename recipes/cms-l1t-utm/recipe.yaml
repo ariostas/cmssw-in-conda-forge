@@ -40,12 +40,15 @@ source:
     target_directory: xsd-license
 
 build:
-  number: 0
+  number: 1
   skip:
     - win
   script: build.sh
 
 requirements:
+  # what links this library depends on a compatible build of it (no soname version; 0.x minor releases change the API)
+  run_exports:
+    - ${{ pin_subpackage("cms-l1t-utm", upper_bound="x.x") }}
   build:
     - ${{ compiler('cxx') }}
     - ${{ stdlib('c') }}

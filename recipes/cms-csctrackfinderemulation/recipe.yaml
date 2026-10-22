@@ -22,12 +22,15 @@ source:
     - patches/0001-Fail-clearly-when-the-data-directory-is-not-set.patch
 
 build:
-  number: 0
+  number: 1
   skip:
     - win
   script: build.sh
 
 requirements:
+  # what links this library depends on a compatible build of it (no soname version)
+  run_exports:
+    - ${{ pin_subpackage("cms-csctrackfinderemulation", upper_bound="x.x") }}
   build:
     - ${{ compiler('cxx') }}
     - ${{ stdlib('c') }}

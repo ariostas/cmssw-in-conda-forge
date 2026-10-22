@@ -17,9 +17,15 @@ import sys
 import sysconfig
 
 
-def find_program(env, candidates):
+def find_program(env, candidates, prefix):
     if os.environ.get(env):
         prog = os.environ[env].split()[0]
+        # The same compiler in the prefix the tool files describe, when there is one: conda
+        # relocates that path on install, while the one the activation scripts set (gfortran's
+        # FC is an absolute path into the build prefix) is gone once the build is.
+        local = os.path.join(prefix, "bin", os.path.basename(prog))
+        if os.path.isfile(local):
+            return local
         return shutil.which(prog) or prog
     for c in candidates:
         path = shutil.which(c)
@@ -85,7 +91,7 @@ def main():
     if not os.path.isdir(args.templates):
         args.templates = os.path.join(here, "tools")
 
-    cxx = find_program("CXX", ["c++", "g++", "clang++"])
+    cxx = find_program("CXX", ["c++", "g++", "clang++"], args.prefix)
     # clang, for the CondFormats serialization generator (libclang) and the LLVM analyzer
     clangxx = shutil.which("clang++") or ""
     clang = shutil.which("clang") or ""
@@ -99,8 +105,8 @@ def main():
     values = {
         "PREFIX": os.path.abspath(args.prefix),
         "CXX": cxx,
-        "CC": find_program("CC", ["cc", "gcc", "clang"]),
-        "FC": find_program("FC", ["gfortran"]),
+        "CC": find_program("CC", ["cc", "gcc", "clang"], args.prefix),
+        "FC": find_program("FC", ["gfortran"], args.prefix),
         "GCC_VERSION": gcc_version,
         "GLIBCXX_VERSION": "%d%02d%02d" % (int(major), int(minor), int(patch)),
         # PY_VER is set by conda-build/rattler-build for the host python

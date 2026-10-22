@@ -1,0 +1,71 @@
+diff --git a/SCRAM/GMake/Makefile.dd4hepplugin b/SCRAM/GMake/Makefile.dd4hepplugin
+index 6d468e4..843b585 100644
+--- a/SCRAM/GMake/Makefile.dd4hepplugin
++++ b/SCRAM/GMake/Makefile.dd4hepplugin
+@@ -7,7 +7,7 @@ define dd4hep_register_plugin
+   if [ -f $< ] ; then \
+     [ -d $(@D) ] || $(CMD_mkdir) -p $(@D) &&\
+     $(if $(call IsBuildTimeMicroarch,$3),$(call dd4hep_register_plugin_imp,$1,$2,$3),$(call dd4hep_register_plugin_copy,$1,$2,$3)) &&\
+-    ($(call install_name_tool_rpath,$(LOCALTOP)/$(@D),$<) &&\
++    ($(call install_name_tool_rpaths,$(@D),$<) &&\
+     ($(call install_name_tool,@rpath/$(<F),$<) && $(CMD_cp) -f $< $(@D)/$(<F)) || ($(CMD_rm) -f $< $@ $(@D)/$(<F) && exit 1)) &&\
+     $(VERB_ECHO) $(CMD_cp) -f $(<D)/$(@F) $@ &&\
+     $(CMD_cp) -f $(<D)/$(@F) $@ &&\
+diff --git a/SCRAM/GMake/Makefile.edmplugin b/SCRAM/GMake/Makefile.edmplugin
+index f6a45d3..8f0982a 100644
+--- a/SCRAM/GMake/Makefile.edmplugin
++++ b/SCRAM/GMake/Makefile.edmplugin
+@@ -69,7 +69,7 @@ define edm_register_plugin
+     ($(call edm_write_config,$(1),$(3))) || ($(CMD_rm) -f $< && exit 1) &&\
+     plugin=$(patsubst lib%,plugin%,$(<F)) &&\
+     $(CMD_echo) "module $$plugin" > $(<D)/$(@F) &&\
+-    ($(call install_name_tool_rpath,$(LOCALTOP)/$(@D),$<) &&\
++    ($(call install_name_tool_rpaths,$(@D),$<) &&\
+     ($(call install_name_tool,@rpath/$$plugin,$<) && $(CMD_cp) -f $< $(@D)/$$plugin) || ($(CMD_rm) -f $< $(<D)/$$plugin && exit 1)) &&\
+     $(CMD_cp) -f $(<D)/$(@F) $@ &&\
+     $(CMD_echo) "01:$(CMD_rm) -f $(@D)/$$plugin $@" > $(call AutoCleanFile,$<,edm) &&\
+diff --git a/SCRAM/GMake/Makefile.rivetplugin b/SCRAM/GMake/Makefile.rivetplugin
+index f361d3b..77550a7 100644
+--- a/SCRAM/GMake/Makefile.rivetplugin
++++ b/SCRAM/GMake/Makefile.rivetplugin
+@@ -2,7 +2,7 @@ define rivet_register_plugin
+   @$(startlog_$(2)) if [ -f $< ] ; then \
+     [ -d $(@D) ] || $(CMD_mkdir) -p $(@D) &&\
+     $(call install_name_tool,@rpath/$(@D)/$(@F),$<) &&\
+-    $(call install_name_tool_rpath,$(LOCALTOP)/$(@D),$<) &&\
++    $(call install_name_tool_rpaths,$(@D),$<) &&\
+     $(CMD_cp) -f $< $@ &&\
+     $(CMD_echo) "01:$(CMD_rm) -f $@"               > $(call AutoCleanFile,$<,rivet) &&\
+     $(CMD_echo) "--- $(strip Registered $3) Rivet Plugin: $(1)"; \
+diff --git a/SCRAM/GMake/Makefile.rules b/SCRAM/GMake/Makefile.rules
+index 0bb0a3c..a0a9b86 100644
+--- a/SCRAM/GMake/Makefile.rules
++++ b/SCRAM/GMake/Makefile.rules
+@@ -548,17 +548,24 @@ define copy_build_product
+   $(CMD_cp) $@ $(LOCALTOP)/$(1) || ($(CMD_rm) -f $@ && $(CMD_echo) ">> Deleted: $@" && exit 1)
+ endef
+ 
++# A developer area's products link the release's libraries as well, and on macOS dyld finds
++# those only through an rpath (DYLD_LIBRARY_PATH, which LD_LIBRARY_PATH stands for on Linux,
++# does not survive SIP). So add the release's directory after the area's own.
++define install_name_tool_rpaths
++  $(call install_name_tool_rpath, $(LOCALTOP)/$(1),$(2))$(if $(strip $(RELEASETOP)), && $(call install_name_tool_rpath, $(RELEASETOP)/$(1),$(2)))
++endef
++
+ define copy_lib_to_main_productstore
+   $(call install_name_tool, @rpath/$(@F),$@) && \
+-  $(call install_name_tool_rpath, $(LOCALTOP)/$(1),$@) && $(call copy_build_product,$(1))
++  $(call install_name_tool_rpaths,$(1),$@) && $(call copy_build_product,$(1))
+ endef
+ 
+ define copy_bin_to_main_productstore
+-   $(call install_name_tool_rpath, $(LOCALTOP)/$(patsubst bin%,lib%,$1)/,$@) && $(call copy_build_product,$(1))
++   $(call install_name_tool_rpaths,$(patsubst bin%,lib%,$1)/,$@) && $(call copy_build_product,$(1))
+ endef
+ 
+ define copy_test_to_main_productstore
+-  $(call install_name_tool_rpath, ${LOCALTOP)/$(patsubst test%,lib%,$1),$@) && $(call copy_build_product,$(1))
++  $(call install_name_tool_rpaths,$(patsubst test%,lib%,$1),$@) && $(call copy_build_product,$(1))
+ endef
+ 
+ define copy_py_to_main_productstore

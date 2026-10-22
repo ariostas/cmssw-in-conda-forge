@@ -10,13 +10,16 @@ source:
   sha256: 9354d9a8c71512c8442b1f50b2fd48b67c7536b2f1c5252102f3f14bc1ebc5bf
 
 build:
-  number: 0
+  number: 1
   skip:
     - win
   script:
     file: build.sh
 
 requirements:
+  # what links this library depends on a compatible build of it (soname libfrontier_client.so.2)
+  run_exports:
+    - ${{ pin_subpackage("frontier-client", upper_bound="x") }}
   build:
     - ${{ compiler('c') }}
     - ${{ compiler('cxx') }}

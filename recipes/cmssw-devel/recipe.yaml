@@ -13,7 +13,7 @@ source:
     file_name: LICENSE
 
 build:
-  number: 3
+  number: 4
   skip:
     - win
     - osx and x86_64
@@ -23,8 +23,11 @@ build:
     file: build.sh
 
 requirements:
-  run:
+  # only so that run can name the exact build; nothing is built against it
+  host:
     - cmssw-conditions ==${{ version }}
+  run:
+    - ${{ pin_compatible("cmssw-conditions", exact=True) }}
     # The compiler. The release's gcc-cxxcompiler.xml records $PREFIX/bin/<triplet>-c++, which
     # is what these metapackages install, so SCRAM finds it with no further configuration.
     # These are conda-forge's current defaults rather than the exact versions the layers were
@@ -36,6 +39,14 @@ requirements:
     - c-compiler
     - cxx-compiler
     - fortran-compiler
+    # The CondFormats serialization generator, which a `scram b` of any CondFormats package
+    # runs: it parses the headers with libclang through its python bindings, and asks the clang
+    # in the release's llvm-cxxcompiler tool for its include paths. On macOS that clang comes
+    # with root_base already.
+    - python-clang
+    - libclang
+    - if: linux
+      then: clangxx
     - make
     # Everything the layers were built against. A run dependency of a layer only has to be
     # enough to load the libraries; compiling against them additionally needs the headers and

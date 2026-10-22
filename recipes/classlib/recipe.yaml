@@ -18,12 +18,15 @@ source:
     - patches/0001-Build-on-macOS-guard-Linux-only-headers-and-use-clock_t.patch
 
 build:
-  number: 0
+  number: 1
   skip:
     - win
   script: build.sh
 
 requirements:
+  # what links this library depends on a compatible build of it (no soname version, and its ABI follows CMS's releases)
+  run_exports:
+    - ${{ pin_subpackage("classlib", upper_bound="x.x.x") }}
   build:
     - ${{ compiler('c') }}
     - ${{ compiler('cxx') }}

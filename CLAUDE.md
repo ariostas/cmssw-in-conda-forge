@@ -130,8 +130,18 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
   - `WORK` dir for `build-local.sh`: `_work/osx-work`;
   - CMSSW source with the patch series applied: `_work/osx-src/cmssw-CMSSW_20_1_0_pre2` (a git repo).
 - `PATH=$PWD/_work/osx-tools/bin:$PATH WORK=_work/osx-work bash cmssw-notes/build-local.sh osx_arm64 recipes/cmssw-fwlite`
-- conda-forge's ld64 can't read the macOS 26 SDK, so `_work/osx-work/extra_variants.yaml` sets
-  `CONDA_BUILD_SYSROOT` to `/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk`.
+- `_work/osx-work/extra_variants.yaml` and `_work/osx-activate.sh` set `CONDA_BUILD_SYSROOT` to
+  `/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk`. A CLT update removed the 15.4 SDK
+  used before; conda-forge's ld64 (956.6) reads 26.5 now. Not the 27 SDK (Xcode's default):
+  with clang 20 anything including `<complex>` fails with `INFINITY`/`NAN` undeclared.
+- Long builds: run under `caffeinate -is`, on AC with the lid **open**; caffeinate does not stop
+  clamshell or battery sleep, and a slept Mac turned a 2-hour layer into 18. The layers' memory
+  guard counts Docker Desktop's VM as used memory, so with Docker running macOS builds get one
+  job; quit it for macOS builds (it stops the user's other containers too, so ask).
+- SCRAM's macOS rules give a product only its own area's `lib/` as rpath; cmssw-config patch
+  0002 (in `cmssw-fwlite`) adds the release's, which a developer area needs (no
+  `LD_LIBRARY_PATH` through SIP). So on macOS the layers must not pass the release's rpath
+  themselves: `install_name_tool` fails on a duplicate.
 - macOS builds against **ROOT 6.40, not the 6.36 the release uses**: conda-forge's 6.36 ships
   prebuilt Darwin modules that only work with the SDK they were built against, so cling fails on
   `#include <unistd.h>` for any user. `variants.yaml` has the details, and `cmssw-fwlite` has a
@@ -209,11 +219,12 @@ docker exec -u root -d cmssw-dev-amd64 bash -c 'export PATH=/work/tools/bin:$PAT
   glibc 2.17. So a layer cannot move to a newer glibc by setting `c_stdlib_version`.
 - The installed release's `MakeData/variables.mk` names the compilers `cmssw-fwlite` was built
   with. C and C++ are in the host prefix and get relocated; the Fortran compiler (and the LLVM
-  tools' clang) are in fwlite's *build* prefix, a path that only exists while that build's work
+  tools' clang) were in fwlite's *build* prefix, a path that only exists while that build's work
   directory does. `scram project` copies those variables, and `scram setup` of the compiler
-  tools does not change them, so `cmssw-build-layer` rewrites `FC` to its own build's. A user's
-  developer area still gets the dead path (open issue in PLAN.md). This went unnoticed for
-  weeks because the old work directories were never deleted.
+  tools does not change them. Fixed (2026-10-21): fwlite has them in host too, the generator
+  prefers `$PREFIX/bin/<name>`, and fwlite's `build.sh` fails on a compiler path outside
+  `$PREFIX`; `cmssw-build-layer` still rewrites `FC` to its own build's. This went unnoticed
+  for weeks because the old work directories were never deleted.
 - A missing tool file is only a `****WARNING: Invalid tool <name>` at configure time; the build
   then dies much later with undefined references, because the tool's libraries were silently
   dropped from the link line. Grep a layer's log for `Invalid tool` even when it succeeds.

@@ -331,27 +331,24 @@ they gate conditions tooling, L1 reconstruction from RAW and the HLT.
   Linux in the last bits, and the geometry comparison has only been run on Linux. A few
   Linux-only packages (the malloc-interposing memory monitors, the valgrind profiler and the
   beam halo generator) are left out on macOS.
-- `cmssw-reco` pins `fastjet-cxx` to build 5, the last one that ships its headers. Build 6
-  moved them into `fastjet-cxx-devel`, which needs a CGAL that needs eigen 5, while
-  conda-forge's lwtnn needs eigen 3.4; the local lwtnn rebuild removes the conflict.
 - `cmssw-devel` covers the layers up to `cmssw-conditions`. It does not yet pull in the
   development packages of the geometry and reco externals (dd4hep, geant4, fastjet, ...), so
   rebuilding a package from those layers needs them installed by hand.
-- The release's build configuration names the Fortran compiler `cmssw-fwlite` was built with, by
-  a path that only existed during that build. The layers override it, but a user's `scram b`
-  of a package with Fortran sources fails until `cmssw-fwlite` is rebuilt with a fix.
 - CMS's HepMC2 fork changes an ABI-relevant type. conda-forge's stock `hepmc2` is used instead,
   with a new dictionary class version. Reading GEN-level `HepMCProduct` data still needs validation.
 - The event display (Fireworks) is not included: six of its packages are in `cmssw-sim-dqm`,
   but only for their libraries, not the display itself (`Fireworks/Core` is not built).
-- **Reading an EDM file with `PoolSource`'s default settings fails**, in ROOT's automatic
-  TTreeCache setup; `cmssw-framework`'s test sets `cacheSize = 0`. CMS's environment sets
-  `ROOT_TTREECACHE_SIZE=0` and `ROOT_TTREECACHE_PREFILL=0`, which the conda activation script
-  does not, and that is the likely cause. To be fixed and verified in the next rebuild.
-- `cmssw-devel` cannot rebuild a `CondFormats` package: the serialization code generator needs
-  `python-clang` and `libclang`, which it does not install yet.
-- The lower layers depend on the layer below by version only, not by exact build, so a solver
-  can pair a layer with an older build of the one below it; the top two already pin exactly.
+- `PoolSource` with its default settings needs ROOT's automatic TTreeCache setup turned off,
+  as CMS's own environment does (`ROOT_TTREECACHE_SIZE=0`, `ROOT_TTREECACHE_PREFILL=0`). The
+  `cmssw-fwlite` activation script sets both; a shell that sets them to anything else, or runs
+  `cmsRun` outside the activated environment, gets a fatal "Not setting up an automatically
+  sized TTreeCache" error.
+- **macOS developer areas compile against the SDK the release was built with**: the release's
+  compiler flags name it by path (`-isysroot`), so `scram b` needs that SDK at the same place,
+  which a conda-forge CI build will not provide. Not fixed yet. The SDK also cannot be the
+  macOS 27 one: with conda-forge's clang 20 its `math.h` and libc++'s `<complex>` disagree,
+  and anything that includes `<complex>` fails with `INFINITY` and `NAN` undeclared. The local
+  builds use the 26.5 SDK. ROOT's interpreter is not affected.
 - The CMSSW source patches, in each layer's `patches/` directory, should be proposed upstream.
 
 ## Roadmap
@@ -362,8 +359,7 @@ they gate conditions tooling, L1 reconstruction from RAW and the HLT.
    and upstream the CMSSW patches; they gate everything else. Then `cms-scram`,
    `cmssw-toolbox` and the layers, **one PR per layer, in order**: each layer builds against
    the one below it from the conda-forge channel. Before that, the recipe-level pins that
-   differ from conda-forge's global pinning (boost, Abseil/protobuf/gRPC, `fastjet-cxx`,
-   TensorFlow) have to be dropped or justified.
+   differ from conda-forge's global pinning (boost, Abseil/protobuf/gRPC, TensorFlow) have to be dropped or justified.
 2. Ask the utm, CORAL and L1 ML model authors for a licence (pure lead time). utm and the L1
    models are already used on an assumed Apache-2.0 licence; if their authors choose otherwise,
    the 20 points they bring come out.
@@ -414,5 +410,6 @@ emulation on an Apple-silicon Mac this is about 2.6x slower than a native linux-
 
 The CMSSW layers limit their parallel jobs to what the available memory allows, at about 4.5 GB
 per job, because a few translation units need that much. On macOS the recipes build natively; see
-[CLAUDE.md](CLAUDE.md) for the setup (a macOS 15 SDK is needed, and long builds should run under
-`caffeinate -i` so the machine does not sleep).
+[CLAUDE.md](CLAUDE.md) for the setup (the macOS 26 SDK; the 27 one does not work with
+conda-forge's clang 20). Long builds should run under `caffeinate -is` on AC power with the lid
+open: `caffeinate` does not stop a closed or battery-powered laptop from sleeping.

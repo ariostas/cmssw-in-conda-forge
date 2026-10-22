@@ -507,22 +507,6 @@ Kept current; each item says when it was found.
   `cmssw-notes/feedstock-changes/lwtnn`; to upstream: the two patches to lwtnn/lwtnn, and
   C++17 plus dropping the pin to the feedstock. Without it any environment with lwtnn gets
   Eigen 3.4, which TensorFlow's headers cannot use.
-- **Layers below `cmssw-reco-objects` require the layer under them by version only** (found
-  2026-09-27), so a solver can combine a new build of one with an old build of the one below,
-  whose libraries it does not have (see the progress log). `cmssw-reco-objects` and
-  `cmssw-sim-dqm` pin the exact build with `pin_compatible(..., exact=True)`; do the same in
-  `cmssw-framework` to `cmssw-reco` and `cmssw-devel` at the next full rebuild (planned
-  2026-10-15, with the other rebuild items below).
-- **The release names a Fortran compiler that no longer exists** (found 2026-09-26). The
-  compiler variables in `cmssw-fwlite`'s `.SCRAM/<arch>/MakeData/variables.mk` are absolute paths
-  from its build. C and C++ point into the host prefix and are relocated on install; `FC` (and
-  the LLVM tools' `clang`) point into the *build* prefix, which is not. Layers now rewrite `FC`
-  in their developer area (`cmssw-build-layer`), but a user's `scram b` of a package with
-  Fortran sources still fails with `gfortran: No such file or directory`. Fix in
-  `cmssw-fwlite` by taking the Fortran compiler from the host prefix like the others (and
-  giving `cmssw-devel` the matching `gfortran`), or by relocating these paths at activation;
-  either needs every layer rebuilt, so it waits for the next full rebuild. `cmssw-devel`'s
-  test should build one Fortran file.
 - **HepMC2 ABI:** CMS's fork uses `unsigned long long` for `WeightContainer::size_type`.
   With stock conda-forge `hepmc2`, the symbols differ and the class checksum changes. We still
   need to validate that CMS files with `HepMCProduct` (GEN level) are readable via
@@ -532,32 +516,16 @@ Kept current; each item says when it was found.
 - `cms-md5`: the existing feedstock is linux-64/osx-64 only and needs aarch64/arm64 builds,
   and it has no `run_exports`, so a layer built against the stock linux-64 package would not
   depend on it at run time (locally `cmssw-notes/feedstock-changes/cms-md5` is used everywhere
-  and hides this; found 2026-10-15). Add it to `cmssw-fwlite`'s run requirements regardless.
-  It installs `include/md5.h`, a generic name.
+  and hides this; found 2026-10-15). `cmssw-fwlite` names it as a run requirement since
+  2026-10-21, so the layers no longer depend on the run_exports. It installs `include/md5.h`, a generic name.
 - conda-forge's aarch64 sysroot is glibc 2.17. It was fine so far.
 - The Docker image's `/bin/sh` is dash. Fixed by forcing bash in the make rules.
-
-Found by the review of 2026-10-15, to fix in the next rebuild of the layers:
-
-- **`PoolSource` with default settings fails in ROOT's automatic TTreeCache setup** (the "open
-  bug" of 2026-09-17; `cmssw-framework`'s `test/read.py` sets `cacheSize = 0`). Likely cause:
-  CMS's `cmsenv` exports `ROOT_TTREECACHE_SIZE=0` and `ROOT_TTREECACHE_PREFILL=0` (the
-  `root_interface` tool file, which the toolbox template copies, so `scram runtime` sets them),
-  ROOT reads both, and `cmssw-fwlite`'s `activate.sh` does not set them. Export (and restore)
-  them there, drop `cacheSize = 0` from the test, and see if it passes.
-- **`cmssw-devel` cannot rebuild a CondFormats package**: the serialization generator imports
-  `clang.cindex`, and `python-clang`/`libclang` are not among its run requirements (nor is the
-  clang the `llvm-cxxcompiler` tool names, which points into fwlite's build prefix, like `FC`).
-  Add them, and have `test/devloop.sh` build one CondFormats package and one Fortran file.
-- **No `run_exports`** in `coral`, `frontier-client`, `gbl`, `mille`, `classlib`, `cms-l1t-utm`,
-  `cms-hls4ml-emulator-extras` and `cms-csctrackfinderemulation`, so everything that links them
-  depends on them unpinned. Add `pin_subpackage(name, upper_bound=...)` matching each soname.
 
 Found by the same review, for submission:
 
 - **Recipe-level pins that differ from the global pinning**: boost 1.90 (every layer, `coral`,
   `cms-l1t-utm`, `lwtnn`), Abseil/protobuf/gRPC per platform (the layers from `cmssw-reco` up),
-  `fastjet-cxx ==3.5.1 *_5`, `libtensorflow_cc ==2.19.1`, and one ROOT per platform. Each is
+  `libtensorflow_cc ==2.19.1`, and one ROOT per platform. Each is
   documented where it is set; before submission re-check each against the current pinning,
   drop those that have become the default, and argue the rest (ROOT, python) in the PR.
 - `prefix_detection.ignore_binary_files: true` on every layer, undocumented. Nothing is lost
@@ -572,8 +540,30 @@ Found by the same review, for submission:
   `$PREFIX/cmake` and `$PREFIX/modules`), `alpaka` (noarch, yet built with CMake and a C++
   compiler), and `cmssw-geometry`'s activation script editing `LD_LIBRARY_PATH` (needed for
   DD4hep's own plugin lookup; the lasting fix is on the DD4hep side).
-- `cmssw-conditions` build 3 predates four tool templates (`boost_iostreams`, `cppunit`,
-  `json`, `rootgraphics`) and still warns about them; the rebuild picks them up.
+- `cmssw-conditions` still warns `Invalid tool cppunit`, from `CondFormats/Common/plugins`'
+  BuildFile (cppunit is not in its host requirements). Nothing there uses it, so the warning
+  is harmless; add `cppunit` to the host or patch the `<use>` away. (The other three missing
+  templates the review found are picked up since the 2026-10-21 rebuild.)
+
+Found 2026-10-21:
+
+- **A macOS developer area compiles against the build machine's SDK path.** The toolbox
+  passes `-isysroot $CONDA_BUILD_SYSROOT` explicitly (so that ROOT's interpreter, which runs
+  during the build, never sees `SDKROOT`), and that path is recorded in the release's compiler
+  tool files. On conda-forge's CI it is a path that will not exist on a user's machine, so a
+  user's `scram b` on macOS would find no system headers. `cmssw-devel`'s test cannot catch
+  it (it runs where the package was built). Fix: resolve the SDK at `scram b` time instead
+  (e.g. `-isysroot $(xcrun --show-sdk-path)` through a tool variable, or an activation script
+  that rewrites the flag). Mind the next item when choosing a default.
+- **The macOS 27 SDK does not work with conda-forge's clang 20**: its `math.h` and libc++ 20's
+  `<complex>` disagree, and `INFINITY`/`NAN` come out undeclared in anything that includes
+  `<complex>` (first seen in `gbl`'s test). SDK 26.5 works, and conda-forge's ld64 956.6
+  now reads it, so the local builds moved from 15.4 (removed by a CLT update) to 26.5.
+- **The memory guard is conservative on macOS.** It counts free, inactive, speculative and
+  purgeable pages, which leaves out file cache the kernel would reclaim; with Docker Desktop
+  quit it chose 3, 2 and then 1 job(s) for the three top layers while `memory_pressure`
+  reported 70% free. Builds are correct, only slow (`cmssw-sim-dqm` 4.6 hours at one job).
+  Count more of the reclaimable memory, or take `memory_pressure`'s figure.
 
 ## 5. Decisions taken (2026-09-16)
 
@@ -2201,7 +2191,9 @@ interpreter; see "Build failures" below.)
   needs C++14. `cmssw-notes/feedstock-changes/lwtnn` is the feedstock recipe with two patches
   and `-DCMAKE_CXX_STANDARD=17`; its own test suite (including the lwtnn-examples build) passes.
   The whole stack is on Eigen 5 again, and the `fastjet-cxx` build-5 pin, which existed only
-  because of the same conflict, can go once this is upstream.
+  because of the same conflict, can go once this is upstream. (It went on 2026-10-21, sooner
+  and for another reason: conda-forge patched Rivet to require `fastjet-cxx-devel`, which
+  made the pin unsolvable.)
 
 #### The three remaining L1 models
 
@@ -2455,3 +2447,49 @@ What the review got wrong or overstated, checked: nothing material. It did not t
 Left for the second pass, one rebuild round: the TTreeCache variables, `cmssw-devel`'s clang
 dependencies, `run_exports` in eight recipes, exact pins between all layers, `cms-md5` as an
 explicit run dependency, and `cmssw-conditions`' missing tool templates.
+
+### 2026-10-21: the second pass, and a full rebuild on all three platforms
+
+The review's rebuild items, all done and rebuilt from `cmssw-toolbox` up on linux-aarch64,
+linux-64 and osx-arm64; every recipe passes its tests on all three.
+
+- **TTreeCache**: the cause was the one the review guessed. `cmssw-fwlite`'s activation now
+  sets (and its deactivation restores) `ROOT_TTREECACHE_SIZE=0` and `ROOT_TTREECACHE_PREFILL=0`,
+  as `cmsenv` does, and `cmssw-framework`'s `read.py` reads with `PoolSource`'s defaults.
+- **Compilers in the release** (the Fortran open issue of 2026-09-26): `cmssw-fwlite` has
+  gfortran, and on Linux `clangxx`, in its host prefix, which conda relocates;
+  `cmssw-generate-toolbox` prefers `$PREFIX/bin/<name>` over the absolute path the build
+  prefix's activation puts in `FC`; and `cmssw-fwlite`'s `build.sh` fails if any compiler tool
+  file names a path outside `$PREFIX`.
+- **`cmssw-devel`** installs `python-clang`, `libclang` and (Linux) `clangxx`, and its test
+  now also rebuilds `CondFormats/HIObjects` (serialization code generated) and a package with
+  a Fortran source. Both pass on all three platforms.
+- **Exact pins**: every layer and `cmssw-devel` require the exact build of the layer below
+  (`pin_compatible(..., exact=True)`, with the layer in host for `cmssw-devel`, which builds
+  nothing). `run_exports` on the eight small recipes; `cms-md5` a run requirement of fwlite.
+- **macOS developer areas could not load the release's libraries.** Found by the new devel
+  test: SCRAM's macOS rules give a product only `$(LOCALTOP)/lib` as rpath, which in a
+  developer area misses the release, and macOS has no `LD_LIBRARY_PATH` fallback through SIP.
+  `edmCheckClassVersion` on the rebuilt CondFormats package died with `Library not loaded:
+  @rpath/libCondFormatsSerialization.dylib`. cmssw-config patch 0002 adds
+  `$(RELEASETOP)/<dir>` after the area's own (libraries, plugins, executables, tests; it also
+  fixes upstream's `${LOCALTOP)` typo in the test rule). `install_name_tool` then refused the
+  layers' own `-Wl,-rpath,$RELEASE/lib/<arch>` as a duplicate, so `cmssw-build-layer` passes
+  that only on Linux now. Every macOS layer is a developer area, so every one needed rebuilding.
+- **fastjet**: conda-forge patched Rivet 4.1.4 to require `fastjet-cxx-devel` and
+  `fastjet-contrib-devel`, which exist only from `fastjet-cxx` build 6, so the build-5 pin
+  stopped solving (on aarch64 first). The three top layers now take the `-devel` packages in
+  host; that solves everywhere (fastjet 3.5.3, CGAL 6), even with conda-forge's lwtnn on
+  linux-64.
+- **macOS SDK**: a CommandLineTools update removed the 15.4 SDK, and the 27 SDK fails with
+  clang 20 (open issues). The local builds use 26.5, which conda-forge's ld64 now reads.
+  Writing that up exposed that the release records the build's SDK path (open issues).
+
+Build times, for the record, and what they say about the machine more than the stack:
+aarch64 at four cores 44/66/133 min for reco/reco-objects/sim-dqm; linux-64 (emulated, ten
+cores) 115 min/18.6 h/4.1 h, where the 18.6 h is a Mac that slept through the night
+(`caffeinate -is` does not prevent sleep with the lid closed or on battery); macOS 54 min, 2.3 h
+and 4.6 h at 3, 2 and 1 job(s), the memory guard counting Docker Desktop's VM as used until it
+was quit and then still being cautious (open issues). `Invalid tool` warnings: none from
+`cmssw-reco` up; below, only the composite tool files of externals those layers do not
+install (dd4hep, geant4, highfive, tensorflow-framework) and conditions' cppunit.

@@ -70,4 +70,30 @@ PYEOF
 cmsRun run.py 2>&1 | tee run.log
 grep -q "${MARKER}" run.log
 
-echo "OK: the work area shadows the installed release"
+# Two kinds of package that need more of the toolchain than C++. A CondFormats package, whose
+# serialization code SCRAM generates with libclang and the release's clang...
+mkdir -p CondFormats
+cp -R "${CMSSW_RELEASE_BASE}/src/CondFormats/HIObjects" CondFormats/
+chmod -R u+w CondFormats/HIObjects
+# ... and one with a Fortran source, compiled with the release's Fortran compiler.
+mkdir -p DevloopTest/Fortran/src
+cat > DevloopTest/Fortran/BuildFile.xml <<'XMLEOF'
+<use name="f77compiler"/>
+<export>
+  <lib name="1"/>
+</export>
+XMLEOF
+cat > DevloopTest/Fortran/src/answer.f <<'FEOF'
+      INTEGER FUNCTION ANSWER()
+      ANSWER = 42
+      END
+FEOF
+
+scram b -j "${CPU_COUNT:-2}"
+
+test -f "${CMSSW_BASE}/lib/${SCRAM_ARCH}/libCondFormatsHIObjects.${SO}"
+find "${CMSSW_BASE}/tmp" -path '*CondFormats/HIObjects*' -name '*Serialization*.cc' | grep -q .
+python3 -c "import ctypes, sys; sys.exit(ctypes.CDLL(sys.argv[1]).answer_() != 42)" \
+  "${CMSSW_BASE}/lib/${SCRAM_ARCH}/libDevloopTestFortran.${SO}"
+
+echo "OK: the work area shadows the installed release, and builds CondFormats and Fortran"

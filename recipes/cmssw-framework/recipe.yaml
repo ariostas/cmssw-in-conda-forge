@@ -14,7 +14,7 @@ source:
       - patches/0001-Services-pipe2-execv-and-environ-on-macOS.patch
 
 build:
-  number: 3
+  number: 4
   skip:
     - win
     - osx and x86_64
@@ -76,7 +76,9 @@ requirements:
     - cms-md5
   run:
     - cms-scram
-    - cmssw-fwlite ==${{ version }}
+    # the exact build of the layer below, as in cmssw-reco-objects: a layer links that layer's
+    # libraries, and another build of it may not have the same ones
+    - ${{ pin_compatible("cmssw-fwlite", exact=True) }}
     - python
     - root_base
     - xrootd

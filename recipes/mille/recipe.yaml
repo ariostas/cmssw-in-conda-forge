@@ -15,12 +15,15 @@ source:
     - patches/0001-Respect-the-callers-compilers-and-CXX-flags.patch
 
 build:
-  number: 0
+  number: 1
   skip:
     - win
   script: build.sh
 
 requirements:
+  # what links this library depends on a compatible build of it (no soname version)
+  run_exports:
+    - ${{ pin_subpackage("mille", upper_bound="x.x") }}
   build:
     - ${{ compiler('c') }}
     - ${{ compiler('cxx') }}

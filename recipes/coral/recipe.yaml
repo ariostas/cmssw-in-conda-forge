@@ -26,7 +26,7 @@ source:
       - cmssw-config-patches/0001-conda-build-environment-fixes.patch
 
 build:
-  number: 2
+  number: 3
   skip:
     - win
     - osx and x86_64
@@ -38,6 +38,9 @@ build:
     file: build.sh
 
 requirements:
+  # what links this library depends on a compatible build of it (no soname version, and its ABI follows CMS's releases)
+  run_exports:
+    - ${{ pin_subpackage("coral", upper_bound="x.x.x") }}
   build:
     - ${{ compiler('c') }}
     - ${{ compiler('cxx') }}

@@ -16,7 +16,7 @@ source:
       - patches/0001-CondCore-CondDB-HOST_NAME_MAX-and-map-on-macOS.patch
 
 build:
-  number: 3
+  number: 4
   skip:
     - win
     - osx and x86_64
@@ -92,9 +92,13 @@ requirements:
     # CondCore/CondDB also builds python bindings
     - pybind11
     - libboost-python-devel
+    # CondCore/ESSources' CondDBESSource reads JSON; ROOT happens to bring the headers too
+    - nlohmann_json
   run:
     - cms-scram
-    - cmssw-framework ==${{ version }}
+    # the exact build of the layer below, as in cmssw-reco-objects: a layer links that layer's
+    # libraries, and another build of it may not have the same ones
+    - ${{ pin_compatible("cmssw-framework", exact=True) }}
     - python
     - root_base
     - coral
