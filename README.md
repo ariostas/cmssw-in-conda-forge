@@ -56,13 +56,13 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 | Package | Recipe | linux-aarch64 | linux-64 | osx-arm64 |
 |---|---|---|---|---|
 | `cms-scram` | [recipes/cms-scram](recipes/cms-scram) | ✅ | ✅ | ✅ |
-| `cmssw-toolbox` | [recipes/cmssw-toolbox](recipes/cmssw-toolbox) | ✅ | ✅ | ✅ |
+| `cmssw-toolbox` ⚠️ (tool files derived from cmsdist) | [recipes/cmssw-toolbox](recipes/cmssw-toolbox) | ✅ | ✅ | ✅ |
 | `alpaka` | [recipes/alpaka](recipes/alpaka) | ✅ | ✅ | ✅ |
 | `hls-arbitrary-precision-types` | [recipes/hls-arbitrary-precision-types](recipes/hls-arbitrary-precision-types) | ✅ | ✅ | ✅ |
 | `cms-md5` (existing feedstock needs new platforms) | [cmssw-notes/feedstock-changes/cms-md5](cmssw-notes/feedstock-changes/cms-md5) | ✅ | ✅ | ✅ |
 | `cpu_features` (existing feedstock skips macOS) | [cmssw-notes/feedstock-changes/cpu_features](cmssw-notes/feedstock-changes/cpu_features) | — | — | ✅ |
 | `frontier-client` | [recipes/frontier-client](recipes/frontier-client) | ✅ | ✅ | ✅ |
-| `coral` | [recipes/coral](recipes/coral) | ✅ | ✅ | ✅ |
+| `coral` ⚠️ | [recipes/coral](recipes/coral) | ✅ | ✅ | ✅ |
 | `mille` (Millepede-II I/O) | [recipes/mille](recipes/mille) | ✅ | ✅ | ✅ |
 | `gbl` (General Broken Lines) | [recipes/gbl](recipes/gbl) | ✅ | ✅ | ✅ |
 | `classlib` (CMS socket/IO library, for DQM) | [recipes/classlib](recipes/classlib) | ✅ | ✅ | ✅ |
@@ -71,7 +71,7 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 | `cms-l1t-utm` (L1 trigger menu) ⚠️ | [recipes/cms-l1t-utm](recipes/cms-l1t-utm) | ✅ | ✅ | ✅ |
 | `cms-hls4ml-*`: the L1 ML models' loader and six models ⚠️ | [recipes/](recipes) | ✅ | ✅ | ✅ |
 | `cms-csctrackfinderemulation` (legacy CSC track finder) ⚠️ | [recipes/cms-csctrackfinderemulation](recipes/cms-csctrackfinderemulation) | ✅ | ✅ | ✅ |
-| `cmssw-fwlite` | [recipes/cmssw-fwlite](recipes/cmssw-fwlite) | ✅ | ✅ | ✅ |
+| `cmssw-fwlite` ⚠️ (bundles cmssw-config, SCRAM's project configuration) | [recipes/cmssw-fwlite](recipes/cmssw-fwlite) | ✅ | ✅ | ✅ |
 | `cmssw-framework` (`cmsRun`) | [recipes/cmssw-framework](recipes/cmssw-framework) | ✅ | ✅ | ✅ |
 | `cmssw-conditions` | [recipes/cmssw-conditions](recipes/cmssw-conditions) | ✅ | ✅ | ✅ |
 | `cmssw-geometry` (DD4hep detector description) | [recipes/cmssw-geometry](recipes/cmssw-geometry) | ✅ | ✅ | ✅ |
@@ -82,8 +82,15 @@ The full analysis, the decisions and a progress log are in [PLAN.md](PLAN.md).
 
 ✅ = builds locally with rattler-build (in Docker for Linux, natively for macOS) and passes the
 recipe tests. — = not needed: the existing feedstock already covers that platform.
-⚠️ = upstream has **no licence**; packaged on an assumed Apache-2.0 licence and not
-submittable until upstream adds one (see "Known issues").
+⚠️ = the package is, or contains, upstream code with **no licence**, and is not submittable
+until upstream adds one (see "Known issues"). utm, the L1 ML models and the CSC track finder
+are packaged on an assumed Apache-2.0 licence (`LicenseRef-ASSUMED-Apache-2.0`); `coral` says
+`LicenseRef-Unresolved`. `cmssw-toolbox` and `cmssw-fwlite` contain CMS's own build
+configuration, which has no licence file, although the rest of CMS's software is Apache-2.0:
+`cmssw-toolbox`'s tool file templates derive from
+[cmsdist](https://github.com/cms-sw/cmsdist), and `cmssw-fwlite` installs
+[cmssw-config](https://github.com/cms-sw/cmssw-config) into the release, which every
+developer area and the layers above build with. Both assume Apache-2.0.
 
 The CMSSW layers are built for **Python 3.12 only**, the version the release is built and
 validated with at CMS, rather than for every Python in conda-forge's pinning.
@@ -309,6 +316,12 @@ they gate conditions tooling, L1 reconstruction from RAW and the HLT.
   - `coral`, the LCG relational abstraction layer used for conditions access. It is built here
     and works, but neither the CMS fork nor the upstream repository has a licence file or
     licence headers.
+  - CMS's build configuration: [cmsdist](https://github.com/cms-sw/cmsdist), from which
+    `cmssw-toolbox`'s tool file templates derive, and
+    [cmssw-config](https://github.com/cms-sw/cmssw-config), which `cmssw-fwlite` installs.
+    Neither has a licence file (cmsdist only carries Oracle's licence for its Oracle client).
+    Both are part of CMS's software distribution, which is Apache-2.0, so this is likely
+    an oversight rather than a choice, but it has to be asked like the others.
 - **TensorFlow is pinned to 2.19.1, and to its Abseil and protobuf.** conda-forge's TensorFlow
   exports the symbols of the LLVM it bundles, and 2.21's crash next to ROOT's interpreter (on
   Linux when loaded through `gSystem->Load()`, on macOS when loaded first); 2.19.1's do not.

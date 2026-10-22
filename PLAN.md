@@ -535,6 +535,9 @@ Found by the same review, for submission:
   link Rivet/YODA (GPL-3.0) and load model libraries with GPL-3.0-or-later code; a reviewer
   may want the expression to say so. The toolbox templates derive from cmsdist, which has no
   licence either, and `cmssw-toolbox/NOTICE` assumes Apache-2.0: a fourth assumed licence.
+  So does `cmssw-config` (no licence file; checked 2026-10-22), which `cmssw-fwlite` installs
+  as the release's `config/` and `coral` builds with, and `cmssw-fwlite` says only `Apache-2.0`.
+  Ask CMS for a `LICENSE` in both repositories along with the utm request.
   `cms-l1t-utm`'s `GPL-2.0-only` for the XSD runtime omits its FLOSS exception.
 - Things reviewers will ask about: `mille` (`license_file: README.md`, files in
   `$PREFIX/cmake` and `$PREFIX/modules`), `alpaka` (noarch, yet built with CMake and a C++
